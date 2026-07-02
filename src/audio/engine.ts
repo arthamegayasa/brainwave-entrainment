@@ -4,11 +4,18 @@ import { fadeIn, fadeOut, setGainSmooth } from "./ramps";
 import { createBinauralLayer } from "./layers/binaural";
 import { createIsochronicLayer } from "./layers/isochronic";
 import { createMonauralLayer } from "./layers/monaural";
+import { createSolfeggioLayer } from "./layers/solfeggio";
+import { createAmbientLayer } from "./layers/ambient";
 
 const LAYER_FACTORIES: Partial<Record<SoundKind, LayerFactory>> = {
   binaural: (ctx) => createBinauralLayer(ctx, DEMO.binaural),
   isochronic: (ctx) => createIsochronicLayer(ctx, DEMO.isochronic),
   monaural: (ctx) => createMonauralLayer(ctx, DEMO.monaural),
+  solfeggio: (ctx) => createSolfeggioLayer(ctx, DEMO.solfeggio.tone),
+  rain: (ctx) => createAmbientLayer(ctx, "rain"),
+  ocean: (ctx) => createAmbientLayer(ctx, "ocean"),
+  wind: (ctx) => createAmbientLayer(ctx, "wind"),
+  brown: (ctx) => createAmbientLayer(ctx, "brown"),
 };
 
 /** Kinds available before an engine instance exists (App renders buttons from this). */

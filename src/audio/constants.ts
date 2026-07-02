@@ -27,8 +27,8 @@ export const DEMO = {
     ocean: { lowpassHz: 400, lfoHz: 0.1, lfoDepth: 0.35, baseGain: 0.65 },
     // ASSUMED — tune by ear
     wind: { bandpassHz: 600, q: 0.7, lfoHz: 0.15, sweepHz: 300 },
-    // ASSUMED — tune by ear
-    rain: { highpassHz: 1000, lowpassHz: 7000 },
+    // ASSUMED — tune by ear (baseGain tames biquad resonance boost that clips)
+    rain: { highpassHz: 1000, lowpassHz: 7000, baseGain: 0.5 },
   },
 } as const;
 
