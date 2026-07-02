@@ -27,3 +27,12 @@
 - Bahasa kode/komentar/commit: English. UI: Indonesia (atau bilingual nanti).
 - Semua konstanta frekuensi preset di satu file `presets.ts` — mudah di-tweak.
 - Audio engine murni TypeScript tanpa dependency React (testable, reusable untuk M003 builder).
+
+## Implementation Learnings (M001, 2026-07-02)
+
+- **Testing Web Audio di Node**: `node-web-audio-api` 2.0.0 memberi `OfflineAudioContext` NYATA — unit test = assertion terhadap sampel yang benar-benar dirender (zero-crossing, RMS envelope, pulse count), bukan mock. Test env Vitest = "node" (bukan jsdom). Cast `as unknown as BaseAudioContext` untuk friksi tipe.
+- **Isochronic double-pulse bug**: WaveShaper curve WAJIB monotonic non-decreasing. Curve yang naik-lalu-turun menghasilkan 2× beat Hz. Guard dengan test exact pulse-count (tepat 10, bukan rentang).
+- **Clip dari BiquadFilter**: filter resonansi bisa boost > 0 dBFS (rain highpass+lowpass mencapai 1.66). Solusi: trim GainNode per layer + master DynamicsCompressor limiter di SessionEngine & BuilderEngine (juga hearing safety).
+- **exponentialRampToValueAtTime(0) throws RangeError** — pakai linearRamp ke 0.0001 lalu setValueAtTime(0), atau setTargetAtTime(0).
+- **Ramp beat = ramp satu AudioParam**: arsitektur isochronic LFO→WaveShaper dipilih agar Phase 2 bisa ramp beat Hz (lfo.frequency) kontinu. Binaural/monaural: beat di oscillator kanan/B.
+- **Untrusted JSON import**: semua nilai preset yang di-import di-clamp ke rentang aman (freq 20-1500, gain 0-1, name ≤ 60 char) — import = untrusted input.

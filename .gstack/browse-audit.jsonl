@@ -36,3 +36,9 @@
 {"ts":"2026-07-02T15:49:35.153Z","cmd":"screenshot","args":"C:/Users/Nyoman/AppData/Local/Temp/s-science.png","origin":"http://localhost:5173/","durationMs":476,"status":"ok","hasCookies":false,"mode":"launched"}
 {"ts":"2026-07-02T15:49:35.353Z","cmd":"js","args":"document.querySelectorAll('.topnav button')[3].click()","origin":"http://localhost:5173/","durationMs":5,"status":"ok","hasCookies":false,"mode":"launched"}
 {"ts":"2026-07-02T15:49:36.917Z","cmd":"screenshot","args":"C:/Users/Nyoman/AppData/Local/Temp/s-upgrade.png","origin":"http://localhost:5173/","durationMs":319,"status":"ok","hasCookies":false,"mode":"launched"}
+{"ts":"2026-07-02T15:50:58.769Z","cmd":"goto","args":"http://localhost:5173","origin":"http://localhost:5173/","durationMs":157,"status":"ok","hasCookies":false,"mode":"launched"}
+{"ts":"2026-07-02T15:50:59.009Z","cmd":"js","args":"document.querySelectorAll('.topnav button')[0].click()","origin":"http://localhost:5173/","durationMs":11,"status":"ok","hasCookies":false,"mode":"launched"}
+{"ts":"2026-07-02T15:51:00.259Z","cmd":"js","args":"document.querySelectorAll('.preset-card')[0].click()","origin":"http://localhost:5173/","durationMs":6,"status":"ok","hasCookies":false,"mode":"launched"}
+{"ts":"2026-07-02T15:51:01.596Z","cmd":"js","args":"[...document.querySelectorAll('button')].find(b=>b.textContent.includes('Mulai Sesi')).click()","origin":"http://localhost:5173/","durationMs":96,"status":"ok","hasCookies":false,"mode":"launched"}
+{"ts":"2026-07-02T15:51:04.213Z","cmd":"screenshot","args":"C:/Users/Nyoman/AppData/Local/Temp/s-player-viz.png","origin":"http://localhost:5173/","durationMs":379,"status":"ok","hasCookies":false,"mode":"launched"}
+{"ts":"2026-07-02T15:51:04.401Z","cmd":"console","args":"--errors","origin":"http://localhost:5173/","durationMs":0,"status":"ok","hasCookies":false,"mode":"launched"}
