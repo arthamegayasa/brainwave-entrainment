@@ -6,10 +6,11 @@ import "./App.css";
 import { useState } from "react";
 import { Home } from "./ui/Home";
 import { Player } from "./ui/Player";
+import { Builder } from "./ui/Builder";
 import { useSession } from "./ui/useSession";
 import type { SessionConfig } from "./audio/session";
 
-type View = "home" | "player";
+type View = "home" | "player" | "studio";
 
 function App() {
   const [view, setView] = useState<View>("home");
@@ -32,12 +33,27 @@ function App() {
           <span className="mark" aria-hidden />
           Serenade
         </div>
+        <nav className="topnav">
+          <button
+            className={view === "home" || view === "player" ? "current" : ""}
+            onClick={() => setView(session.state.active ? "player" : "home")}
+          >
+            Sesi
+          </button>
+          <button
+            className={view === "studio" ? "current" : ""}
+            onClick={() => setView("studio")}
+          >
+            Studio
+          </button>
+        </nav>
       </header>
 
       {view === "home" && <Home onStart={(c) => void handleStart(c)} />}
       {view === "player" && session.state.active && (
         <Player session={session} onExit={handleExit} />
       )}
+      {view === "studio" && <Builder />}
 
       <footer className="foot">
         Alat relaksasi & meditasi — bukan perangkat medis.

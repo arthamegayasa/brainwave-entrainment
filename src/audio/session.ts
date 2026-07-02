@@ -78,7 +78,15 @@ export class SessionEngine {
     this.volumes = { ...DEFAULT_VOLUMES, ...volumes };
     this.masterGain = ctx.createGain();
     this.masterGain.gain.value = 0;
-    this.masterGain.connect(ctx.destination);
+    // Safety limiter: layered output must never clip or slam ears (T-01-03).
+    const limiter = ctx.createDynamicsCompressor();
+    limiter.threshold.value = -6;
+    limiter.knee.value = 4;
+    limiter.ratio.value = 12;
+    limiter.attack.value = 0.003;
+    limiter.release.value = 0.25;
+    this.masterGain.connect(limiter);
+    limiter.connect(ctx.destination);
     this.entrainGain = ctx.createGain();
     this.entrainGain.gain.value = this.volumes.entrainment;
     this.entrainGain.connect(this.masterGain);
