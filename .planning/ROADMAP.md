@@ -10,11 +10,11 @@ Bangun dari bawah ke atas dalam lima vertical slice: (1) audio engine murni Type
 - Integer phases (1..5): Planned milestone work
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
-- [ ] **Phase 1: Audio Engine Core** - Engine TypeScript murni: semua mode entrainment + ambient tersintesis, terdengar via tombol play, bebas click
-- [ ] **Phase 2: Session Scheduler & Presets** - Kurva ramp per preset, 8 preset tujuan, mode headphone/speaker, auto-stop dengan fade
-- [ ] **Phase 3: Player UI & Mixer** - UI goal-first premium: kartu preset, durasi, ambient, mixer, timer, panel frekuensi, visualisasi, dark calm theme
-- [ ] **Phase 4: Advanced Session Builder** - Multi-layer editor, frequency finder, ramp editor custom, save/export/import preset
-- [ ] **Phase 5: Public Launch & Monetization-Ready** - Landing page, halaman Science bercitasi, PWA offline, Media Session, persistence, free/premium scaffold
+- [x] **Phase 1: Audio Engine Core** - Engine TypeScript murni: semua mode entrainment + ambient tersintesis, terdengar via tombol play, bebas click
+- [x] **Phase 2: Session Scheduler & Presets** - Kurva ramp per preset, 8 preset tujuan, mode headphone/speaker, auto-stop dengan fade
+- [x] **Phase 3: Player UI & Mixer** - UI goal-first premium: kartu preset, durasi, ambient, mixer, timer, panel frekuensi, visualisasi, dark calm theme
+- [x] **Phase 4: Advanced Session Builder** - Multi-layer editor, frequency finder, ramp editor custom, save/export/import preset
+- [x] **Phase 5: Public Launch & Monetization-Ready** - Landing page, halaman Science bercitasi, PWA offline, Media Session, persistence, free/premium scaffold
 
 ## Phase Details
 
@@ -99,11 +99,11 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Audio Engine Core | 0/4 | Not started | - |
-| 2. Session Scheduler & Presets | 0/TBD | Not started | - |
-| 3. Player UI & Mixer | 0/TBD | Not started | - |
-| 4. Advanced Session Builder | 0/TBD | Not started | - |
-| 5. Public Launch & Monetization-Ready | 0/TBD | Not started | - |
+| 1. Audio Engine Core | Done | Complete | 2026-07-02 |
+| 2. Session Scheduler & Presets | Done | Complete | 2026-07-02 |
+| 3. Player UI & Mixer | Done | Complete | 2026-07-02 |
+| 4. Advanced Session Builder | Done | Complete | 2026-07-02 |
+| 5. Public Launch & Monetization-Ready | Done | Complete | 2026-07-02 |
 
 ## Coverage
 
