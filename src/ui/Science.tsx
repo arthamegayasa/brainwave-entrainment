@@ -13,73 +13,73 @@ interface Section {
 }
 
 const TIER_LABELS: Record<Section["tier"], string> = {
-  supported: "Terdukung baik",
-  promising: "Menjanjikan · belum pasti",
-  tradition: "Tradisi · bukan sains tervalidasi",
+  supported: "Well supported",
+  promising: "Promising · not certain",
+  tradition: "Tradition · not validated science",
 };
 
 const SECTIONS: Section[] = [
   {
     tier: "supported",
-    heading: "Suara & musik untuk relaksasi",
+    heading: "Sound & music for relaxation",
     intro:
-      "Bukti terkuat: mendengarkan musik dan suara menenangkan membantu menurunkan stres dan kecemasan. Ini fondasi jujur dari apa yang Serenade lakukan.",
+      "The strongest evidence: listening to calming music and sound helps lower stress and anxiety. This is the honest foundation of what Serenade does.",
     citations: [
       {
-        ref: "de Witte dkk. (2020), Health Psychology Review",
+        ref: "de Witte et al. (2020), Health Psychology Review",
         finding:
-          "Meta-analisis ~104 RCT: intervensi musik menurunkan stres secara signifikan, baik fisiologis (kortisol, denyut jantung) maupun psikologis.",
-        note: "Bukti kuat untuk musik secara umum — bukan khusus binaural beats.",
+          "Meta-analysis of ~104 RCTs: music interventions significantly reduced stress, both physiological (cortisol, heart rate) and psychological.",
+        note: "Strong evidence for music in general — not specific to binaural beats.",
         url: "https://pubmed.ncbi.nlm.nih.gov/31167611/",
       },
       {
-        ref: "Harney dkk. (2023), Psychology of Music",
+        ref: "Harney et al. (2023), Psychology of Music",
         finding:
-          "Review 24 studi terkontrol mendukung mendengarkan musik sebagai cara efektif menurunkan kecemasan.",
-        note: "Besaran efek bervariasi menurut konteks; buktinya heterogen.",
+          "A review of 24 controlled studies supports music listening as an effective way to reduce anxiety.",
+        note: "Effect sizes vary by context; the evidence is heterogeneous.",
         url: "https://journals.sagepub.com/doi/10.1177/10298649211046979",
       },
       {
-        ref: "Meta-analisis RAS pada Parkinson (2022), Frontiers in Neurology",
+        ref: "RAS meta-analysis in Parkinson's (2022), Frontiers in Neurology",
         finding:
-          "Stimulasi ritmik auditori memperbaiki kecepatan berjalan pasien Parkinson — bukti otak & tubuh menyelaraskan diri dengan ritme suara.",
-        note: "Aplikasi berbeda (sinkronisasi gerak), bukan entrainment untuk mood.",
+          "Rhythmic auditory stimulation improved walking speed in Parkinson's patients — evidence that brain and body synchronize to auditory rhythm.",
+        note: "A different application (movement synchronization), not entrainment for mood.",
         url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC9053573/",
       },
     ],
   },
   {
     tier: "promising",
-    heading: "Binaural beats & stimulasi beat auditori",
+    heading: "Binaural beats & auditory beat stimulation",
     intro:
-      "Beberapa studi menunjukkan binaural beats membantu kecemasan dan kognisi. Tetapi apakah ia benar-benar 'meng-entrain' gelombang otak masih diperdebatkan.",
+      "Several studies show binaural beats help with anxiety and cognition. But whether they truly 'entrain' brainwaves is still debated.",
     citations: [
       {
-        ref: "Garcia-Argibay dkk. (2019), Psychological Research",
+        ref: "Garcia-Argibay et al. (2019), Psychological Research",
         finding:
-          "Meta-analisis 22 studi menemukan efek keseluruhan sedang (g = 0.45); efek anti-kecemasan terkuat di rentang theta/delta.",
-        note: "Bukti pendukung terkuat, tapi jumlah studi kecemasan masih kecil.",
+          "Meta-analysis of 22 studies found a moderate overall effect (g = 0.45); the strongest anti-anxiety effect was in the theta/delta range.",
+        note: "The strongest supporting evidence, but the number of anxiety studies is small.",
         url: "https://pubmed.ncbi.nlm.nih.gov/30073406/",
       },
       {
-        ref: "Padmanabhan dkk. (2005), Anaesthesia",
+        ref: "Padmanabhan et al. (2005), Anaesthesia",
         finding:
-          "RCT: kecemasan pra-operasi turun 26% pada grup binaural beat vs 11% audio biasa vs 4% tanpa intervensi.",
-        note: "Sampel kecil, konteks spesifik (kecemasan akut pra-bedah).",
+          "RCT: pre-operative anxiety dropped 26% in the binaural-beat group vs 11% for plain audio vs 4% with no intervention.",
+        note: "Small sample, specific context (acute pre-surgery anxiety).",
         url: "https://pubmed.ncbi.nlm.nih.gov/16115248/",
       },
       {
-        ref: "Ingendoh dkk. (2023), PLOS ONE — sisi kritis",
+        ref: "Ingendoh et al. (2023), PLOS ONE — the critical view",
         finding:
-          "Review 14 studi EEG: 5 mendukung entrainment, 8 kontradiktif, 1 campuran. Mekanisme inti belum terbukti konsisten.",
-        note: "Sitasi paling penting: efek yang dirasakan mungkin lewat musik menenangkan, ekspektasi, atau napas melambat — bukan entrainment saraf.",
+          "A review of 14 EEG studies: 5 support entrainment, 8 contradict it, 1 mixed. The core mechanism isn't consistently proven.",
+        note: "The most important citation: the felt effect may come via calming music, expectation, or slowed breathing — not neural entrainment.",
         url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC10198548/",
       },
       {
         ref: "Iaccarino (2016, Nature) & Martorell (2019, Cell) — 40 Hz gamma",
         finding:
-          "Stimulasi 40 Hz mengurangi patologi Alzheimer dan memperbaiki memori pada model tikus.",
-        note: "Model TIKUS, cahaya+suara intensif untuk patologi Alzheimer. Bukan bukti bahwa audio 40 Hz memberi manfaat neurologis pada manusia sehat.",
+          "40 Hz stimulation reduced Alzheimer's pathology and improved memory in mouse models.",
+        note: "MOUSE models, intense light+sound for Alzheimer's pathology. Not evidence that 40 Hz audio gives neurological benefits to healthy humans.",
         url: "https://www.cell.com/cell/fulltext/S0092-8674(19)30163-1",
       },
     ],
@@ -88,20 +88,20 @@ const SECTIONS: Section[] = [
     tier: "tradition",
     heading: "Solfeggio & Schumann resonance",
     intro:
-      "Kami menyertakan frekuensi ini karena sering diminta — tetapi jujur: keduanya berakar pada tradisi/folklore, bukan sains tervalidasi.",
+      "We include these frequencies because they're often requested — but honestly: both are rooted in tradition/folklore, not validated science.",
     citations: [
       {
-        ref: "Solfeggio (mis. 528 Hz) — Akimoto dkk. (2018), Health (SCIRP)",
+        ref: "Solfeggio (e.g. 528 Hz) — Akimoto et al. (2018), Health (SCIRP)",
         finding:
-          "Studi kecil (n=9) melaporkan musik 528 Hz menurunkan kortisol dibanding tuning 440 Hz.",
-        note: "Asal solfeggio adalah folklore modern (diusulkan Joseph Puleo, 1990-an), bukan tradisi kuno. Sampel sangat kecil, jurnal berdampak rendah, belum direplikasi. Klaim 'perbaikan DNA' tak berdasar.",
+          "A small study (n=9) reported 528 Hz music lowered cortisol compared to 440 Hz tuning.",
+        note: "The origin of solfeggio is modern folklore (proposed by Joseph Puleo in the 1990s), not ancient tradition. Tiny sample, low-impact journal, not replicated. 'DNA repair' claims are baseless.",
         url: "https://www.scirp.org/journal/paperinformation?paperid=87146",
       },
       {
         ref: "Schumann resonance (7.83 Hz)",
         finding:
-          "Resonansi elektromagnetik Bumi-ionosfer adalah fisika nyata; korelasinya dengan fisiologi manusia sangat lemah.",
-        note: "Klaim 'menyelaraskan otak / menyembuhkan' adalah spekulasi wellness, bukan mekanisme aplikasi ini.",
+          "The Earth-ionosphere electromagnetic resonance is real physics; its correlation with human physiology is very weak.",
+        note: "Claims of 'aligning the brain / healing' are wellness speculation, not this app's mechanism.",
         url: "https://en.wikipedia.org/wiki/Schumann_resonances",
       },
     ],
@@ -112,10 +112,10 @@ export function Science() {
   return (
     <div className="science">
       <header className="science-head">
-        <h1>Sains di balik Serenade</h1>
+        <h1>The science behind Serenade</h1>
         <p>
-          Kami memisahkan tiga tingkat bukti secara jujur — apa yang terdukung
-          baik, apa yang masih riset awal, dan apa yang murni tradisi.
+          We honestly separate three levels of evidence — what's well
+          supported, what's still early research, and what's pure tradition.
         </p>
       </header>
 
@@ -139,13 +139,13 @@ export function Science() {
       ))}
 
       <aside className="disclaimer">
-        <strong>Penting.</strong> Konten audio ini ditujukan untuk relaksasi,
-        fokus, dan kenyamanan. Ini bukan alat medis dan tidak dimaksudkan untuk
-        mendiagnosis, mengobati, menyembuhkan, atau mencegah penyakit apa pun.
-        Jika kamu mengalami kecemasan, gangguan tidur, atau kondisi kesehatan
-        lain, konsultasikan dengan tenaga profesional. Klaim seputar frekuensi
-        tertentu (mis. solfeggio, Schumann resonance) berakar pada tradisi dan
-        belum tervalidasi secara ilmiah.
+        <strong>Important.</strong> This audio content is intended for
+        relaxation, focus, and comfort. It is not a medical device and is not
+        meant to diagnose, treat, cure, or prevent any disease. If you
+        experience anxiety, sleep problems, or other health conditions, consult
+        a professional. Claims about specific frequencies (e.g. solfeggio,
+        Schumann resonance) are rooted in tradition and have not been
+        scientifically validated.
       </aside>
     </div>
   );

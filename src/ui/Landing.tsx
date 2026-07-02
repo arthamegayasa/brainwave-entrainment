@@ -6,37 +6,37 @@ interface LandingProps {
 const STEPS = [
   {
     emoji: "🎯",
-    title: "Pilih tujuan",
-    body: "Tidur nyenyak, meditasi, fokus, atau redakan cemas — kamu memilih hasil, bukan angka frekuensi.",
+    title: "Choose a goal",
+    body: "Deep sleep, meditation, focus, or calming anxiety — you pick the outcome, not a frequency number.",
   },
   {
     emoji: "🌊",
-    title: "Suara dituntun bertahap",
-    body: "Sesi bukan nada statis: frekuensi turun perlahan mengikuti kurva, menemani otakmu menuju kondisi tujuan.",
+    title: "The sound guides you gradually",
+    body: "A session isn't a static tone: the frequency eases down along a curve, accompanying your brain toward the target state.",
   },
   {
     emoji: "🎧",
-    title: "Dengarkan & lepaskan",
-    body: "Binaural beats di headphone atau isochronic tones di speaker, berpadu dengan hujan, ombak, dan angin yang disintesis murni.",
+    title: "Listen and let go",
+    body: "Binaural beats on headphones or isochronic tones on speakers, blended with purely synthesized rain, ocean, and wind.",
   },
 ];
 
 const FEATURES = [
   {
-    title: "8 sesi tujuan siap pakai",
-    body: "Dari Tidur Nyenyak sampai Power Nap — tiap sesi dirancang dengan kurva frekuensi dan carrier solfeggio-nya sendiri.",
+    title: "8 ready-made goal sessions",
+    body: "From Deep Sleep to Power Nap — each session is designed with its own frequency curve and solfeggio carrier.",
   },
   {
-    title: "Studio multi-layer",
-    body: "Rakit sesimu sendiri seperti sound designer: metode entrainment per layer, frequency finder harmonis, kurva custom, export & bagikan.",
+    title: "Multi-layer Studio",
+    body: "Build your own session like a sound designer: an entrainment method per layer, a harmonic frequency finder, a custom curve, export & share.",
   },
   {
-    title: "Audio disintesis real-time",
-    body: "Tanpa file MP3 — frekuensi presisi hingga 0.01 Hz, durasi tak terbatas, dan bekerja sepenuhnya offline.",
+    title: "Audio synthesized in real time",
+    body: "No MP3 files — frequencies precise to 0.01 Hz, unlimited duration, and fully offline.",
   },
   {
-    title: "Jujur secara ilmiah",
-    body: "Kami memisahkan bukti kuat, riset awal, dan tradisi — lengkap dengan sitasi studi asli di halaman Sains.",
+    title: "Scientifically honest",
+    body: "We separate strong evidence, early research, and tradition — complete with real study citations on the Science page.",
   },
 ];
 
@@ -50,26 +50,26 @@ export function Landing({ onEnter, onScience }: LandingProps) {
           <div className="orb-ring" />
         </div>
         <h1>
-          Temukan tenang,
+          Find calm,
           <br />
-          <em>satu frekuensi</em> pada satu waktu
+          <em>one frequency</em> at a time
         </h1>
         <p className="landing-lede">
-          Serenade menyintesis binaural beats, isochronic tones, solfeggio, dan
-          suasana alam — lalu menuntunnya mengikuti kurva frekuensi yang
-          dirancang untuk relaksasi, tidur, dan fokus.
+          Serenade synthesizes binaural beats, isochronic tones, solfeggio, and
+          natural atmospheres — then guides them along a frequency curve
+          designed for relaxation, sleep, and focus.
         </p>
         <div className="landing-cta">
           <button className="start-btn compact" onClick={onEnter}>
-            Mulai Sesi Gratis
+            Start a Free Session
           </button>
           <button className="pill-btn" onClick={onScience}>
-            Lihat Sainsnya
+            See the Science
           </button>
         </div>
         <p className="landing-note">
-          Gratis, tanpa akun, langsung di browser. Gunakan headphone untuk
-          pengalaman terbaik.
+          Free, no account, right in your browser. Use headphones for the best
+          experience.
         </p>
       </section>
 
@@ -86,7 +86,7 @@ export function Landing({ onEnter, onScience }: LandingProps) {
       </section>
 
       <section className="landing-features">
-        <h2>Dirancang seperti instrumen, bukan sekadar playlist</h2>
+        <h2>Designed like an instrument, not just a playlist</h2>
         <div className="feature-grid">
           {FEATURES.map((f) => (
             <div className="feature-card" key={f.title}>
@@ -98,16 +98,16 @@ export function Landing({ onEnter, onScience }: LandingProps) {
       </section>
 
       <section className="landing-honesty">
-        <h2>Klaim kami jujur</h2>
+        <h2>Our claims are honest</h2>
         <p>
-          Musik dan suara menenangkan terbukti membantu relaksasi. Binaural
-          beats menunjukkan hasil menjanjikan untuk kecemasan pada riset awal —
-          tetapi mekanisme "entrainment gelombang otak" belum terbukti
-          konsisten. Kami menyajikan semuanya apa adanya, dengan sitasi studi
-          asli — termasuk yang hasilnya campuran.
+          Calming music and sound are proven to aid relaxation. Binaural beats
+          show promising results for anxiety in early research — but the
+          "brainwave entrainment" mechanism itself hasn't been consistently
+          proven. We present all of it as it is, with real study citations —
+          including the ones with mixed results.
         </p>
         <button className="pill-btn" onClick={onScience}>
-          Baca ringkasan risetnya →
+          Read the research summary →
         </button>
       </section>
     </div>

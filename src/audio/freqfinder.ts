@@ -26,14 +26,14 @@ export function findRelated(baseHz: number): FreqSuggestion[] {
   if (!Number.isFinite(baseHz) || baseHz <= 0) return [];
 
   const raw: FreqSuggestion[] = [
-    { hz: baseHz * 2, relation: "Oktaf naik (2:1)", correlation: 1 },
-    { hz: baseHz / 2, relation: "Oktaf turun (1:2)", correlation: 1 },
-    { hz: baseHz * 4, relation: "Dua oktaf naik (4:1)", correlation: 0.9 },
-    { hz: baseHz * 1.5, relation: "Kuint sempurna (3:2)", correlation: 0.85 },
-    { hz: baseHz * (4 / 3), relation: "Kuart sempurna (4:3)", correlation: 0.75 },
-    { hz: baseHz * 1.25, relation: "Terts mayor (5:4)", correlation: 0.7 },
-    { hz: baseHz * 3, relation: "Harmonik ke-3", correlation: 0.8 },
-    { hz: baseHz * 5, relation: "Harmonik ke-5", correlation: 0.6 },
+    { hz: baseHz * 2, relation: "Octave up (2:1)", correlation: 1 },
+    { hz: baseHz / 2, relation: "Octave down (1:2)", correlation: 1 },
+    { hz: baseHz * 4, relation: "Two octaves up (4:1)", correlation: 0.9 },
+    { hz: baseHz * 1.5, relation: "Perfect fifth (3:2)", correlation: 0.85 },
+    { hz: baseHz * (4 / 3), relation: "Perfect fourth (4:3)", correlation: 0.75 },
+    { hz: baseHz * 1.25, relation: "Major third (5:4)", correlation: 0.7 },
+    { hz: baseHz * 3, relation: "3rd harmonic", correlation: 0.8 },
+    { hz: baseHz * 5, relation: "5th harmonic", correlation: 0.6 },
   ];
 
   // Nearest solfeggio tones (traditional scale — labeled as such).
@@ -46,7 +46,7 @@ export function findRelated(baseHz: number): FreqSuggestion[] {
     .slice(0, 2)
     .map((s) => ({
       hz: s.hz,
-      relation: "Solfeggio terdekat",
+      relation: "Nearest solfeggio",
       correlation: Math.max(0.3, 0.65 - s.distance * 0.3),
     }));
 

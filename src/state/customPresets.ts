@@ -59,10 +59,10 @@ export function importSessionJSON(json: string): CustomSession {
   try {
     parsed = JSON.parse(json);
   } catch {
-    throw new Error("File bukan JSON yang valid");
+    throw new Error("Not a valid JSON file");
   }
   const session = sanitizeSession(parsed);
-  if (!session) throw new Error("Format preset tidak dikenali");
+  if (!session) throw new Error("Unrecognized preset format");
   return session;
 }
 
@@ -84,7 +84,7 @@ function sanitizeSession(value: unknown): CustomSession | null {
     name:
       typeof v.name === "string" && v.name.trim()
         ? v.name.trim().slice(0, 60)
-        : "Sesi Custom",
+        : "Custom Session",
     curve: {
       startHz: clamp(Number(curve.startHz), 0.5, 50),
       targetHz: clamp(Number(curve.targetHz), 0.5, 50),

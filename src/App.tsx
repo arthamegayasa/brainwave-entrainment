@@ -16,9 +16,9 @@ import type { SessionConfig } from "./audio/session";
 type View = "landing" | "home" | "player" | "studio" | "science" | "upgrade";
 
 const NAV: Array<{ id: View; label: string }> = [
-  { id: "home", label: "Sesi" },
+  { id: "home", label: "Sessions" },
   { id: "studio", label: "Studio" },
-  { id: "science", label: "Sains" },
+  { id: "science", label: "Science" },
   { id: "upgrade", label: "Premium" },
 ];
 
@@ -47,7 +47,7 @@ function App() {
         <button
           className="brand"
           onClick={() => setView("landing")}
-          aria-label="Serenade beranda"
+          aria-label="Serenade home"
         >
           <span className="mark" aria-hidden />
           Serenade
@@ -81,9 +81,9 @@ function App() {
       {view === "upgrade" && <Upgrade />}
 
       <footer className="foot">
-        Alat relaksasi &amp; meditasi — bukan perangkat medis.{" "}
+        A relaxation &amp; meditation tool — not a medical device.{" "}
         <button className="link-btn" onClick={() => setView("science")}>
-          Pelajari sainsnya
+          Learn the science
         </button>
       </footer>
     </div>

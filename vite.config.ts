@@ -13,8 +13,8 @@ export default defineConfig({
         name: "Serenade — Healing Audio",
         short_name: "Serenade",
         description:
-          "Sesi audio terpandu: binaural beats, isochronic tones, solfeggio, dan suasana alam untuk relaksasi, tidur, dan fokus.",
-        lang: "id",
+          "Guided audio sessions: binaural beats, isochronic tones, solfeggio, and natural ambience for relaxation, sleep, and focus.",
+        lang: "en",
         theme_color: "#0b0e17",
         background_color: "#0b0e17",
         display: "standalone",

@@ -2,19 +2,19 @@ import { useState } from "react";
 import { ALL_UNLOCKED, getTier, setTier } from "../state/tier";
 
 const FREE = [
-  "8 sesi tujuan siap pakai",
+  "8 ready-made goal sessions",
   "Binaural, isochronic, monaural & solfeggio",
-  "4 suasana alam tersintesis",
-  "Durasi 15–60 menit",
+  "4 synthesized natural ambiences",
+  "15–60 minute durations",
 ];
 
 const PREMIUM = [
-  "Semua fitur Free",
-  "Studio multi-layer tanpa batas",
-  "Frequency finder harmonis",
-  "Kurva sesi custom + export/import",
-  "Durasi tak terbatas (∞)",
-  "Sesi premium (Energi, Kreativitas, Power Nap)",
+  "Everything in Free",
+  "Unlimited multi-layer Studio",
+  "Harmonic frequency finder",
+  "Custom session curves + export/import",
+  "Unlimited duration (∞)",
+  "Premium sessions (Energy, Creativity, Power Nap)",
 ];
 
 export function Upgrade() {
@@ -28,17 +28,17 @@ export function Upgrade() {
   return (
     <section className="upgrade">
       <header className="upgrade-head">
-        <h1>Buka seluruh potensimu</h1>
+        <h1>Unlock your full potential</h1>
         <p>
-          Serenade Premium membuka Studio, frequency finder, kurva custom, dan
-          durasi tak terbatas.
+          Serenade Premium unlocks the Studio, frequency finder, custom curves,
+          and unlimited duration.
         </p>
       </header>
 
       {ALL_UNLOCKED && (
         <div className="early-banner">
-          🎁 <strong>Akses awal:</strong> semua fitur premium terbuka gratis
-          selama masa peluncuran. Nikmati sepenuhnya.
+          🎁 <strong>Early access:</strong> every premium feature is unlocked
+          free during launch. Enjoy it fully.
         </div>
       )}
 
@@ -46,7 +46,7 @@ export function Upgrade() {
         <div className="plan">
           <div className="plan-name">Free</div>
           <div className="plan-price">
-            Rp0<span>/selamanya</span>
+            $0<span>/forever</span>
           </div>
           <ul>
             {FREE.map((f) => (
@@ -54,15 +54,15 @@ export function Upgrade() {
             ))}
           </ul>
           <button className="pill-btn" disabled>
-            Paket saat ini
+            Current plan
           </button>
         </div>
 
         <div className="plan featured">
-          <div className="plan-badge">Paling populer</div>
+          <div className="plan-badge">Most popular</div>
           <div className="plan-name">Premium</div>
           <div className="plan-price">
-            Rp49rb<span>/bulan</span>
+            $4.99<span>/month</span>
           </div>
           <ul>
             {PREMIUM.map((f) => (
@@ -70,11 +70,11 @@ export function Upgrade() {
             ))}
           </ul>
           <button className="start-btn compact" onClick={activate}>
-            {tier === "premium" ? "Premium aktif ✓" : "Aktifkan Premium"}
+            {tier === "premium" ? "Premium active ✓" : "Activate Premium"}
           </button>
           <p className="plan-note">
-            Pembayaran belum aktif di versi ini — tombol mengaktifkan mode
-            premium secara lokal untuk mencoba semua fitur.
+            Payments aren't wired up in this version — the button activates
+            premium mode locally so you can try every feature.
           </p>
         </div>
       </div>

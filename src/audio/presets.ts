@@ -13,7 +13,7 @@ export type Band = "delta" | "theta" | "alpha" | "beta" | "gamma";
  */
 export interface Preset {
   id: string;
-  /** Indonesian display name (UI is goal-first — no Hz in the main flow). */
+  /** Display name (UI is goal-first — no Hz in the main flow). */
   name: string;
   tagline: string;
   emoji: string;
@@ -34,8 +34,8 @@ export interface Preset {
 export const PRESETS: readonly Preset[] = [
   {
     id: "deep-sleep",
-    name: "Tidur Nyenyak",
-    tagline: "Turun perlahan ke gelombang delta untuk tidur dalam",
+    name: "Deep Sleep",
+    tagline: "Drift down into delta waves for deep, restful sleep",
     emoji: "🌙",
     band: "delta",
     targetHz: 2,
@@ -49,8 +49,8 @@ export const PRESETS: readonly Preset[] = [
   },
   {
     id: "deep-meditation",
-    name: "Meditasi Dalam",
-    tagline: "Theta 6 Hz — kondisi meditasi para praktisi berpengalaman",
+    name: "Deep Meditation",
+    tagline: "Theta 6 Hz — the state of seasoned meditators",
     emoji: "🧘",
     band: "theta",
     targetHz: 6,
@@ -64,8 +64,8 @@ export const PRESETS: readonly Preset[] = [
   },
   {
     id: "healing-relaxation",
-    name: "Healing & Relaksasi",
-    tagline: "7.83 Hz (resonansi Schumann) dengan carrier 528 Hz",
+    name: "Healing & Relaxation",
+    tagline: "7.83 Hz (Schumann resonance) with a 528 Hz carrier",
     emoji: "💚",
     band: "theta",
     targetHz: 7.83,
@@ -79,8 +79,8 @@ export const PRESETS: readonly Preset[] = [
   },
   {
     id: "anxiety-relief",
-    name: "Redakan Cemas",
-    tagline: "Alpha menenangkan untuk melepas ketegangan",
+    name: "Calm Anxiety",
+    tagline: "Soothing alpha to release tension",
     emoji: "🍃",
     band: "alpha",
     targetHz: 10,
@@ -94,8 +94,8 @@ export const PRESETS: readonly Preset[] = [
   },
   {
     id: "focus",
-    name: "Fokus",
-    tagline: "Beta rendah untuk konsentrasi kerja & belajar",
+    name: "Focus",
+    tagline: "Low beta for work and study concentration",
     emoji: "🎯",
     band: "beta",
     targetHz: 15,
@@ -109,8 +109,8 @@ export const PRESETS: readonly Preset[] = [
   },
   {
     id: "energy",
-    name: "Energi",
-    tagline: "Gamma 40 Hz untuk kewaspadaan dan semangat",
+    name: "Energy",
+    tagline: "Gamma 40 Hz for alertness and drive",
     emoji: "⚡",
     band: "gamma",
     targetHz: 40,
@@ -124,8 +124,8 @@ export const PRESETS: readonly Preset[] = [
   },
   {
     id: "creativity",
-    name: "Kreativitas",
-    tagline: "Perbatasan alpha-theta — ruang ide dan imajinasi",
+    name: "Creativity",
+    tagline: "The alpha-theta border — room for ideas and imagination",
     emoji: "🎨",
     band: "theta",
     targetHz: 7.5,
@@ -140,7 +140,7 @@ export const PRESETS: readonly Preset[] = [
   {
     id: "power-nap",
     name: "Power Nap",
-    tagline: "Turun ke theta-delta lalu bangun segar di akhir sesi",
+    tagline: "Sink into theta-delta, then wake refreshed at the end",
     emoji: "☀️",
     band: "theta",
     targetHz: 3.5,

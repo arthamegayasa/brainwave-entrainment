@@ -7,7 +7,7 @@ import type {
   CustomSession,
 } from "../audio/builder";
 import { findRelated } from "../audio/freqfinder";
-import { SOLFEGGIO, SOUND_LABELS_ID } from "../audio/constants";
+import { SOLFEGGIO, SOUND_LABELS } from "../audio/constants";
 import {
   deleteCustomSession,
   exportSessionJSON,
@@ -32,10 +32,10 @@ const LAYER_TYPE_LABELS: Record<BuilderLayerType, string> = {
   isochronic: "Isochronic",
   monaural: "Monaural",
   pure: "Pure Tone",
-  rain: SOUND_LABELS_ID.rain,
-  ocean: SOUND_LABELS_ID.ocean,
-  wind: SOUND_LABELS_ID.wind,
-  brown: SOUND_LABELS_ID.brown,
+  rain: SOUND_LABELS.rain,
+  ocean: SOUND_LABELS.ocean,
+  wind: SOUND_LABELS.wind,
+  brown: SOUND_LABELS.brown,
 };
 
 const LAYER_TYPES = Object.keys(LAYER_TYPE_LABELS) as BuilderLayerType[];
@@ -73,7 +73,7 @@ export function Builder() {
   const [playing, setPlaying] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [remaining, setRemaining] = useState<number | null>(null);
-  const [name, setName] = useState("Sesi Custom Saya");
+  const [name, setName] = useState("My Custom Session");
   const [saved, setSaved] = useState<CustomSession[]>(() => listCustomSessions());
   const [notice, setNotice] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -141,7 +141,7 @@ export function Builder() {
   const handleSave = () => {
     saveCustomSession(currentSession());
     setSaved(listCustomSessions());
-    flash("Tersimpan ✓");
+    flash("Saved ✓");
   };
 
   const handleExport = () => {
@@ -151,7 +151,7 @@ export function Builder() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${name.replace(/[^a-zA-Z0-9]+/g, "-") || "sesi"}.serenade.json`;
+    a.download = `${name.replace(/[^a-zA-Z0-9]+/g, "-") || "session"}.serenade.json`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -162,9 +162,9 @@ export function Builder() {
       setName(imported.name);
       setCurve(imported.curve);
       setLayers(imported.layers);
-      flash("Preset ter-import ✓");
+      flash("Preset imported ✓");
     } catch (err) {
-      flash(err instanceof Error ? err.message : "Import gagal");
+      flash(err instanceof Error ? err.message : "Import failed");
     }
   };
 
@@ -172,7 +172,7 @@ export function Builder() {
     setName(session.name);
     setCurve(session.curve);
     setLayers(session.layers);
-    flash("Preset dimuat ✓");
+    flash("Preset loaded ✓");
   };
 
   return (
@@ -181,8 +181,8 @@ export function Builder() {
         <div>
           <h1>Studio</h1>
           <p className="builder-sub">
-            Rakit sesi multi-layer versimu sendiri — pilih metode, carrier, dan
-            kurva perjalanan frekuensi.
+            Build your own multi-layer session — choose the method, carrier, and
+            the path the frequency travels.
           </p>
         </div>
         <div className="builder-transport">
@@ -197,7 +197,7 @@ export function Builder() {
             </>
           ) : (
             <button className="start-btn compact" onClick={() => void handlePlay()}>
-              ▶ Putar
+              ▶ Play
             </button>
           )}
         </div>
@@ -215,15 +215,15 @@ export function Builder() {
             />
           ))}
           <button className="chip add-layer" onClick={addLayer}>
-            + Tambah Layer
+            + Add Layer
           </button>
         </div>
 
         <div className="builder-col">
-          <div className="builder-section-title">Kurva Sesi</div>
+          <div className="builder-section-title">Session Curve</div>
           <CurveEditor curve={curve} onChange={setCurve} />
 
-          <div className="builder-section-title">Durasi</div>
+          <div className="builder-section-title">Duration</div>
           <div className="chips">
             {DURATIONS.map((d) => (
               <button
@@ -231,22 +231,22 @@ export function Builder() {
                 className={`chip ${durationMin === d ? "selected" : ""}`}
                 onClick={() => setDurationMin(d)}
               >
-                {d === null ? "∞" : `${d} mnt`}
+                {d === null ? "∞" : `${d} min`}
               </button>
             ))}
           </div>
 
-          <div className="builder-section-title">Simpan & Bagikan</div>
+          <div className="builder-section-title">Save &amp; Share</div>
           <div className="save-row">
             <input
               className="text-input"
               value={name}
               maxLength={60}
               onChange={(e) => setName(e.target.value)}
-              aria-label="Nama preset"
+              aria-label="Preset name"
             />
             <button className="chip" onClick={handleSave}>
-              Simpan
+              Save
             </button>
             <button className="chip" onClick={handleExport}>
               Export
@@ -270,7 +270,7 @@ export function Builder() {
 
           {saved.length > 0 && (
             <>
-              <div className="builder-section-title">Preset Tersimpan</div>
+              <div className="builder-section-title">Saved Presets</div>
               <div className="saved-list">
                 {saved.map((s) => (
                   <div className="saved-item" key={s.id}>
@@ -279,7 +279,7 @@ export function Builder() {
                     </button>
                     <button
                       className="saved-del"
-                      aria-label={`Hapus ${s.name}`}
+                      aria-label={`Delete ${s.name}`}
                       onClick={() => {
                         deleteCustomSession(s.id);
                         setSaved(listCustomSessions());
@@ -318,7 +318,7 @@ function LayerCard({
         <select
           className="select"
           value={layer.type}
-          aria-label="Jenis layer"
+          aria-label="Layer type"
           onChange={(e) => onPatch({ type: e.target.value as BuilderLayerType })}
         >
           {LAYER_TYPES.map((t) => (
@@ -327,7 +327,7 @@ function LayerCard({
             </option>
           ))}
         </select>
-        <button className="saved-del" aria-label="Hapus layer" onClick={onRemove}>
+        <button className="saved-del" aria-label="Remove layer" onClick={onRemove}>
           ✕
         </button>
       </div>
@@ -335,7 +335,7 @@ function LayerCard({
       {tonal && (
         <div className="layer-row">
           <label className="inline-label">
-            {layer.type === "pure" ? "Nada (Hz)" : "Carrier (Hz)"}
+            {layer.type === "pure" ? "Tone (Hz)" : "Carrier (Hz)"}
             <input
               className="num-input"
               type="number"
@@ -347,7 +347,7 @@ function LayerCard({
             />
           </label>
           <button className="chip small" onClick={() => setShowFinder((v) => !v)}>
-            {showFinder ? "Tutup" : "🔍 Frekuensi terkait"}
+            {showFinder ? "Close" : "🔍 Related frequencies"}
           </button>
         </div>
       )}
@@ -381,8 +381,8 @@ function LayerCard({
                 onPatch({ beatMode: e.target.value as "follow" | "fixed" })
               }
             >
-              <option value="follow">Ikuti kurva sesi</option>
-              <option value="fixed">Tetap</option>
+              <option value="follow">Follow session curve</option>
+              <option value="fixed">Fixed</option>
             </select>
           </label>
           {layer.beatMode === "fixed" && (
@@ -441,7 +441,7 @@ function CurveEditor({
       </svg>
       <div className="curve-fields">
         <label className="inline-label">
-          Mulai (Hz)
+          Start (Hz)
           <input
             className="num-input"
             type="number"
@@ -465,7 +465,7 @@ function CurveEditor({
           />
         </label>
         <label className="inline-label">
-          Turun (menit)
+          Descend (min)
           <input
             className="num-input"
             type="number"
@@ -482,12 +482,12 @@ function CurveEditor({
             checked={curve.endHz !== null}
             onChange={(e) => patch({ endHz: e.target.checked ? curve.startHz : null })}
           />
-          Kembali naik di akhir
+          Rise back at the end
         </label>
         {curve.endHz !== null && (
           <>
             <label className="inline-label">
-              Akhir (Hz)
+              End (Hz)
               <input
                 className="num-input"
                 type="number"
@@ -499,7 +499,7 @@ function CurveEditor({
               />
             </label>
             <label className="inline-label">
-              Naik (menit)
+              Rise (min)
               <input
                 className="num-input"
                 type="number"

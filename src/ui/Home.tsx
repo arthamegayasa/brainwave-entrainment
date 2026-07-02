@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { PRESETS, DURATIONS_MIN } from "../audio/presets";
 import type { Preset } from "../audio/presets";
-import { SOUND_LABELS_ID } from "../audio/constants";
+import { SOUND_LABELS } from "../audio/constants";
 import type { AmbientKind } from "../audio/types";
 import type { ListeningMode, SessionConfig } from "../audio/session";
-import { BAND_COLORS, BAND_LABELS_ID } from "./bands";
+import { BAND_COLORS, BAND_LABELS } from "./bands";
 import { isUnlocked } from "../state/tier";
 import { loadPrefs } from "../state/prefs";
 
@@ -22,16 +22,16 @@ export function Home({ onStart }: HomeProps) {
     <>
       <section className="hero">
         <h1>
-          Pilih tujuanmu, <em>biarkan suaranya bekerja</em>
+          Choose your goal, <em>let the sound do the work</em>
         </h1>
         <p>
-          Sesi audio terpandu — binaural beats, isochronic tones, solfeggio, dan
-          ambient alami — yang menuntun gelombang otakmu secara bertahap. Tanpa
-          perlu paham satu angka pun.
+          Guided audio sessions — binaural beats, isochronic tones, solfeggio,
+          and natural ambience — that ease your brainwaves down step by step.
+          No need to understand a single number.
         </p>
       </section>
 
-      <section className="preset-grid" aria-label="Pilihan tujuan sesi">
+      <section className="preset-grid" aria-label="Session goals">
         {PRESETS.map((preset, i) => (
           <button
             key={preset.id}
@@ -49,7 +49,7 @@ export function Home({ onStart }: HomeProps) {
             )}
             <h3>{preset.name}</h3>
             <p className="tagline">{preset.tagline}</p>
-            <span className="band-chip">{BAND_LABELS_ID[preset.band]}</span>
+            <span className="band-chip">{BAND_LABELS[preset.band]}</span>
           </button>
         ))}
       </section>
@@ -95,7 +95,7 @@ function SetupSheet({ preset, onClose, onStart }: SetupSheetProps) {
         className="sheet"
         role="dialog"
         aria-modal="true"
-        aria-label={`Atur sesi ${preset.name}`}
+        aria-label={`Set up the ${preset.name} session`}
         style={{ "--accent": accent } as React.CSSProperties}
       >
         <div className="sheet-head">
@@ -109,7 +109,7 @@ function SetupSheet({ preset, onClose, onStart }: SetupSheetProps) {
         </div>
 
         <div className="field">
-          <div className="label">Durasi</div>
+          <div className="label">Duration</div>
           <div className="chips">
             {DURATIONS_MIN.map((d) => (
               <button
@@ -117,23 +117,23 @@ function SetupSheet({ preset, onClose, onStart }: SetupSheetProps) {
                 className={`chip ${durationMin === d ? "selected" : ""}`}
                 onClick={() => setDurationMin(d)}
               >
-                {d === null ? "∞" : `${d} mnt`}
+                {d === null ? "∞" : `${d} min`}
               </button>
             ))}
           </div>
         </div>
 
         <div className="field">
-          <div className="label">Cara mendengarkan</div>
+          <div className="label">How to listen</div>
           <div className="mode-cards">
             <button
               className={`mode-card ${mode === "headphone" ? "selected" : ""}`}
               onClick={() => setMode("headphone")}
             >
-              <div className="mode-name">🎧 Headphone</div>
+              <div className="mode-name">🎧 Headphones</div>
               <div className="mode-desc">
-                Binaural beats — dua nada berbeda di tiap telinga. Efek paling
-                dalam, wajib headphone.
+                Binaural beats — two slightly different tones per ear. The
+                deepest effect; headphones required.
               </div>
             </button>
             <button
@@ -142,14 +142,14 @@ function SetupSheet({ preset, onClose, onStart }: SetupSheetProps) {
             >
               <div className="mode-name">🔊 Speaker</div>
               <div className="mode-desc">
-                Isochronic tones — denyut halus yang bekerja tanpa headphone.
+                Isochronic tones — gentle pulses that work without headphones.
               </div>
             </button>
           </div>
         </div>
 
         <div className="field">
-          <div className="label">Suasana latar</div>
+          <div className="label">Ambient</div>
           <div className="chips">
             {AMBIENTS.map((a) => (
               <button
@@ -157,7 +157,7 @@ function SetupSheet({ preset, onClose, onStart }: SetupSheetProps) {
                 className={`chip ${ambient === a ? "selected" : ""}`}
                 onClick={() => setAmbient(a)}
               >
-                {a === null ? "Tanpa latar" : SOUND_LABELS_ID[a]}
+                {a === null ? "No ambient" : SOUND_LABELS[a]}
               </button>
             ))}
           </div>
@@ -169,10 +169,10 @@ function SetupSheet({ preset, onClose, onStart }: SetupSheetProps) {
             onStart({ preset, durationMin, mode, ambient, solfeggioTone: null })
           }
         >
-          Mulai Sesi
+          Start Session
         </button>
         <button className="close-btn" onClick={onClose}>
-          Batal
+          Cancel
         </button>
       </div>
     </div>

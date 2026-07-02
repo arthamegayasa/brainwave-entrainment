@@ -24,7 +24,7 @@
 
 ## Conventions
 
-- Bahasa kode/komentar/commit: English. UI: Indonesia (atau bilingual nanti).
+- Bahasa kode/komentar/commit: English. UI: English (diubah dari Indonesia atas permintaan user, 2026-07-03).
 - Semua konstanta frekuensi preset di satu file `presets.ts` — mudah di-tweak.
 - Audio engine murni TypeScript tanpa dependency React (testable, reusable untuk M003 builder).
 

@@ -32,14 +32,14 @@ export const DEMO = {
   },
 } as const;
 
-/** Indonesian labels for the audition UI. */
-export const SOUND_LABELS_ID: Record<SoundKind, string> = {
+/** Display labels for each sound kind. */
+export const SOUND_LABELS: Record<SoundKind, string> = {
   binaural: "Binaural",
   isochronic: "Isochronic",
   monaural: "Monaural",
   solfeggio: "Solfeggio 528 Hz",
-  rain: "Hujan",
-  ocean: "Ombak Laut",
-  wind: "Angin",
+  rain: "Rain",
+  ocean: "Ocean",
+  wind: "Wind",
   brown: "Brown Noise",
 };

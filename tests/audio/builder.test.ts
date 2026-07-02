@@ -90,7 +90,7 @@ describe("findRelated (BLD-02)", () => {
 
   it("includes nearest solfeggio and sorts by correlation", () => {
     const suggestions = findRelated(500);
-    expect(suggestions.some((s) => s.relation === "Solfeggio terdekat")).toBe(true);
+    expect(suggestions.some((s) => s.relation === "Nearest solfeggio")).toBe(true);
     for (let i = 1; i < suggestions.length; i++) {
       expect(suggestions[i].correlation).toBeLessThanOrEqual(
         suggestions[i - 1].correlation,

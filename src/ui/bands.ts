@@ -8,12 +8,12 @@ export const BAND_COLORS: Record<Band, string> = {
   gamma: "var(--band-gamma)",
 };
 
-export const BAND_LABELS_ID: Record<Band, string> = {
-  delta: "Delta · tidur dalam",
-  theta: "Theta · meditasi",
-  alpha: "Alpha · relaks",
-  beta: "Beta · fokus",
-  gamma: "Gamma · energi",
+export const BAND_LABELS: Record<Band, string> = {
+  delta: "Delta · deep sleep",
+  theta: "Theta · meditation",
+  alpha: "Alpha · relaxation",
+  beta: "Beta · focus",
+  gamma: "Gamma · energy",
 };
 
 export function formatClock(totalSec: number): string {
