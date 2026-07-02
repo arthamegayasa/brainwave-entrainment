@@ -56,4 +56,29 @@
 
 ## Traceability
 
-(Filled by roadmap)
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| ENG-01 | Phase 1 | Pending |
+| ENG-02 | Phase 1 | Pending |
+| ENG-03 | Phase 1 | Pending |
+| ENG-04 | Phase 1 | Pending |
+| ENG-05 | Phase 1 | Pending |
+| ENG-06 | Phase 1 | Pending |
+| ENG-07 | Phase 1 | Pending |
+| UI-08 | Phase 1 | Pending |
+| SCH-01 | Phase 2 | Pending |
+| SCH-02 | Phase 2 | Pending |
+| SCH-03 | Phase 2 | Pending |
+| SCH-04 | Phase 2 | Pending |
+| PRE-01 | Phase 2 | Pending |
+| PRE-02 | Phase 2 | Pending |
+| PRE-03 | Phase 2 | Pending |
+| UI-01 | Phase 3 | Pending |
+| UI-02 | Phase 3 | Pending |
+| UI-03 | Phase 3 | Pending |
+| UI-04 | Phase 3 | Pending |
+| UI-05 | Phase 3 | Pending |
+| UI-06 | Phase 3 | Pending |
+| UI-07 | Phase 3 | Pending |
+
+**Coverage: 22/22 v1 requirements mapped — no orphans, no duplicates.**
