@@ -1,74 +1,48 @@
-import { useState } from "react";
+import "@fontsource/fraunces/400.css";
+import "@fontsource/fraunces/600.css";
+import "@fontsource/albert-sans/400.css";
+import "@fontsource/albert-sans/600.css";
 import "./App.css";
-import { AudioEngine, REGISTERED_KINDS } from "./audio/engine";
-import { SOUND_LABELS_ID } from "./audio/constants";
-import type { SoundKind } from "./audio/types";
+import { useState } from "react";
+import { Home } from "./ui/Home";
+import { Player } from "./ui/Player";
+import { useSession } from "./ui/useSession";
+import type { SessionConfig } from "./audio/session";
 
-// Module-level singletons on the React side — the engine itself never creates
-// an AudioContext (ENG-07); it is created lazily inside a user gesture (UI-08).
-let ctx: AudioContext | null = null;
-let engine: AudioEngine | null = null;
-
-async function ensureEngine(): Promise<AudioEngine> {
-  if (!ctx) {
-    ctx = new AudioContext();
-  }
-  if (ctx.state === "suspended") {
-    await ctx.resume();
-  }
-  if (!engine) {
-    engine = new AudioEngine(ctx);
-  }
-  return engine;
-}
+type View = "home" | "player";
 
 function App() {
-  const [activeKind, setActiveKind] = useState<SoundKind | null>(null);
-  const [volume, setVolume] = useState(0.8);
+  const [view, setView] = useState<View>("home");
+  const session = useSession(() => setView("home"));
 
-  const handlePlay = async (kind: SoundKind) => {
-    const e = await ensureEngine();
-    e.setMasterVolume(volume);
-    e.play(kind);
-    setActiveKind(kind);
+  const handleStart = async (config: SessionConfig) => {
+    await session.start(config);
+    setView("player");
   };
 
-  const handleStop = () => {
-    engine?.stop();
-    setActiveKind(null);
-  };
-
-  const handleVolume = (v: number) => {
-    setVolume(v);
-    engine?.setMasterVolume(v);
+  const handleExit = () => {
+    session.stop();
+    setView("home");
   };
 
   return (
-    <main className="audition">
-      <h1>Healing Audio — Audisi Engine</h1>
-      {REGISTERED_KINDS.map((kind) => (
-        <button
-          key={kind}
-          className={activeKind === kind ? "active" : ""}
-          onClick={() => void handlePlay(kind)}
-        >
-          {SOUND_LABELS_ID[kind]}
-        </button>
-      ))}
-      <button onClick={handleStop}>Stop</button>
-      <label>
-        Volume
-        <input
-          type="range"
-          min={0}
-          max={1}
-          step={0.01}
-          value={volume}
-          onChange={(e) => handleVolume(Number(e.target.value))}
-        />
-      </label>
-      <p className="hint">Gunakan headphone untuk binaural</p>
-    </main>
+    <div className="shell">
+      <header className="topbar">
+        <div className="brand">
+          <span className="mark" aria-hidden />
+          Serenade
+        </div>
+      </header>
+
+      {view === "home" && <Home onStart={(c) => void handleStart(c)} />}
+      {view === "player" && session.state.active && (
+        <Player session={session} onExit={handleExit} />
+      )}
+
+      <footer className="foot">
+        Alat relaksasi & meditasi — bukan perangkat medis.
+      </footer>
+    </div>
   );
 }
 
