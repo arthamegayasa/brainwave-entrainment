@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { loadPrefs, savePrefs } from "../src/state/prefs";
-import { getTier, setTier, features, isUnlocked, ALL_UNLOCKED } from "../src/state/tier";
+import { getTier, setTier, features, isUnlocked, ALL_UNLOCKED, PRICING } from "../src/state/tier";
 
 function installLocalStorage() {
   const store = new Map<string, string>();
@@ -58,5 +58,15 @@ describe("tier scaffold (MON-01)", () => {
 
   it("features() returns full set when unlocked", () => {
     expect(features().studio).toBe(true);
+  });
+});
+
+describe("pricing (MON-01)", () => {
+  it("annual is cheaper per year than 12 months and advertises the right saving", () => {
+    const { monthly, annual } = PRICING.IDR;
+    expect(annual.amount).toBeLessThan(monthly.amount * 12);
+    const actualSave = Math.round((1 - annual.amount / (monthly.amount * 12)) * 100);
+    expect(annual.savePercent).toBe(58);
+    expect(actualSave).toBe(annual.savePercent);
   });
 });

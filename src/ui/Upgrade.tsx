@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { ALL_UNLOCKED, getTier, setTier } from "../state/tier";
+import { ALL_UNLOCKED, getTier, setTier, PRICING } from "../state/tier";
+import type { BillingPeriod } from "../state/tier";
 
 const FREE = [
   "8 ready-made goal sessions",
@@ -17,13 +18,18 @@ const PREMIUM = [
   "Premium sessions (Energy, Creativity, Power Nap)",
 ];
 
+const PRICES = PRICING.IDR;
+
 export function Upgrade() {
   const [tier, setLocalTier] = useState(getTier());
+  const [period, setPeriod] = useState<BillingPeriod>("annual");
 
   const activate = () => {
     setTier("premium");
     setLocalTier("premium");
   };
+
+  const plan = period === "annual" ? PRICES.annual : PRICES.monthly;
 
   return (
     <section className="upgrade">
@@ -46,7 +52,7 @@ export function Upgrade() {
         <div className="plan">
           <div className="plan-name">Free</div>
           <div className="plan-price">
-            $0<span>/forever</span>
+            {PRICES.symbol}0<span>/forever</span>
           </div>
           <ul>
             {FREE.map((f) => (
@@ -61,9 +67,37 @@ export function Upgrade() {
         <div className="plan featured">
           <div className="plan-badge">Most popular</div>
           <div className="plan-name">Premium</div>
-          <div className="plan-price">
-            $4.99<span>/month</span>
+
+          <div className="billing-toggle" role="tablist" aria-label="Billing period">
+            <button
+              role="tab"
+              aria-selected={period === "monthly"}
+              className={period === "monthly" ? "selected" : ""}
+              onClick={() => setPeriod("monthly")}
+            >
+              Monthly
+            </button>
+            <button
+              role="tab"
+              aria-selected={period === "annual"}
+              className={period === "annual" ? "selected" : ""}
+              onClick={() => setPeriod("annual")}
+            >
+              Annual
+              <span className="save-pill">Save {PRICES.annual.savePercent}%</span>
+            </button>
           </div>
+
+          <div className="plan-price">
+            {plan.price}
+            <span>{plan.per}</span>
+          </div>
+          <div className="plan-subprice">
+            {period === "annual"
+              ? `≈ ${PRICES.annual.perMonth}/month · billed annually`
+              : "Billed monthly · cancel anytime"}
+          </div>
+
           <ul>
             {PREMIUM.map((f) => (
               <li key={f}>{f}</li>
