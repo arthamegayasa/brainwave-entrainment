@@ -1,4 +1,4 @@
-# REQUIREMENTS.md — Healing Audio PWA v1 (M001)
+# REQUIREMENTS.md — Healing Audio PWA v1 (M001, expanded per ADR-007)
 
 ## v1 Requirements
 
@@ -33,26 +33,38 @@
 - [ ] **UI-04**: User dapat mengatur volume per layer (entrainment, solfeggio, ambient) + master volume
 - [ ] **UI-05**: User melihat timer countdown dan status sesi berjalan
 - [ ] **UI-06**: User dapat membuka panel detail frekuensi (beat Hz saat ini, carrier, fase ramp)
-- [ ] **UI-07**: UI dark calm theme, mobile-first, responsive di HP & desktop
+- [ ] **UI-07**: UI dark calm theme premium, mobile-first, responsive di HP & desktop, interaktif (animasi halus, feedback visual saat sesi berjalan)
 - [ ] **UI-08**: Play dimulai dari user gesture (AudioContext resume) — bekerja di browser dengan autoplay policy
 
-## v2 Requirements (deferred — M002/M003)
+### Advanced Builder (ala EquiSync Element)
 
-- **PWA-01**: Installable PWA + offline (vite-plugin-pwa)
-- **PWA-02**: Media Session API — kontrol dari lockscreen
-- **PWA-03**: Simpan tweak user per preset (localStorage)
-- **PWA-04**: Visualisasi kurva frekuensi sesi berjalan
-- **BLD-01**: Multi-layer editor (advanced builder ala Element)
-- **BLD-02**: Frequency finder harmonis
-- **BLD-03**: Session shape editor + legs
-- **BLD-04**: Export/import preset JSON
+- [ ] **BLD-01**: User dapat membuat sesi custom multi-layer: tambah/hapus layer, tiap layer pilih metode entrainment (binaural/isochronic/monaural/pure), carrier Hz, beat Hz
+- [ ] **BLD-02**: Frequency finder: dari base frequency, app menyarankan frekuensi harmonis/berkorelasi (oktaf, harmonic series, solfeggio terdekat)
+- [ ] **BLD-03**: User dapat mengatur kurva ramp sesi custom (titik-titik fase: start → target → hold → end)
+- [ ] **BLD-04**: User dapat menyimpan, memuat, export/import preset custom (JSON + localStorage)
+
+### Public Launch & Monetization-Ready
+
+- [ ] **LND-01**: Landing page publik: value proposition, cara kerja, CTA ke player — profesional & meyakinkan
+- [ ] **RES-01**: Halaman Science/Research: penjelasan brainwave entrainment dengan sitasi studi nyata, framing jujur (relaxation tool, bukan klaim medis)
+- [ ] **MON-01**: Arsitektur free/premium tier: feature flag terpusat, komponen gating, halaman upgrade — payment processing stub (tanpa Stripe live; semua fitur unlocked di build ini)
+- [ ] **PWA-01**: Installable PWA + offline (vite-plugin-pwa)
+- [ ] **PWA-02**: Media Session API — metadata & kontrol play/pause dari lockscreen/OS
+- [ ] **PWA-03**: Preferensi & tweak user tersimpan di localStorage (volume, preset terakhir, custom presets)
+- [ ] **PWA-04**: Visualisasi sesi berjalan: kurva frekuensi + posisi saat ini (interaktif)
+
+## v2 Requirements (deferred)
+
+- Payment processing live (Stripe) + akun user + backend — butuh kredensial user
+- Analytics & SEO tooling lanjutan
+- Background music generatif (pad/drone)
+- Bilingual UI penuh (EN/ID switcher)
 
 ## Out of Scope
 
-- Akun, subscription, backend, cloud sync — pemakaian pribadi (ADR-003)
+- Klaim medis/penyembuhan — framing relaxation tool (tetap)
 - Audio file/streaming — semua synthesized (ADR-004)
-- Klaim medis/penyembuhan — framing relaxation tool
-- Background music generatif — backlog
+- Cloud sync — tanpa backend di v1
 
 ## Traceability
 
@@ -80,5 +92,16 @@
 | UI-05 | Phase 3 | Pending |
 | UI-06 | Phase 3 | Pending |
 | UI-07 | Phase 3 | Pending |
+| BLD-01 | Phase 4 | Pending |
+| BLD-02 | Phase 4 | Pending |
+| BLD-03 | Phase 4 | Pending |
+| BLD-04 | Phase 4 | Pending |
+| LND-01 | Phase 5 | Pending |
+| RES-01 | Phase 5 | Pending |
+| MON-01 | Phase 5 | Pending |
+| PWA-01 | Phase 5 | Pending |
+| PWA-02 | Phase 5 | Pending |
+| PWA-03 | Phase 5 | Pending |
+| PWA-04 | Phase 5 | Pending |
 
-**Coverage: 22/22 v1 requirements mapped — no orphans, no duplicates.**
+**Coverage: 33/33 v1 requirements mapped — no orphans, no duplicates.**

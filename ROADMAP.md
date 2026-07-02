@@ -28,3 +28,9 @@
 - Produk publik: landing page, SEO, analytics.
 - Background music layer generatif (pad/drone).
 - Breathing guide visual sinkron dengan sesi.
+
+## Scope Update (2026-07-02, ADR-007)
+
+M001 diperluas menjadi produk publik lengkap dalam 5 phase (lihat .planning/ROADMAP.md):
+1. Audio Engine Core • 2. Session Scheduler & Presets • 3. Player UI & Mixer (premium design) • 4. Advanced Session Builder (ala Element) • 5. Public Launch & Monetization-Ready (landing, science page bercitasi, PWA, Media Session, persistence, free/premium scaffold).
+M002/M003 lama sudah terserap ke dalam M001 baru. Payment live (Stripe) + akun = v2.
