@@ -1,4 +1,4 @@
-import type { SoundLayer, ToneParams } from "../types";
+import type { RampableLayer, SoundLayer, ToneParams } from "../types";
 import { FADE_SEC } from "../constants";
 import { fadeIn, fadeOut } from "../ramps";
 
@@ -62,4 +62,57 @@ export function createIsochronicLayer(
       lfo.stop(stopAt);
     },
   };
+}
+
+/**
+ * Session variant: pulse rate is rampable (SCH-01) — the beat is a single
+ * AudioParam (lfo.frequency), which is exactly why the LFO architecture won.
+ */
+export function createIsochronicSessionLayer(
+  ctx: BaseAudioContext,
+  carrier: number,
+  startBeat: number,
+): RampableLayer {
+  const carrierOsc = ctx.createOscillator();
+  carrierOsc.frequency.value = carrier;
+  const envGain = ctx.createGain();
+  envGain.gain.value = 0;
+  const lfo = ctx.createOscillator();
+  lfo.type = "sine";
+  lfo.frequency.value = startBeat;
+  const shaper = ctx.createWaveShaper();
+  shaper.curve = buildPulseCurve();
+  const output = ctx.createGain();
+  output.gain.value = 0;
+
+  carrierOsc.connect(envGain);
+  envGain.connect(output);
+  lfo.connect(shaper);
+  shaper.connect(envGain.gain);
+
+  const layer: RampableLayer = {
+    output,
+    onEnded: null,
+    start(t: number) {
+      fadeIn(output.gain, 1, t);
+      carrierOsc.start(t);
+      lfo.start(t);
+      carrierOsc.onended = () => layer.onEnded?.();
+    },
+    stop(t: number) {
+      fadeOut(output.gain, t);
+      const stopAt = t + FADE_SEC + 0.01;
+      carrierOsc.stop(stopAt);
+      lfo.stop(stopAt);
+    },
+    scheduleBeat(points, t0) {
+      const param = lfo.frequency;
+      param.cancelScheduledValues(t0);
+      param.setValueAtTime(points[0].hz, t0 + points[0].time);
+      for (let i = 1; i < points.length; i++) {
+        param.linearRampToValueAtTime(points[i].hz, t0 + points[i].time);
+      }
+    },
+  };
+  return layer;
 }

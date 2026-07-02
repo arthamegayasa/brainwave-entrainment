@@ -18,3 +18,14 @@ export interface SoundLayer {
 }
 
 export type LayerFactory = (ctx: BaseAudioContext) => SoundLayer;
+
+/** A layer whose beat frequency can be scheduled along a curve (sessions). */
+export interface RampableLayer extends SoundLayer {
+  /**
+   * Schedule the beat curve on the audio clock. `points[].time` are seconds
+   * relative to `t0` (an absolute AudioContext time).
+   */
+  scheduleBeat(points: Array<{ time: number; hz: number }>, t0: number): void;
+  /** Fires once when the layer's sources actually end (auto-stop). */
+  onEnded?: (() => void) | null;
+}
