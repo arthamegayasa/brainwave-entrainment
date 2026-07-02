@@ -29,7 +29,13 @@ Bangun dari bawah ke atas dalam lima vertical slice: (1) audio engine murni Type
   3. User dapat mendengar solfeggio frequency (sebagai carrier atau pure-tone layer) dan keempat ambient tersintesis: rain, ocean, wind, brown noise
   4. Semua play/stop dan perubahan gain ter-fade halus (ramp, bukan set langsung) — tidak ada click/pop yang terdengar
   5. Modul audio engine tidak meng-import React sama sekali dan lulus unit test
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — Scaffold Vite+React+TS + Vitest/node-web-audio-api + kontrak engine (gate legitimasi vitest)
+- [ ] 01-02-PLAN.md — Walking Skeleton slice: ramps + binaural layer + AudioEngine + UI audisi + gesture resume
+- [ ] 01-03-PLAN.md — Isochronic (LFO→WaveShaper monotonic) + monaural (penjumlahan dua tone)
+- [ ] 01-04-PLAN.md — Solfeggio + 4 ambient tersintesis + checkpoint dengar-dengan-headphone
 
 ### Phase 2: Session Scheduler & Presets
 **Goal**: User dapat memulai sesi dari salah satu 8 preset tujuan dan otaknya "dituntun" otomatis — frekuensi beat mengikuti kurva ramp preset hingga sesi berakhir sendiri dengan fade-out
@@ -93,7 +99,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Audio Engine Core | 0/TBD | Not started | - |
+| 1. Audio Engine Core | 0/4 | Not started | - |
 | 2. Session Scheduler & Presets | 0/TBD | Not started | - |
 | 3. Player UI & Mixer | 0/TBD | Not started | - |
 | 4. Advanced Session Builder | 0/TBD | Not started | - |
