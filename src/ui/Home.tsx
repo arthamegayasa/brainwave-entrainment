@@ -5,6 +5,8 @@ import { SOUND_LABELS_ID } from "../audio/constants";
 import type { AmbientKind } from "../audio/types";
 import type { ListeningMode, SessionConfig } from "../audio/session";
 import { BAND_COLORS, BAND_LABELS_ID } from "./bands";
+import { isUnlocked } from "../state/tier";
+import { loadPrefs } from "../state/prefs";
 
 const AMBIENTS: (AmbientKind | null)[] = [null, "rain", "ocean", "wind", "brown"];
 
@@ -14,6 +16,7 @@ interface HomeProps {
 
 export function Home({ onStart }: HomeProps) {
   const [selected, setSelected] = useState<Preset | null>(null);
+  const premiumUnlocked = isUnlocked("premiumPresets");
 
   return (
     <>
@@ -39,7 +42,11 @@ export function Home({ onStart }: HomeProps) {
             <span className="emoji" aria-hidden>
               {preset.emoji}
             </span>
-            {preset.premium && <span className="premium-tag">Premium</span>}
+            {preset.premium && (
+              <span className="premium-tag">
+                {premiumUnlocked ? "Premium" : "🔒 Premium"}
+              </span>
+            )}
             <h3>{preset.name}</h3>
             <p className="tagline">{preset.tagline}</p>
             <span className="band-chip">{BAND_LABELS_ID[preset.band]}</span>
@@ -68,8 +75,11 @@ interface SetupSheetProps {
 }
 
 function SetupSheet({ preset, onClose, onStart }: SetupSheetProps) {
-  const [durationMin, setDurationMin] = useState<number | null>(30);
-  const [mode, setMode] = useState<ListeningMode>("headphone");
+  const prefs = loadPrefs();
+  const [durationMin, setDurationMin] = useState<number | null>(
+    prefs.lastDurationMin === "inf" ? null : prefs.lastDurationMin ?? 30,
+  );
+  const [mode, setMode] = useState<ListeningMode>(prefs.lastMode);
   const [ambient, setAmbient] = useState<AmbientKind | null>(preset.defaultAmbient);
 
   const accent = BAND_COLORS[preset.band];

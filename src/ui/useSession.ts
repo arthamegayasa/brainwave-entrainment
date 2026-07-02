@@ -8,6 +8,8 @@ import type {
 } from "../audio/session";
 import type { Preset } from "../audio/presets";
 import type { AmbientKind } from "../audio/types";
+import type { SessionSchedule } from "../audio/schedule";
+import { loadPrefs, savePrefs } from "../state/prefs";
 
 // Module-level singletons: the AudioContext must be created/resumed inside a
 // user gesture (UI-08); the engine itself never creates one (ENG-07).
@@ -17,8 +19,30 @@ let engine: SessionEngine | null = null;
 async function ensureEngine(): Promise<SessionEngine> {
   if (!ctx) ctx = new AudioContext();
   if (ctx.state === "suspended") await ctx.resume();
-  if (!engine) engine = new SessionEngine(ctx);
+  if (!engine) engine = new SessionEngine(ctx, loadPrefs().volumes);
   return engine;
+}
+
+/** Best-effort Media Session wiring (PWA-02): lockscreen metadata + controls. */
+function updateMediaSession(cfg: SessionConfig | null, handlers?: { stop: () => void }) {
+  if (!("mediaSession" in navigator)) return;
+  try {
+    if (!cfg) {
+      navigator.mediaSession.metadata = null;
+      navigator.mediaSession.playbackState = "none";
+      return;
+    }
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: `${cfg.preset.emoji} ${cfg.preset.name}`,
+      artist: "Serenade — Healing Audio",
+      album: cfg.preset.tagline,
+    });
+    navigator.mediaSession.playbackState = "playing";
+    navigator.mediaSession.setActionHandler("pause", () => handlers?.stop());
+    navigator.mediaSession.setActionHandler("stop", () => handlers?.stop());
+  } catch {
+    /* media session is progressive enhancement only */
+  }
 }
 
 const IDLE_PROGRESS: SessionProgress = {
@@ -44,6 +68,7 @@ export interface SessionApi {
   stop: () => void;
   setAmbient: (kind: AmbientKind | null) => void;
   setVolume: (channel: keyof SessionVolumes, v: number) => void;
+  getSchedule: () => SessionSchedule | null;
 }
 
 /** React binding for SessionEngine: gesture-safe start + polled progress. */
@@ -72,21 +97,32 @@ export function useSession(onEnded?: () => void): SessionApi {
     return () => window.clearInterval(id);
   }, [active]);
 
-  const start = useCallback(async (cfg: SessionConfig) => {
-    const e = await ensureEngine();
-    e.start(cfg);
-    setConfig(cfg);
-    setActive(true);
-    setProgress(e.progress());
-    setVolumes(e.getVolumes());
-  }, []);
-
   const stop = useCallback(() => {
     engine?.stop();
     setActive(false);
     setConfig(null);
     setProgress(IDLE_PROGRESS);
+    updateMediaSession(null);
   }, []);
+
+  const start = useCallback(
+    async (cfg: SessionConfig) => {
+      const e = await ensureEngine();
+      e.start(cfg);
+      setConfig(cfg);
+      setActive(true);
+      setProgress(e.progress());
+      setVolumes(e.getVolumes());
+      updateMediaSession(cfg, { stop });
+      savePrefs({
+        lastPresetId: cfg.preset.id,
+        lastDurationMin: cfg.durationMin === null ? "inf" : cfg.durationMin,
+        lastMode: cfg.mode,
+        lastAmbient: cfg.ambient,
+      });
+    },
+    [stop],
+  );
 
   const setAmbient = useCallback((kind: AmbientKind | null) => {
     engine?.setAmbient(kind);
@@ -96,10 +132,18 @@ export function useSession(onEnded?: () => void): SessionApi {
   const setVolume = useCallback(
     (channel: keyof SessionVolumes, v: number) => {
       engine?.setVolume(channel, v);
-      setVolumes((prev) => ({ ...prev, [channel]: Math.min(Math.max(v, 0), 1) }));
+      setVolumes((prev) => {
+        const next = { ...prev, [channel]: Math.min(Math.max(v, 0), 1) };
+        savePrefs({ volumes: next });
+        return next;
+      });
     },
     [],
   );
+
+  const getSchedule = useCallback((): SessionSchedule | null => {
+    return engine?.getSchedule() ?? null;
+  }, []);
 
   return {
     state: {
@@ -113,6 +157,7 @@ export function useSession(onEnded?: () => void): SessionApi {
     stop,
     setAmbient,
     setVolume,
+    getSchedule,
   };
 }
 

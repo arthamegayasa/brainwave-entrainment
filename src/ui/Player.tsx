@@ -3,6 +3,7 @@ import type { AmbientKind } from "../audio/types";
 import type { SessionApi } from "./useSession";
 import type { SessionVolumes } from "../audio/session";
 import { BAND_COLORS, formatClock } from "./bands";
+import { SessionViz } from "./SessionViz";
 
 const AMBIENTS: (AmbientKind | null)[] = [null, "rain", "ocean", "wind", "brown"];
 
@@ -54,6 +55,12 @@ export function Player({ session, onExit }: PlayerProps) {
         {progress.remainingSec === null ? "Sesi tanpa batas · " : ""}
         {PHASE_LABELS[progress.phase]}
       </div>
+
+      <SessionViz
+        schedule={session.getSchedule()}
+        elapsedSec={progress.elapsedSec}
+        durationSec={config.durationMin === null ? null : config.durationMin * 60}
+      />
 
       <div className="player-controls">
         <button className="pill-btn stop" onClick={onExit}>

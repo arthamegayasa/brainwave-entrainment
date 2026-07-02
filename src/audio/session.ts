@@ -202,6 +202,11 @@ export class SessionEngine {
     return this.config;
   }
 
+  /** The active beat curve (for the session visualization, PWA-04). */
+  getSchedule(): SessionSchedule | null {
+    return this.schedule;
+  }
+
   progress(): SessionProgress {
     if (!this.config || !this.schedule) {
       return {
