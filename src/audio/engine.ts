@@ -2,9 +2,13 @@ import type { LayerFactory, SoundKind, SoundLayer } from "./types";
 import { DEMO } from "./constants";
 import { fadeIn, fadeOut, setGainSmooth } from "./ramps";
 import { createBinauralLayer } from "./layers/binaural";
+import { createIsochronicLayer } from "./layers/isochronic";
+import { createMonauralLayer } from "./layers/monaural";
 
 const LAYER_FACTORIES: Partial<Record<SoundKind, LayerFactory>> = {
   binaural: (ctx) => createBinauralLayer(ctx, DEMO.binaural),
+  isochronic: (ctx) => createIsochronicLayer(ctx, DEMO.isochronic),
+  monaural: (ctx) => createMonauralLayer(ctx, DEMO.monaural),
 };
 
 /** Kinds available before an engine instance exists (App renders buttons from this). */
