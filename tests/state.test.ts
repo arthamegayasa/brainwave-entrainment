@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { loadPrefs, savePrefs } from "../src/state/prefs";
 import { getTier, setTier, features, isUnlocked, ALL_UNLOCKED, PRICING } from "../src/state/tier";
+import { getPreset } from "../src/audio/presets";
 
 function installLocalStorage() {
   const store = new Map<string, string>();
@@ -68,5 +69,22 @@ describe("pricing (MON-01)", () => {
     const actualSave = Math.round((1 - annual.amount / (monthly.amount * 12)) * 100);
     expect(annual.savePercent).toBe(58);
     expect(actualSave).toBe(annual.savePercent);
+  });
+
+  it("anchor annual is exactly 12 x monthly (contrast anchor, never charged)", () => {
+    expect(PRICING.IDR.anchorAnnual.amount).toBe(PRICING.IDR.monthly.amount * 12);
+  });
+});
+
+describe("goal-first preset names (quick-260707-a47)", () => {
+  it("renames presets while keeping ids unchanged", () => {
+    expect(getPreset("deep-sleep").name).toBe("Sleeping");
+    expect(getPreset("deep-meditation").name).toBe("Meditating");
+    expect(getPreset("healing-relaxation").name).toBe("Relaxing");
+    expect(getPreset("anxiety-relief").name).toBe("Calming Anxiety");
+    expect(getPreset("focus").name).toBe("Focus & Concentration");
+    expect(getPreset("energy").name).toBe("Boosting Energy");
+    expect(getPreset("creativity").name).toBe("Creative Flow");
+    expect(getPreset("power-nap").name).toBe("Power Nap");
   });
 });

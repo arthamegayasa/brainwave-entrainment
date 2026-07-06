@@ -66,7 +66,12 @@ export function importSessionJSON(json: string): CustomSession {
   return session;
 }
 
-function sanitizeSession(value: unknown): CustomSession | null {
+/**
+ * Clamp + validate an untrusted session spec (imports AND cloud jsonb).
+ * Every spec read from Supabase MUST pass through here before it can reach
+ * the audio engine — never feed raw jsonb to BuilderEngine.
+ */
+export function sanitizeSession(value: unknown): CustomSession | null {
   if (typeof value !== "object" || value === null) return null;
   const v = value as Record<string, unknown>;
   if (!Array.isArray(v.layers) || typeof v.curve !== "object" || v.curve === null) {

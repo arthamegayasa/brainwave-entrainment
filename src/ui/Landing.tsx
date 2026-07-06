@@ -7,7 +7,7 @@ const STEPS = [
   {
     emoji: "🎯",
     title: "Choose a goal",
-    body: "Deep sleep, meditation, focus, or calming anxiety — you pick the outcome, not a frequency number.",
+    body: "Sleeping, meditating, focusing, or calming anxiety — you pick the outcome, not a frequency number.",
   },
   {
     emoji: "🌊",
@@ -24,7 +24,7 @@ const STEPS = [
 const FEATURES = [
   {
     title: "8 ready-made goal sessions",
-    body: "From Deep Sleep to Power Nap — each session is designed with its own frequency curve and solfeggio carrier.",
+    body: "From Sleeping to Power Nap — each session is designed with its own frequency curve and solfeggio carrier.",
   },
   {
     title: "Multi-layer Studio",

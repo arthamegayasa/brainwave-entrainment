@@ -34,7 +34,7 @@ export interface Preset {
 export const PRESETS: readonly Preset[] = [
   {
     id: "deep-sleep",
-    name: "Deep Sleep",
+    name: "Sleeping",
     tagline: "Drift down into delta waves for deep, restful sleep",
     emoji: "🌙",
     band: "delta",
@@ -49,7 +49,7 @@ export const PRESETS: readonly Preset[] = [
   },
   {
     id: "deep-meditation",
-    name: "Deep Meditation",
+    name: "Meditating",
     tagline: "Theta 6 Hz — the state of seasoned meditators",
     emoji: "🧘",
     band: "theta",
@@ -64,7 +64,7 @@ export const PRESETS: readonly Preset[] = [
   },
   {
     id: "healing-relaxation",
-    name: "Healing & Relaxation",
+    name: "Relaxing",
     tagline: "7.83 Hz (Schumann resonance) with a 528 Hz carrier",
     emoji: "💚",
     band: "theta",
@@ -79,7 +79,7 @@ export const PRESETS: readonly Preset[] = [
   },
   {
     id: "anxiety-relief",
-    name: "Calm Anxiety",
+    name: "Calming Anxiety",
     tagline: "Soothing alpha to release tension",
     emoji: "🍃",
     band: "alpha",
@@ -94,7 +94,7 @@ export const PRESETS: readonly Preset[] = [
   },
   {
     id: "focus",
-    name: "Focus",
+    name: "Focus & Concentration",
     tagline: "Low beta for work and study concentration",
     emoji: "🎯",
     band: "beta",
@@ -109,7 +109,7 @@ export const PRESETS: readonly Preset[] = [
   },
   {
     id: "energy",
-    name: "Energy",
+    name: "Boosting Energy",
     tagline: "Gamma 40 Hz for alertness and drive",
     emoji: "⚡",
     band: "gamma",
@@ -124,7 +124,7 @@ export const PRESETS: readonly Preset[] = [
   },
   {
     id: "creativity",
-    name: "Creativity",
+    name: "Creative Flow",
     tagline: "The alpha-theta border — room for ideas and imagination",
     emoji: "🎨",
     band: "theta",

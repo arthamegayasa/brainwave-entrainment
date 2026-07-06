@@ -29,6 +29,11 @@ export const PRICING = {
       perMonth: "Rp20,750", // 249,000 / 12
       savePercent: 58, // 1 − 249,000 / (49,000 × 12)
     },
+    /**
+     * Contrast anchor ONLY — derived as 12 × monthly (49,000 × 12 = 588,000).
+     * Rendered struck-through beside the real annual price; never charged.
+     */
+    anchorAnnual: { amount: 588000, price: "Rp588,000" },
   },
   // USD: { ... } — added in the global-launch phase
 } as const;
