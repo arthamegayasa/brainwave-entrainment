@@ -4,6 +4,7 @@ import type { BillingPeriod } from "../state/tier";
 import { useEntitlement } from "../lib/useEntitlement";
 import { createCheckout, signInWithEmail, signOut } from "../lib/payments";
 import { loadSnap, openSnap } from "../lib/snap";
+import { currentStreakDays, totalSessions } from "../state/progress";
 
 const FREE = [
   "8 ready-made goal sessions",
@@ -12,13 +13,14 @@ const FREE = [
   "15–60 minute durations",
 ];
 
+// Loss-aversion framing (D-05): protect/keep wording, not gain wording.
 const PREMIUM = [
   "Everything in Free",
-  "Unlimited multi-layer Studio",
-  "Harmonic frequency finder",
-  "Custom session curves + export/import",
-  "Unlimited duration (∞)",
-  "Premium sessions (Energy, Creativity, Power Nap)",
+  "Keep unlimited session length (∞)",
+  "Keep every goal session — including Boosting Energy, Creative Flow & Power Nap",
+  "Keep the full multi-layer Studio",
+  "Keep custom curves + export/import",
+  "Keep the harmonic frequency finder",
 ];
 
 const PRICES = PRICING.IDR;
@@ -27,6 +29,8 @@ export function Upgrade() {
   const [period, setPeriod] = useState<BillingPeriod>("annual");
   const plan = period === "annual" ? PRICES.annual : PRICES.monthly;
   const ent = useEntitlement();
+  const sessions = totalSessions();
+  const streak = currentStreakDays();
 
   return (
     <section className="upgrade">
@@ -42,6 +46,14 @@ export function Upgrade() {
         <div className="early-banner">
           🎁 <strong>Early access:</strong> every premium feature is unlocked
           free during launch. Enjoy it fully.
+        </div>
+      )}
+
+      {sessions >= 1 && (
+        <div className="stakes-block">
+          {streak >= 2
+            ? `You've built a ${streak}-day streak — keep it alive.`
+            : `You've completed ${sessions} ${sessions === 1 ? "session" : "sessions"} — keep the momentum going.`}
         </div>
       )}
 
@@ -86,6 +98,9 @@ export function Upgrade() {
           </div>
 
           <div className="plan-price">
+            {period === "annual" && (
+              <span className="price-anchor">{PRICES.anchorAnnual.price}</span>
+            )}
             {plan.price}
             <span>{plan.per}</span>
           </div>

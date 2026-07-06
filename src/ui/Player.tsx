@@ -4,6 +4,7 @@ import type { SessionApi } from "./useSession";
 import type { SessionVolumes } from "../audio/session";
 import { BAND_COLORS, formatClock } from "./bands";
 import { SessionViz } from "./SessionViz";
+import { sessionsThisWeek, weeklyStreakDots } from "../state/progress";
 
 const AMBIENTS: (AmbientKind | null)[] = [null, "rain", "ocean", "wind", "brown"];
 
@@ -19,6 +20,46 @@ const MIXER_CHANNELS: Array<{ key: keyof SessionVolumes; label: string }> = [
   { key: "entrainment", label: "Entrainment" },
   { key: "ambient", label: "Ambient" },
 ];
+
+const DAY_LABELS = ["M", "T", "W", "T", "F", "S", "S"];
+
+interface SessionCompleteProps {
+  presetName: string;
+  onDone: () => void;
+}
+
+/**
+ * Post-session completion card (D-05 goal gradient + loss aversion): weekly
+ * session count, Mon-Sun streak dots, and the come-back-tomorrow nudge.
+ */
+export function SessionComplete({ presetName, onDone }: SessionCompleteProps) {
+  const count = sessionsThisWeek();
+  const dots = weeklyStreakDots();
+
+  return (
+    <section className="session-complete">
+      <div className="complete-card">
+        <span className="complete-emoji" aria-hidden>
+          🌿
+        </span>
+        <h2>{presetName} complete</h2>
+        <p className="complete-count">Session #{count} this week</p>
+        <div className="streak-dots" aria-label="Sessions this week, Monday to Sunday">
+          {dots.map((filled, i) => (
+            <span className="streak-day" key={`${DAY_LABELS[i]}-${i}`}>
+              <span className={`streak-dot ${filled ? "filled" : ""}`} aria-hidden />
+              <span className="streak-label">{DAY_LABELS[i]}</span>
+            </span>
+          ))}
+        </div>
+        <p className="complete-note">Come back tomorrow to keep your streak.</p>
+        <button className="start-btn compact" onClick={onDone}>
+          Back to sessions
+        </button>
+      </div>
+    </section>
+  );
+}
 
 interface PlayerProps {
   session: SessionApi;

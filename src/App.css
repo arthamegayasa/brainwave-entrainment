@@ -1223,3 +1223,356 @@
   font-size: 0.82rem;
   color: var(--ink-faint);
 }
+
+/* ── Behavioral design (quick-260707-a47) ───────────────────────────── */
+
+/* Recommended-now hero card (smart defaults) */
+.reco-card {
+  --card-accent: var(--accent);
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+  padding: 1.4rem 1.5rem;
+  margin-bottom: 1.1rem;
+  border-radius: var(--radius);
+  background: linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--card-accent) 14%, transparent),
+      transparent 65%
+    ),
+    var(--bg-raised);
+  border: 1px solid color-mix(in srgb, var(--card-accent) 35%, var(--line));
+}
+
+.reco-label {
+  display: inline-block;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--card-accent) 80%, var(--ink));
+  margin-bottom: 0.35rem;
+}
+
+.reco-info h2 {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  margin: 0;
+}
+
+.reco-info .tagline {
+  color: var(--ink-dim);
+  font-size: 0.92rem;
+  margin: 0.3rem 0 0;
+}
+
+.reco-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+/* Journey strip (goal gradient) */
+.journey {
+  margin-bottom: 1.1rem;
+  padding: 1rem 1.2rem;
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+}
+
+.journey-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ink) 10%, transparent);
+  overflow: hidden;
+}
+
+.journey-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: width 0.5s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+.journey-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.1rem;
+  margin-top: 0.7rem;
+}
+
+.journey-step {
+  font-size: 0.8rem;
+  color: var(--ink-faint);
+}
+
+.journey-step.done {
+  color: color-mix(in srgb, var(--accent) 85%, var(--ink));
+}
+
+.journey-step.clickable {
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--ink) 30%, transparent);
+  text-underline-offset: 3px;
+}
+
+.journey-step.clickable:hover {
+  color: var(--ink);
+}
+
+/* Goal picker overlay (IKEA effect) */
+.goal-picker .goal-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 1.1rem 0 1.4rem;
+}
+
+.goal-chip {
+  font-size: 0.9rem;
+}
+
+/* Reciprocity card */
+.reciprocity-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 1rem 2.6rem 1rem 1.2rem;
+  margin-bottom: 1.1rem;
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--accent) 7%, var(--bg-raised));
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--line));
+}
+
+.reciprocity-card p {
+  margin: 0;
+  flex: 1 1 280px;
+  font-size: 0.92rem;
+  color: var(--ink-dim);
+}
+
+.reciprocity-dismiss {
+  position: absolute;
+  top: 0.55rem;
+  right: 0.65rem;
+  color: var(--ink-faint);
+  font-size: 0.85rem;
+  padding: 0.2rem 0.4rem;
+  border-radius: 6px;
+}
+
+.reciprocity-dismiss:hover {
+  color: var(--ink);
+  background: var(--bg-raised-hover);
+}
+
+/* Session-complete card (goal gradient + loss aversion) */
+.session-complete {
+  display: flex;
+  justify-content: center;
+  padding: clamp(2rem, 6vw, 4rem) 0 3rem;
+}
+
+.complete-card {
+  text-align: center;
+  max-width: 420px;
+  width: 100%;
+  padding: 2.2rem 2rem;
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+}
+
+.complete-emoji {
+  font-size: 2rem;
+  display: block;
+  margin-bottom: 0.6rem;
+}
+
+.complete-card h2 {
+  font-family: var(--font-display);
+  margin: 0 0 0.3rem;
+}
+
+.complete-count {
+  color: var(--ink-dim);
+  margin: 0 0 1.2rem;
+}
+
+.streak-dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.7rem;
+  margin-bottom: 1.2rem;
+}
+
+.streak-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.streak-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--ink) 12%, transparent);
+  border: 1px solid var(--line);
+}
+
+.streak-dot.filled {
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+.streak-label {
+  font-size: 0.65rem;
+  color: var(--ink-faint);
+}
+
+.complete-note {
+  color: var(--ink-dim);
+  font-size: 0.9rem;
+  margin: 0 0 1.4rem;
+}
+
+/* Library */
+.library {
+  padding-bottom: 3rem;
+}
+
+.library-head h1 {
+  font-size: clamp(1.6rem, 4vw, 2.2rem);
+  margin: 0;
+}
+
+.library-sub {
+  color: var(--ink-dim);
+  margin: 0.4rem 0 0;
+}
+
+.library-section {
+  margin-top: 1.8rem;
+  padding: 1.2rem 1.3rem;
+  border-radius: var(--radius);
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+}
+
+.library-section h2 {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  margin: 0;
+}
+
+.library-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.library-subheading {
+  font-size: 0.85rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin: 1.2rem 0 0;
+}
+
+.library-note {
+  color: var(--ink-dim);
+  font-size: 0.9rem;
+  margin: 0.5rem 0 0;
+}
+
+.library-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.8rem;
+}
+
+.library-item {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.65rem 0.8rem;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--ink) 4%, transparent);
+  border: 1px solid var(--line);
+}
+
+.library-item-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.library-item-name {
+  font-size: 0.95rem;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.library-item-tagline {
+  font-size: 0.78rem;
+  color: var(--ink-faint);
+}
+
+.library-transport {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Studio publish panel (admin) */
+.publish-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.publish-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.publish-actions .select {
+  flex: 1;
+  min-width: 160px;
+}
+
+/* Upgrade: contrast anchor + personal stakes */
+.price-anchor {
+  margin-right: 0.5rem;
+  font-size: 0.55em;
+  color: var(--ink-faint);
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+}
+
+.stakes-block {
+  margin: 0 0 1.4rem;
+  padding: 0.85rem 1.2rem;
+  border-radius: var(--radius);
+  text-align: center;
+  font-size: 0.95rem;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg-raised));
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--line));
+}

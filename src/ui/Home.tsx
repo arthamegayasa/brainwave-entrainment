@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { PRESETS, DURATIONS_MIN } from "../audio/presets";
+import { useReducer, useState } from "react";
+import { PRESETS, DURATIONS_MIN, getPreset } from "../audio/presets";
 import type { Preset } from "../audio/presets";
 import { SOUND_LABELS } from "../audio/constants";
 import type { AmbientKind } from "../audio/types";
@@ -7,16 +7,58 @@ import type { ListeningMode, SessionConfig } from "../audio/session";
 import { BAND_COLORS, BAND_LABELS } from "./bands";
 import { isUnlocked } from "../state/tier";
 import { loadPrefs } from "../state/prefs";
+import {
+  dismissReciprocityCard,
+  journeyPercent,
+  journeySteps,
+  loadProgress,
+  recommendedPresetId,
+  setChosenGoals,
+  shouldShowReciprocity,
+  skipGoalPicker,
+  totalSessions,
+} from "../state/progress";
 
 const AMBIENTS: (AmbientKind | null)[] = [null, "rain", "ocean", "wind", "brown"];
 
 interface HomeProps {
   onStart: (config: SessionConfig) => void;
+  onUpgrade: () => void;
 }
 
-export function Home({ onStart }: HomeProps) {
+export function Home({ onStart, onUpgrade }: HomeProps) {
   const [selected, setSelected] = useState<Preset | null>(null);
+  // First visit after Landing: the picker opens until answered OR skipped.
+  const [pickerOpen, setPickerOpen] = useState(() => !loadProgress().goalPickerDone);
+  const [, refresh] = useReducer((n: number) => n + 1, 0);
   const premiumUnlocked = isUnlocked("premiumPresets");
+
+  const progress = loadProgress();
+  const recommended = getPreset(recommendedPresetId());
+  const steps = journeySteps();
+  const percent = journeyPercent();
+
+  // Smart default (D-05): one tap starts the recommended session with the
+  // user's last-used settings — no sheet, no decisions.
+  const startRecommended = () => {
+    const prefs = loadPrefs();
+    onStart({
+      preset: recommended,
+      durationMin: prefs.lastDurationMin === "inf" ? null : prefs.lastDurationMin ?? 30,
+      mode: prefs.lastMode,
+      ambient: recommended.defaultAmbient,
+      solfeggioTone: null,
+    });
+  };
+
+  // IKEA effect (D-05): chosen goals come first, in the order they were picked.
+  const chosen = progress.chosenGoals;
+  const orderedPresets = [
+    ...chosen
+      .map((id) => PRESETS.find((p) => p.id === id))
+      .filter((p): p is Preset => p !== undefined),
+    ...PRESETS.filter((p) => !chosen.includes(p.id)),
+  ];
 
   return (
     <>
@@ -31,8 +73,81 @@ export function Home({ onStart }: HomeProps) {
         </p>
       </section>
 
+      <section
+        className="reco-card"
+        style={{ "--card-accent": BAND_COLORS[recommended.band] } as React.CSSProperties}
+        aria-label="Recommended now"
+      >
+        <div className="reco-info">
+          <span className="reco-label">Recommended now</span>
+          <h2>
+            <span className="emoji" aria-hidden>
+              {recommended.emoji}
+            </span>{" "}
+            {recommended.name}
+          </h2>
+          <p className="tagline">{recommended.tagline}</p>
+        </div>
+        <div className="reco-actions">
+          <button className="start-btn compact" onClick={startRecommended}>
+            Start now
+          </button>
+          <button className="pill-btn" onClick={() => setSelected(recommended)}>
+            Adjust
+          </button>
+        </div>
+      </section>
+
+      <section className="journey" aria-label="Your journey">
+        <div className="journey-bar">
+          <div className="journey-fill" style={{ width: `${percent}%` }} />
+        </div>
+        <div className="journey-steps">
+          {steps.map((step, i) =>
+            i === 1 ? (
+              <button
+                key={step.label}
+                className={`journey-step clickable ${step.done ? "done" : ""}`}
+                onClick={() => setPickerOpen(true)}
+              >
+                {step.done ? "✓ " : ""}
+                {step.label}
+              </button>
+            ) : (
+              <span key={step.label} className={`journey-step ${step.done ? "done" : ""}`}>
+                {step.done ? "✓ " : ""}
+                {step.label}
+              </span>
+            ),
+          )}
+        </div>
+      </section>
+
+      {shouldShowReciprocity() && (
+        <section className="reciprocity-card" aria-label="Your progress">
+          <button
+            className="reciprocity-dismiss"
+            aria-label="Dismiss"
+            onClick={() => {
+              dismissReciprocityCard();
+              refresh();
+            }}
+          >
+            ✕
+          </button>
+          <p>
+            You've completed {totalSessions()} sessions — nice rhythm. Create a
+            free account to save your progress, or go Premium to keep every
+            feature.
+          </p>
+          <button className="pill-btn" onClick={onUpgrade}>
+            Explore Premium
+          </button>
+        </section>
+      )}
+
       <section className="preset-grid" aria-label="Session goals">
-        {PRESETS.map((preset, i) => (
+        {orderedPresets.map((preset, i) => (
           <button
             key={preset.id}
             className="preset-card"
@@ -64,7 +179,76 @@ export function Home({ onStart }: HomeProps) {
           }}
         />
       )}
+
+      {pickerOpen && (
+        <GoalPicker
+          initial={progress.chosenGoals}
+          onChoose={(ids) => {
+            setChosenGoals(ids);
+            setPickerOpen(false);
+            refresh();
+          }}
+          onSkip={() => {
+            skipGoalPicker();
+            setPickerOpen(false);
+            refresh();
+          }}
+        />
+      )}
     </>
+  );
+}
+
+interface GoalPickerProps {
+  initial: string[];
+  onChoose: (ids: string[]) => void;
+  onSkip: () => void;
+}
+
+/** IKEA-effect goal picker (D-05): multi-select of the 8 goals, skippable. */
+function GoalPicker({ initial, onChoose, onSkip }: GoalPickerProps) {
+  const [selection, setSelection] = useState<string[]>(initial);
+
+  const toggle = (id: string) =>
+    setSelection((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+
+  return (
+    <div className="sheet-backdrop">
+      <div
+        className="sheet goal-picker"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Pick your goals"
+      >
+        <h2>What do you want more of?</h2>
+        <p className="tagline">
+          Pick the goals that matter to you — we'll put them first.
+        </p>
+        <div className="goal-chips">
+          {PRESETS.map((preset) => (
+            <button
+              key={preset.id}
+              className={`chip goal-chip ${selection.includes(preset.id) ? "selected" : ""}`}
+              onClick={() => toggle(preset.id)}
+            >
+              <span aria-hidden>{preset.emoji}</span> {preset.name}
+            </button>
+          ))}
+        </div>
+        <button
+          className="start-btn compact"
+          disabled={selection.length === 0}
+          onClick={() => onChoose(selection)}
+        >
+          Continue
+        </button>
+        <button className="close-btn" onClick={onSkip}>
+          Skip for now
+        </button>
+      </div>
+    </div>
   );
 }
 

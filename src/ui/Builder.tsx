@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { BuilderEngine, isEntrainment } from "../audio/builder";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { isEntrainment } from "../audio/builder";
 import type {
   BuilderCurve,
   BuilderLayerSpec,
@@ -16,16 +16,17 @@ import {
   saveCustomSession,
 } from "../state/customPresets";
 import { formatClock } from "./bands";
-
-let ctx: AudioContext | null = null;
-let engine: BuilderEngine | null = null;
-
-async function ensureBuilder(): Promise<BuilderEngine> {
-  if (!ctx) ctx = new AudioContext();
-  if (ctx.state === "suspended") await ctx.resume();
-  if (!engine) engine = new BuilderEngine(ctx);
-  return engine;
-}
+import { ensureBuilder, getBuilderEngine } from "./builderEngine";
+import { useEntitlement } from "../lib/useEntitlement";
+import { isPaymentsConfigured } from "../lib/supabase";
+import {
+  assignAudio,
+  deleteAudio,
+  listAllUsers,
+  listMyPublishedAudios,
+  publishAudio,
+} from "../lib/audioLibrary";
+import type { CloudAudio } from "../lib/audioLibrary";
 
 const LAYER_TYPE_LABELS: Record<BuilderLayerType, string> = {
   binaural: "Binaural",
@@ -64,6 +65,7 @@ const DEFAULT_CURVE: BuilderCurve = {
 const DURATIONS: (number | null)[] = [15, 30, 45, 60, null];
 
 export function Builder() {
+  const ent = useEntitlement();
   const [layers, setLayers] = useState<BuilderLayerSpec[]>([
     newLayer("binaural"),
     newLayer("ocean"),
@@ -81,6 +83,7 @@ export function Builder() {
   useEffect(() => {
     if (!playing) return;
     const id = window.setInterval(() => {
+      const engine = getBuilderEngine();
       if (!engine) return;
       const p = engine.progress();
       setElapsed(p.elapsedSec);
@@ -105,7 +108,7 @@ export function Builder() {
   };
 
   const handleStop = () => {
-    engine?.stop();
+    getBuilderEngine()?.stop();
     setPlaying(false);
   };
 
@@ -113,7 +116,7 @@ export function Builder() {
     setLayers((prev) => {
       const next = prev.map((l) => (l.id === id ? { ...l, ...patch } : l));
       const updated = next.find((l) => l.id === id);
-      if (updated && playing) engine?.updateLayer(updated);
+      if (updated && playing) getBuilderEngine()?.updateLayer(updated);
       return next;
     });
   };
@@ -121,12 +124,12 @@ export function Builder() {
   const addLayer = () => {
     const layer = newLayer();
     setLayers((prev) => [...prev, layer]);
-    if (playing) engine?.addLayer(layer);
+    if (playing) getBuilderEngine()?.addLayer(layer);
   };
 
   const removeLayer = (id: string) => {
     setLayers((prev) => prev.filter((l) => l.id !== id));
-    if (playing) engine?.removeLayer(id);
+    if (playing) getBuilderEngine()?.removeLayer(id);
   };
 
   const currentSession = (): CustomSession => ({
@@ -268,6 +271,10 @@ export function Builder() {
           </div>
           {notice && <div className="notice">{notice}</div>}
 
+          {ent.role === "admin" && isPaymentsConfigured && (
+            <PublishPanel getSession={currentSession} flash={flash} />
+          )}
+
           {saved.length > 0 && (
             <>
               <div className="builder-section-title">Saved Presets</div>
@@ -295,6 +302,155 @@ export function Builder() {
         </div>
       </div>
     </section>
+  );
+}
+
+/**
+ * Admin-only publish panel (D-04): pushes the current Studio design to the
+ * cloud library — either as a shared template or assigned to a single user.
+ * Rendered only when role === "admin" AND Supabase is configured; RLS blocks
+ * these operations server-side for everyone else regardless of UI state.
+ */
+function PublishPanel({
+  getSession,
+  flash,
+}: {
+  getSession: () => CustomSession;
+  flash: (msg: string) => void;
+}) {
+  const [tagline, setTagline] = useState("");
+  const [users, setUsers] = useState<Array<{ userId: string; email: string | null }>>([]);
+  const [selectedUser, setSelectedUser] = useState("");
+  const [published, setPublished] = useState<CloudAudio[]>([]);
+  const [busy, setBusy] = useState(false);
+
+  const refresh = useCallback(async () => {
+    try {
+      const [allUsers, mine] = await Promise.all([
+        listAllUsers(),
+        listMyPublishedAudios(),
+      ]);
+      setUsers(allUsers);
+      setPublished(mine);
+      setSelectedUser((prev) => prev || allUsers[0]?.userId || "");
+    } catch {
+      flash("Could not load library data");
+    }
+    // flash is stable enough for this panel — recreating it must not refetch.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  const publishTemplate = async () => {
+    setBusy(true);
+    try {
+      const session = getSession();
+      await publishAudio(session, {
+        name: session.name,
+        goalTagline: tagline.trim() || undefined,
+        isTemplate: true,
+      });
+      flash("Published as template ✓");
+      await refresh();
+    } catch (err) {
+      flash(err instanceof Error ? err.message : "Publish failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const publishForUser = async () => {
+    if (!selectedUser) return;
+    setBusy(true);
+    try {
+      const session = getSession();
+      const id = await publishAudio(session, {
+        name: session.name,
+        goalTagline: tagline.trim() || undefined,
+        isTemplate: false,
+      });
+      await assignAudio(id, selectedUser);
+      flash("Published for user ✓");
+      await refresh();
+    } catch (err) {
+      flash(err instanceof Error ? err.message : "Publish failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const remove = async (id: string) => {
+    try {
+      await deleteAudio(id);
+      flash("Deleted ✓");
+      await refresh();
+    } catch (err) {
+      flash(err instanceof Error ? err.message : "Delete failed");
+    }
+  };
+
+  return (
+    <>
+      <div className="builder-section-title">Publish</div>
+      <div className="publish-panel">
+        <input
+          className="text-input"
+          value={tagline}
+          maxLength={90}
+          placeholder="Goal tagline (optional)"
+          aria-label="Goal tagline"
+          onChange={(e) => setTagline(e.target.value)}
+        />
+        <div className="publish-actions">
+          <button className="chip" disabled={busy} onClick={() => void publishTemplate()}>
+            Publish as template
+          </button>
+        </div>
+        <div className="publish-actions">
+          <select
+            className="select"
+            value={selectedUser}
+            aria-label="Assign to user"
+            onChange={(e) => setSelectedUser(e.target.value)}
+          >
+            {users.map((u) => (
+              <option key={u.userId} value={u.userId}>
+                {u.email ?? u.userId}
+              </option>
+            ))}
+          </select>
+          <button
+            className="chip"
+            disabled={busy || !selectedUser}
+            onClick={() => void publishForUser()}
+          >
+            Publish for this user
+          </button>
+        </div>
+        {published.length > 0 && (
+          <div className="saved-list">
+            {published.map((a) => (
+              <div className="saved-item" key={a.id}>
+                <span className="saved-name">
+                  {a.name}
+                  {a.isTemplate ? " · template" : ""}
+                </span>
+                <button
+                  className="saved-del"
+                  aria-label={`Delete ${a.name}`}
+                  onClick={() => void remove(a.id)}
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </>
   );
 }
 
