@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-07-02)
 Phase: 1 of 3 (Audio Engine Core)
 Plan: 0 of TBD in current phase
 Status: Ready to plan
-Last activity: 2026-07-02 — Roadmap created (3 phases, 22/22 requirements mapped)
+Last activity: 2026-07-06 - Completed quick task 260707-a47: Behavioral design upgrade + admin/user roles with custom audio library
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -53,6 +53,12 @@ None yet.
 ### Blockers/Concerns
 
 - iOS background audio limitation — mitigated in M002 (Media Session API); document screen-on guidance for v1
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260707-a47 | Behavioral design upgrade + admin/user roles with custom audio library | 2026-07-06 | b7edc79 | [260707-a47-behavioral-design-upgrade-admin-user-rol](./quick/260707-a47-behavioral-design-upgrade-admin-user-rol/) |
 
 ## Deferred Items
 
