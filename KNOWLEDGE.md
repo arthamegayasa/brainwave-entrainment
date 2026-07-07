@@ -36,3 +36,12 @@
 - **exponentialRampToValueAtTime(0) throws RangeError** — pakai linearRamp ke 0.0001 lalu setValueAtTime(0), atau setTargetAtTime(0).
 - **Ramp beat = ramp satu AudioParam**: arsitektur isochronic LFO→WaveShaper dipilih agar Phase 2 bisa ramp beat Hz (lfo.frequency) kontinu. Binaural/monaural: beat di oscillator kanan/B.
 - **Untrusted JSON import**: semua nilai preset yang di-import di-clamp ke rentang aman (freq 20-1500, gain 0-1, name ≤ 60 char) — import = untrusted input.
+
+## Implementation Learnings (quick-260707-a47, 2026-07-07)
+
+- **Trust boundary cloud spec**: setiap `spec` JSONB dari `custom_audios` WAJIB lewat `sanitizeSession` sebelum menyentuh BuilderEngine — sama seperti JSON import. Sanitizer juga membatasi jumlah layer (cap 12; tiap layer = node audio + noise buffer nyata → vektor exhaustion) dan me-regenerate layer id duplikat (BuilderEngine key `live` Map by id; duplikat = layer orphan yang `stop()` tidak bisa jangkau).
+- **Dua engine audio = satu pasang telinga**: SessionEngine (preset) dan BuilderEngine (custom) tidak saling tahu. Eksklusivitas ditegakkan di App: `handleStart` memanggil `stopBuilderPlayback()`, dan Library/Builder menerima `onBeforePlay` yang menghentikan sesi preset. Transport custom-audio dilacak module-level (`nowPlaying` di builderEngine.ts) agar remount view merestorasi tombol Stop; `getNowPlaying()` self-heal kasus timed session yang berakhir natural (engine.isRunning tidak pernah turun sendiri).
+- **Aritmetika minggu/hari lokal: selalu setDate(), jangan +N×24 jam ms** — DST fall-back membuat minggu lokal 169 jam; penambahan milidetik tetap mendarat 1 jam meleset dan menjatuhkan data di jam terakhir Minggu.
+- **State berbasis waktu di React**: nilai turunan waktu (mis. `recommendedPresetId`) harus di-refresh via interval + `visibilitychange`, dan di-resolve ulang di click handler — PWA tab bisa hidup berjam-jam tanpa remount.
+- **Kredit sesi timed**: stempel waktu completion memakai scheduled end (`startEpoch + durasi`), bukan waktu callback poll — tab yang di-suspend semalaman jangan mengkredit sesi tidur ke pagi berikutnya. Ref preset aktif di-assign SETELAH `await session.start()` resolve (natural-end sesi lama bisa fire mid-await).
+- **`serenade.role.override` hanya untuk mode standalone**: saat `.env.local` berisi VITE_SUPABASE_*, override diabaikan (server profile menang) — dev env repo ini SUDAH configured, jadi menguji override butuh menjalankan tanpa env tersebut.
