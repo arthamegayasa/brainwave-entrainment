@@ -78,9 +78,12 @@ export function sanitizeSession(value: unknown): CustomSession | null {
     return null;
   }
   const curve = v.curve as Record<string, unknown>;
-  const layers = v.layers
-    .map((layer) => sanitizeLayer(layer))
-    .filter((layer): layer is BuilderLayerSpec => layer !== null);
+  const layers = dedupeLayerIds(
+    v.layers
+      .slice(0, MAX_LAYERS)
+      .map((layer) => sanitizeLayer(layer))
+      .filter((layer): layer is BuilderLayerSpec => layer !== null),
+  );
   if (layers.length === 0) return null;
 
   return {
@@ -104,6 +107,31 @@ export function sanitizeSession(value: unknown): CustomSession | null {
     createdAt:
       typeof v.createdAt === "string" ? v.createdAt : new Date().toISOString(),
   };
+}
+
+/**
+ * Hard cap on layers per session. Each layer allocates real audio nodes and
+ * (for ambient types) multi-second noise buffers — an unbounded count in an
+ * untrusted spec is a client-exhaustion vector, and summed layers past this
+ * point only add clipping, not depth.
+ */
+const MAX_LAYERS = 12;
+
+/**
+ * BuilderEngine tracks live layers in a Map keyed by layer id; a duplicate id
+ * from an untrusted spec would overwrite the Map entry and orphan an already-
+ * running layer that stop() can never reach. Regenerate colliding ids.
+ */
+function dedupeLayerIds(layers: BuilderLayerSpec[]): BuilderLayerSpec[] {
+  const seen = new Set<string>();
+  return layers.map((layer) => {
+    let id = layer.id;
+    while (seen.has(id)) {
+      id = `layer-${Math.random().toString(36).slice(2, 9)}`;
+    }
+    seen.add(id);
+    return id === layer.id ? layer : { ...layer, id };
+  });
 }
 
 const LAYER_TYPES = [

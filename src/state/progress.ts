@@ -175,10 +175,22 @@ function startOfWeek(d: Date): Date {
   return day;
 }
 
+/**
+ * Exclusive end of the Mon-Sun week. Uses setDate() (DST-safe) rather than
+ * adding 7×24h of milliseconds: across a DST fall-back the local week is 169
+ * hours long, and a fixed-millisecond end lands at Sunday 23:00 — sessions
+ * completed in Sunday's last local hour would never be counted in any week.
+ */
+function endOfWeek(d: Date): Date {
+  const end = startOfWeek(d);
+  end.setDate(end.getDate() + 7);
+  return end;
+}
+
 /** Completions inside the current Mon-Sun week only. */
 export function sessionsThisWeek(now: Date = new Date()): number {
   const from = startOfWeek(now).getTime();
-  const to = from + 7 * 24 * 60 * 60 * 1000;
+  const to = endOfWeek(now).getTime();
   return loadProgress().completedSessions.filter((c) => {
     const t = new Date(c.at).getTime();
     return t >= from && t < to;
@@ -188,7 +200,7 @@ export function sessionsThisWeek(now: Date = new Date()): number {
 /** boolean[7] indexed Mon..Sun — true on days with >= 1 completion. */
 export function weeklyStreakDots(now: Date = new Date()): boolean[] {
   const from = startOfWeek(now).getTime();
-  const to = from + 7 * 24 * 60 * 60 * 1000;
+  const to = endOfWeek(now).getTime();
   const dots = [false, false, false, false, false, false, false];
   for (const c of loadProgress().completedSessions) {
     const at = new Date(c.at);
