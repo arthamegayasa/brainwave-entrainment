@@ -12,7 +12,13 @@ import {
 } from "../state/customPresets";
 import { loadPrefs } from "../state/prefs";
 import { formatClock } from "./bands";
-import { ensureBuilder, getBuilderEngine } from "./builderEngine";
+import {
+  ensureBuilder,
+  getBuilderEngine,
+  getNowPlaying,
+  setNowPlaying,
+  stopBuilderPlayback,
+} from "./builderEngine";
 
 /**
  * Library (D-04): the user-facing home for custom audio — cloud sessions
@@ -24,14 +30,18 @@ import { ensureBuilder, getBuilderEngine } from "./builderEngine";
 
 interface LibraryProps {
   onUpgrade: () => void;
+  /** Called before custom audio starts — the App stops any preset session. */
+  onBeforePlay: () => void;
 }
 
-export function Library({ onUpgrade }: LibraryProps) {
+export function Library({ onUpgrade, onBeforePlay }: LibraryProps) {
   const ent = useEntitlement();
   const [cloud, setCloud] = useState<CloudAudio[]>([]);
   const [cloudError, setCloudError] = useState<string | null>(null);
   const [saved, setSaved] = useState<CustomSession[]>(() => listCustomSessions());
-  const [playingId, setPlayingId] = useState<string | null>(null);
+  // Re-derive from the shared module so a remount (nav away and back) shows
+  // the Stop control for audio that is still playing.
+  const [playingId, setPlayingId] = useState<string | null>(() => getNowPlaying());
   const [elapsed, setElapsed] = useState(0);
   const [remaining, setRemaining] = useState<number | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -40,7 +50,12 @@ export function Library({ onUpgrade }: LibraryProps) {
   const signedIn = ent.configured && ent.email !== null;
 
   useEffect(() => {
-    if (!signedIn) return;
+    if (!signedIn) {
+      // Sign-out (possibly from another tab) must drop the personalized list.
+      setCloud([]);
+      setCloudError(null);
+      return;
+    }
     let cancelled = false;
     listAssignedAudios()
       .then((rows) => {
@@ -66,7 +81,9 @@ export function Library({ onUpgrade }: LibraryProps) {
       const p = engine.progress();
       setElapsed(p.elapsedSec);
       setRemaining(p.remainingSec);
-      if (!engine.isRunning) setPlayingId(null);
+      // getNowPlaying() also covers a timed session's natural end (the engine
+      // stays isRunning until stopped — the shared module self-heals that).
+      if (getNowPlaying() === null) setPlayingId(null);
     }, 300);
     return () => window.clearInterval(id);
   }, [playingId]);
@@ -77,17 +94,19 @@ export function Library({ onUpgrade }: LibraryProps) {
   };
 
   const play = async (id: string, spec: CustomSession) => {
+    onBeforePlay(); // one pair of ears: any running preset session stops first
     const prefs = loadPrefs();
     const durationMin =
       prefs.lastDurationMin === "inf" ? null : prefs.lastDurationMin ?? 30;
     const engine = await ensureBuilder();
     engine.stop();
     engine.start(spec.layers, spec.curve, durationMin);
+    setNowPlaying(id);
     setPlayingId(id);
   };
 
   const stop = () => {
-    getBuilderEngine()?.stop();
+    stopBuilderPlayback();
     setPlayingId(null);
   };
 
@@ -162,7 +181,8 @@ export function Library({ onUpgrade }: LibraryProps) {
           <p className="library-note">
             Sessions crafted for you by the Serenade team.
           </p>
-          {!signedIn && (
+          {ent.loading && <p className="library-note">Loading your sessions…</p>}
+          {!ent.loading && !signedIn && (
             <p className="library-note">
               Sign in on the{" "}
               <button className="link-btn" onClick={onUpgrade}>

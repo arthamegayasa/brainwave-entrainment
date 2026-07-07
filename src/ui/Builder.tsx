@@ -16,7 +16,13 @@ import {
   saveCustomSession,
 } from "../state/customPresets";
 import { formatClock } from "./bands";
-import { ensureBuilder, getBuilderEngine } from "./builderEngine";
+import {
+  ensureBuilder,
+  getBuilderEngine,
+  getNowPlaying,
+  setNowPlaying,
+  stopBuilderPlayback,
+} from "./builderEngine";
 import { useEntitlement } from "../lib/useEntitlement";
 import { isPaymentsConfigured } from "../lib/supabase";
 import {
@@ -64,7 +70,15 @@ const DEFAULT_CURVE: BuilderCurve = {
 
 const DURATIONS: (number | null)[] = [15, 30, 45, 60, null];
 
-export function Builder() {
+/** nowPlaying id the Studio preview claims on the shared engine. */
+const STUDIO_PREVIEW_ID = "studio-preview";
+
+interface BuilderProps {
+  /** Called before preview audio starts — the App stops any preset session. */
+  onBeforePlay: () => void;
+}
+
+export function Builder({ onBeforePlay }: BuilderProps) {
   const ent = useEntitlement();
   const [layers, setLayers] = useState<BuilderLayerSpec[]>([
     newLayer("binaural"),
@@ -72,7 +86,11 @@ export function Builder() {
   ]);
   const [curve, setCurve] = useState<BuilderCurve>(DEFAULT_CURVE);
   const [durationMin, setDurationMin] = useState<number | null>(30);
-  const [playing, setPlaying] = useState(false);
+  // Re-derive from the shared module so a remount keeps a live preview's
+  // transport instead of showing Play over audible audio.
+  const [playing, setPlaying] = useState(
+    () => getNowPlaying() === STUDIO_PREVIEW_ID,
+  );
   const [elapsed, setElapsed] = useState(0);
   const [remaining, setRemaining] = useState<number | null>(null);
   const [name, setName] = useState("My Custom Session");
@@ -88,10 +106,9 @@ export function Builder() {
       const p = engine.progress();
       setElapsed(p.elapsedSec);
       setRemaining(p.remainingSec);
-      if (!engine.isRunning) setPlaying(false);
-      else if (p.remainingSec !== null && p.remainingSec <= 0) {
-        setPlaying(false);
-      }
+      // Covers explicit stop, another view claiming the engine, and a timed
+      // preview's natural end (self-healed inside getNowPlaying()).
+      if (getNowPlaying() !== STUDIO_PREVIEW_ID) setPlaying(false);
     }, 300);
     return () => window.clearInterval(id);
   }, [playing]);
@@ -102,13 +119,16 @@ export function Builder() {
   };
 
   const handlePlay = async () => {
+    onBeforePlay(); // one pair of ears: any running preset session stops first
     const e = await ensureBuilder();
+    e.stop();
     e.start(layers, curve, durationMin);
+    setNowPlaying(STUDIO_PREVIEW_ID);
     setPlaying(true);
   };
 
   const handleStop = () => {
-    getBuilderEngine()?.stop();
+    stopBuilderPlayback();
     setPlaying(false);
   };
 

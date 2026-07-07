@@ -1,4 +1,4 @@
-import { useReducer, useState } from "react";
+import { useEffect, useReducer, useState } from "react";
 import { PRESETS, DURATIONS_MIN, getPreset } from "../audio/presets";
 import type { Preset } from "../audio/presets";
 import { SOUND_LABELS } from "../audio/constants";
@@ -34,19 +34,34 @@ export function Home({ onStart, onUpgrade }: HomeProps) {
   const premiumUnlocked = isUnlocked("premiumPresets");
 
   const progress = loadProgress();
-  const recommended = getPreset(recommendedPresetId());
+  // The recommendation must stay honest in a long-lived tab: a PWA opened in
+  // the morning and reopened at night may never remount Home, so re-evaluate
+  // the time-of-day window every minute and whenever the tab becomes visible.
+  const [recoId, setRecoId] = useState(() => recommendedPresetId());
+  useEffect(() => {
+    const update = () => setRecoId(recommendedPresetId());
+    const timer = window.setInterval(update, 60_000);
+    document.addEventListener("visibilitychange", update);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", update);
+    };
+  }, []);
+  const recommended = getPreset(recoId);
   const steps = journeySteps();
   const percent = journeyPercent();
 
   // Smart default (D-05): one tap starts the recommended session with the
-  // user's last-used settings — no sheet, no decisions.
+  // user's last-used settings — no sheet, no decisions. Resolve the preset
+  // again at click time so a stale render can't start yesterday's window.
   const startRecommended = () => {
+    const preset = getPreset(recommendedPresetId());
     const prefs = loadPrefs();
     onStart({
-      preset: recommended,
+      preset,
       durationMin: prefs.lastDurationMin === "inf" ? null : prefs.lastDurationMin ?? 30,
       mode: prefs.lastMode,
-      ambient: recommended.defaultAmbient,
+      ambient: preset.defaultAmbient,
       solfeggioTone: null,
     });
   };

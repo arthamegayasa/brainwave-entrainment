@@ -12,6 +12,7 @@ import { Library } from "./ui/Library";
 import { Science } from "./ui/Science";
 import { Upgrade } from "./ui/Upgrade";
 import { useSession } from "./ui/useSession";
+import { stopBuilderPlayback } from "./ui/builderEngine";
 import type { SessionConfig } from "./audio/session";
 import { useEntitlement } from "./lib/useEntitlement";
 import { loadProgress, recordSessionCompleted } from "./state/progress";
@@ -31,7 +32,12 @@ const COMPLETION_MIN_SEC = 300;
 function App() {
   const [view, setView] = useState<View>("landing");
   const [completed, setCompleted] = useState<{ presetName: string } | null>(null);
-  const activePresetRef = useRef<{ id: string; name: string } | null>(null);
+  const activePresetRef = useRef<{
+    id: string;
+    name: string;
+    /** Epoch ms of the scheduled end for timed sessions (null = infinite). */
+    endsAt: number | null;
+  } | null>(null);
   const ent = useEntitlement();
   const role = ent.role;
 
@@ -44,7 +50,15 @@ function App() {
     // Natural end — the engine finished the full session.
     const active = activePresetRef.current;
     if (active) {
-      recordSessionCompleted(active.id);
+      // Credit timed sessions at their scheduled end, not at whenever this
+      // poll callback finally runs: on a locked phone the tab can stay
+      // suspended for hours past the real end, and an overnight sleep session
+      // must not land on the next morning's streak day.
+      const at =
+        active.endsAt === null
+          ? new Date()
+          : new Date(Math.min(Date.now(), active.endsAt));
+      recordSessionCompleted(active.id, at);
       setCompleted({ presetName: active.name });
       activePresetRef.current = null;
     }
@@ -52,9 +66,19 @@ function App() {
   });
 
   const handleStart = async (config: SessionConfig) => {
-    activePresetRef.current = { id: config.preset.id, name: config.preset.name };
+    stopBuilderPlayback(); // one pair of ears: custom audio stops first
     setCompleted(null);
     await session.start(config);
+    // Assign the ref only after start() resolves: the old session's natural
+    // end can fire mid-await, and it must credit the OLD preset, not this one.
+    activePresetRef.current = {
+      id: config.preset.id,
+      name: config.preset.name,
+      endsAt:
+        config.durationMin === null
+          ? null
+          : Date.now() + config.durationMin * 60_000,
+    };
     setView("player");
   };
 
@@ -68,6 +92,22 @@ function App() {
     activePresetRef.current = null;
     session.stop();
     setView("home");
+  };
+
+  // Library/Studio playback shares the user's ears with preset sessions:
+  // starting custom audio stops the preset session (the reverse happens in
+  // handleStart). Listening >= 5 minutes still earns the completion.
+  const handleCustomAudioStarts = () => {
+    const active = activePresetRef.current;
+    if (
+      active &&
+      session.state.active &&
+      session.state.progress.elapsedSec >= COMPLETION_MIN_SEC
+    ) {
+      recordSessionCompleted(active.id);
+    }
+    activePresetRef.current = null;
+    if (session.state.active) session.stop();
   };
 
   // Studio appears in the nav only for admins (D-04).
@@ -130,10 +170,16 @@ function App() {
       {view === "player" && session.state.active && (
         <Player session={session} onExit={handleExit} />
       )}
-      {view === "library" && <Library onUpgrade={goUpgrade} />}
+      {view === "library" && (
+        <Library onUpgrade={goUpgrade} onBeforePlay={handleCustomAudioStarts} />
+      )}
       {/* Non-admins landing on the studio view get the Library (D-04 fallback). */}
       {view === "studio" &&
-        (role === "admin" ? <Builder /> : <Library onUpgrade={goUpgrade} />)}
+        (role === "admin" ? (
+          <Builder onBeforePlay={handleCustomAudioStarts} />
+        ) : (
+          <Library onUpgrade={goUpgrade} onBeforePlay={handleCustomAudioStarts} />
+        ))}
       {view === "science" && <Science />}
       {view === "upgrade" && <Upgrade />}
 

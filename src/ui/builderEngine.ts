@@ -22,3 +22,41 @@ export async function ensureBuilder(): Promise<BuilderEngine> {
 export function getBuilderEngine(): BuilderEngine | null {
   return engine;
 }
+
+/**
+ * Which library/studio item currently owns the shared engine. Lives at module
+ * level so a transport survives its view unmounting: navigating away from
+ * Library while audio plays and coming back must restore the Stop control
+ * instead of showing a Play button over audible audio.
+ */
+let nowPlayingId: string | null = null;
+
+export function setNowPlaying(id: string | null): void {
+  nowPlayingId = id;
+}
+
+/**
+ * The id of the item playing on the shared engine, or null. Also self-heals
+ * the engine's one blind spot: a timed session that reaches its natural end
+ * keeps isRunning true until stop() is called — detect that here (remaining
+ * time exhausted) and stop it, so transport polls see a clean idle state.
+ */
+export function getNowPlaying(): string | null {
+  if (!engine || !engine.isRunning) {
+    nowPlayingId = null;
+    return null;
+  }
+  const p = engine.progress();
+  if (p.remainingSec !== null && p.remainingSec <= 0) {
+    engine.stop();
+    nowPlayingId = null;
+    return null;
+  }
+  return nowPlayingId;
+}
+
+/** Stop custom-audio playback and clear the shared transport state. */
+export function stopBuilderPlayback(): void {
+  engine?.stop();
+  nowPlayingId = null;
+}
