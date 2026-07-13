@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-07-02)
 Phase: 1 of 3 (Audio Engine Core)
 Plan: 0 of TBD in current phase
 Status: Ready to plan
-Last activity: 2026-07-06 - Completed quick task 260707-a47: Behavioral design upgrade + admin/user roles with custom audio library
+Last activity: 2026-07-13 - Completed quick task 260714-a8a: Clinician platform (patient dashboard, audio bank, template curation, 3-tier pricing)
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -59,6 +59,7 @@ None yet.
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 260707-a47 | Behavioral design upgrade + admin/user roles with custom audio library | 2026-07-06 | b7edc79 | [260707-a47-behavioral-design-upgrade-admin-user-rol](./quick/260707-a47-behavioral-design-upgrade-admin-user-rol/) |
+| 260714-a8a | Clinician platform: patient dashboard, audio bank with filters, template curation per patient, 3-tier pricing | 2026-07-13 | 3dccfc7 | [260714-a8a-clinician-platform-patient-dashboard-aud](./quick/260714-a8a-clinician-platform-patient-dashboard-aud/) |
 
 ## Deferred Items
 
