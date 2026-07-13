@@ -1,7 +1,10 @@
 import { supabase } from "./supabase";
 
-/** Two-role system (quick-260707-a47): admins publish/assign custom audios. */
-export type Role = "user" | "admin";
+/**
+ * Three-role system (quick-260714-a8a): clinicians manage patients + an Audio
+ * Bank; admins inherit clinician powers plus template publishing.
+ */
+export type Role = "user" | "clinician" | "admin";
 
 /**
  * Read the signed-in user's profile (role + email) from Supabase.
@@ -23,7 +26,12 @@ export async function fetchProfile(): Promise<{
     .maybeSingle();
   if (error || !data) return null;
   return {
-    role: data.role === "admin" ? "admin" : "user",
+    role:
+      data.role === "admin"
+        ? "admin"
+        : data.role === "clinician"
+          ? "clinician"
+          : "user",
     email: typeof data.email === "string" ? data.email : null,
   };
 }

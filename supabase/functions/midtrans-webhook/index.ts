@@ -66,14 +66,27 @@ Deno.serve(async (req: Request) => {
     (txStatus === "capture" && fraudStatus === "accept") || txStatus === "settlement";
   const isPending = txStatus === "pending";
 
-  const [userId, period] = orderId.split(":");
+  // orderId formats:
+  //   4+ parts (current): `${userId}:${plan}:${period}:${ts}`
+  //   3 parts (legacy)  : `${userId}:${period}:${ts}` → plan 'premium'
+  // Unknown plan strings coerce to 'premium' — never to 'clinician'.
+  const parts = orderId.split(":");
+  const userId = parts[0];
+  let plan: "premium" | "clinician" = "premium";
+  let period: string | null = null;
+  if (parts.length >= 4) {
+    plan = parts[1] === "clinician" ? "clinician" : "premium";
+    period = parts[2] ?? null;
+  } else {
+    period = parts[1] ?? null;
+  }
   if (!userId) return new Response("ok", { status: 200 });
 
   if (isPaid) {
     await admin.from("entitlements").upsert(
       {
         user_id: userId,
-        tier: "premium",
+        tier: plan,
         status: "active",
         provider: "midtrans",
         provider_ref: orderId,
@@ -83,17 +96,35 @@ Deno.serve(async (req: Request) => {
       },
       { onConflict: "user_id" },
     );
+    if (plan === "clinician") {
+      // Promote user → clinician. The role='user' filter guarantees admins
+      // are never touched (role changes are service-role only per 0004).
+      await admin
+        .from("profiles")
+        .update({ role: "clinician" })
+        .eq("user_id", userId)
+        .eq("role", "user");
+    }
   } else if (isPending) {
     await admin
       .from("entitlements")
       .update({ status: "pending", updated_at: new Date().toISOString() })
       .eq("user_id", userId);
   } else {
-    // deny / cancel / expire / failure → revoke premium.
+    // deny / cancel / expire / failure → revoke the paid tier.
     await admin
       .from("entitlements")
       .update({ tier: "free", status: "inactive", updated_at: new Date().toISOString() })
       .eq("user_id", userId);
+    if (plan === "clinician") {
+      // Demote only when the FAILED order was a clinician order, and only a
+      // clinician role — admins stay admins.
+      await admin
+        .from("profiles")
+        .update({ role: "user" })
+        .eq("user_id", userId)
+        .eq("role", "clinician");
+    }
   }
 
   return new Response("ok", { status: 200 });

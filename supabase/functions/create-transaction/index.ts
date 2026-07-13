@@ -10,14 +10,22 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const MIDTRANS_SNAP_URL = "https://app.sandbox.midtrans.com/snap/v1/transactions";
 
-// Prices mirror src/state/tier.ts → PRICING.IDR (keep in sync). Server-owned so a
+// Prices mirror src/state/tier.ts → PRICING.IDR (premium: monthly/annual, and
+// PRICING.IDR.clinician: monthly/annual — keep in sync). Server-owned so a
 // tampered client can't change what it's charged.
 const PLANS = {
-  monthly: { amount: 49000, label: "Serenade Premium — Monthly" },
-  annual: { amount: 249000, label: "Serenade Premium — Annual" },
+  premium: {
+    monthly: { amount: 49000, label: "Serenade Premium — Monthly" },
+    annual: { amount: 249000, label: "Serenade Premium — Annual" },
+  },
+  clinician: {
+    monthly: { amount: 249000, label: "Serenade Clinician — Monthly" },
+    annual: { amount: 1990000, label: "Serenade Clinician — Annual" },
+  },
 } as const;
 
-type Period = keyof typeof PLANS;
+type Plan = keyof typeof PLANS;
+type Period = keyof (typeof PLANS)["premium"];
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -49,16 +57,20 @@ Deno.serve(async (req: Request) => {
   if (userErr || !userData.user) return json({ error: "unauthorized" }, 401);
   const user = userData.user;
 
-  // Parse + validate the requested plan.
+  // Parse + validate the requested plan. `plan` defaults to 'premium' so the
+  // pre-clinician client body `{ period }` keeps working unchanged.
+  let plan: Plan;
   let period: Period;
   try {
     const body = await req.json();
+    plan = body.plan ?? "premium";
     period = body.period;
+    if (plan !== "premium" && plan !== "clinician") throw new Error("bad plan");
     if (period !== "monthly" && period !== "annual") throw new Error("bad period");
   } catch {
     return json({ error: "invalid_plan" }, 400);
   }
-  const plan = PLANS[period];
+  const priced = PLANS[plan][period];
 
   // Read the Midtrans Server Key (service-role only).
   const { data: cfg, error: cfgErr } = await admin
@@ -69,7 +81,7 @@ Deno.serve(async (req: Request) => {
   if (cfgErr || !cfg) return json({ error: "config_missing" }, 500);
   const serverKey: string = cfg.value;
 
-  const orderId = `${user.id}:${period}:${Date.now()}`;
+  const orderId = `${user.id}:${plan}:${period}:${Date.now()}`;
 
   const snapRes = await fetch(MIDTRANS_SNAP_URL, {
     method: "POST",
@@ -79,9 +91,9 @@ Deno.serve(async (req: Request) => {
       Authorization: `Basic ${btoa(serverKey + ":")}`,
     },
     body: JSON.stringify({
-      transaction_details: { order_id: orderId, gross_amount: plan.amount },
+      transaction_details: { order_id: orderId, gross_amount: priced.amount },
       item_details: [
-        { id: `premium-${period}`, price: plan.amount, quantity: 1, name: plan.label },
+        { id: `${plan}-${period}`, price: priced.amount, quantity: 1, name: priced.label },
       ],
       customer_details: { email: user.email },
       credit_card: { secure: true },

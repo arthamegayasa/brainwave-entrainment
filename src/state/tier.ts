@@ -34,6 +34,23 @@ export const PRICING = {
      * Rendered struck-through beside the real annual price; never charged.
      */
     anchorAnnual: { amount: 588000, price: "Rp588,000" },
+    /**
+     * Clinician plan (quick-260714-a8a): professional tier for therapists and
+     * clinics — access is ROLE-gated (profiles.role), NOT wired into
+     * TierFeatures. The anchor is 12 × clinician monthly (249,000 × 12 =
+     * 2,988,000) — contrast-only, never charged.
+     */
+    clinician: {
+      monthly: { amount: 249000, price: "Rp249,000", per: "/month" },
+      annual: {
+        amount: 1990000,
+        price: "Rp1,990,000",
+        per: "/year",
+        perMonth: "Rp165,833", // 1,990,000 / 12
+        savePercent: 33, // 1 − 1,990,000 / (249,000 × 12)
+        anchor: { amount: 2988000, price: "Rp2,988,000" },
+      },
+    },
   },
   // USD: { ... } — added in the global-launch phase
 } as const;

@@ -2,7 +2,7 @@ import { supabase } from "./supabase";
 import type { BillingPeriod } from "../state/tier";
 
 export interface Entitlement {
-  tier: "free" | "premium";
+  tier: "free" | "premium" | "clinician";
   status: "active" | "inactive" | "pending" | "expired";
   billingPeriod: string | null;
   currentPeriodEnd: string | null;
@@ -48,10 +48,11 @@ export async function fetchEntitlement(): Promise<Entitlement | null> {
 }
 
 /**
- * Ask the backend to create a Midtrans Snap transaction for `period`.
+ * Ask the backend to create a Midtrans Snap transaction for `plan` × `period`.
  * Returns the Snap token the client opens. Price is derived server-side.
  */
 export async function createCheckout(
+  plan: "premium" | "clinician",
   period: BillingPeriod,
 ): Promise<{ token: string; orderId: string }> {
   if (!supabase) throw new Error("Payments not configured");
@@ -60,7 +61,7 @@ export async function createCheckout(
   if (!accessToken) throw new Error("Please sign in first");
 
   const { data, error } = await supabase.functions.invoke("create-transaction", {
-    body: { period },
+    body: { plan, period },
   });
   if (error) throw error;
   return { token: data.token, orderId: data.order_id };

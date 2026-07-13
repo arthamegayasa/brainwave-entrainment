@@ -16,6 +16,19 @@ export const BAND_LABELS: Record<Band, string> = {
   gamma: "Gamma · energy",
 };
 
+/**
+ * Map a beat frequency to its brainwave band (quick-260714-a8a). Boundaries
+ * 4 / 8 / 13 / 30 belong to the HIGHER band, matching the documented mapping:
+ * delta <4, theta 4–8, alpha 8–13, beta 13–30, gamma 30+.
+ */
+export function bandForHz(hz: number): Band {
+  if (hz < 4) return "delta";
+  if (hz < 8) return "theta";
+  if (hz < 13) return "alpha";
+  if (hz < 30) return "beta";
+  return "gamma";
+}
+
 export function formatClock(totalSec: number): string {
   const sec = Math.max(0, Math.round(totalSec));
   const h = Math.floor(sec / 3600);

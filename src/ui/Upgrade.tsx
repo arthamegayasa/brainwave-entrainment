@@ -223,7 +223,7 @@ function PremiumCheckout({
     setBusy(true);
     setMsg(null);
     try {
-      const { token } = await createCheckout(period);
+      const { token } = await createCheckout("premium", period);
       await loadSnap();
       openSnap(token, {
         onSuccess: () => {

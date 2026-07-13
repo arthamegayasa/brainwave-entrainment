@@ -11,21 +11,25 @@ export interface AuthEntitlementState {
   email: string | null;
   entitlement: Entitlement | null;
   isPremium: boolean;
+  /** True for clinicians AND admins — admins inherit clinician powers. */
+  isClinician: boolean;
   role: Role;
   refresh: () => Promise<void>;
 }
 
 /**
  * Local/demo role override: `localStorage.setItem("serenade.role.override",
- * "admin")` enables the Studio without a backend. This is a UI convenience
- * only — it is IGNORED when Supabase is configured (the server profile wins,
- * and RLS blocks all data access regardless of client UI state).
+ * "admin")` (or "clinician") enables the Studio/Dashboard without a backend.
+ * This is a UI convenience only — it is IGNORED when Supabase is configured
+ * (the server profile wins, and RLS blocks all data access regardless of
+ * client UI state).
  */
 function localRoleOverride(): Role {
   try {
-    return localStorage.getItem("serenade.role.override") === "admin"
-      ? "admin"
-      : "user";
+    const stored = localStorage.getItem("serenade.role.override");
+    if (stored === "admin") return "admin";
+    if (stored === "clinician") return "clinician";
+    return "user";
   } catch {
     return "user";
   }
@@ -60,8 +64,12 @@ export function useEntitlement(): AuthEntitlementState {
     return () => data.subscription.unsubscribe();
   }, [refresh]);
 
+  // Clinician entitlement counts as premium — a paid clinician gets everything
+  // Premium has (D-04); the extra clinician surface is ROLE-gated below.
   const isPremium =
-    entitlement?.tier === "premium" && entitlement?.status === "active";
+    (entitlement?.tier === "premium" || entitlement?.tier === "clinician") &&
+    entitlement?.status === "active";
+  const isClinician = role === "clinician" || role === "admin";
 
   return {
     configured: isPaymentsConfigured,
@@ -69,6 +77,7 @@ export function useEntitlement(): AuthEntitlementState {
     email,
     entitlement,
     isPremium,
+    isClinician,
     role,
     refresh,
   };
