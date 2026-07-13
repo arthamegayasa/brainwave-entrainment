@@ -1787,3 +1787,41 @@
 .bank-card .save-row {
   width: 100%;
 }
+
+/* ── Patient linking + 3-tier plans (quick-260714-a8a) ──────────────── */
+
+/* "My clinician" connect block in the Library */
+.my-clinician {
+  border-color: color-mix(in srgb, var(--band-alpha) 35%, var(--line));
+}
+
+.my-clinician .save-row {
+  margin-top: 0.7rem;
+  max-width: 380px;
+}
+
+.my-clinician .chip.small {
+  margin-top: 0.6rem;
+}
+
+/* Page-level billing toggle above the plans grid */
+.billing-toggle.page-toggle {
+  width: fit-content;
+  margin: 0 auto 1.4rem;
+}
+
+/* Clinician plan card accent */
+.plan.clinician {
+  border-color: color-mix(in srgb, var(--band-theta) 45%, transparent);
+}
+
+.plan.clinician .plan-badge.pro {
+  background: var(--band-theta);
+}
+
+/* Three plans: 2-up on tablet (third wraps), 3-up at desktop */
+@media (min-width: 1020px) {
+  .plans.three {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+}

@@ -1,7 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { CustomSession } from "../audio/builder";
 import { listAssignedAudios } from "../lib/audioLibrary";
 import type { CloudAudio } from "../lib/audioLibrary";
+import {
+  getMyClinician,
+  redeemInviteCode,
+  unlinkMyClinician,
+} from "../lib/patientLink";
 import { useEntitlement } from "../lib/useEntitlement";
 import {
   deleteCustomSession,
@@ -34,6 +39,15 @@ interface LibraryProps {
   onBeforePlay: () => void;
 }
 
+/** Friendly copy for redeem_invite_code error keys (quick-260714-a8a). */
+const REDEEM_ERROR_COPY: Record<string, string> = {
+  invalid_code: "That code doesn't look right — check it and try again.",
+  expired: "This code has expired — ask your clinician for a new one.",
+  already_used: "This code was already used.",
+  already_linked: "You're already connected to a clinician.",
+  not_signed_in: "Please sign in first.",
+};
+
 export function Library({ onUpgrade, onBeforePlay }: LibraryProps) {
   const ent = useEntitlement();
   const [cloud, setCloud] = useState<CloudAudio[]>([]);
@@ -45,32 +59,40 @@ export function Library({ onUpgrade, onBeforePlay }: LibraryProps) {
   const [elapsed, setElapsed] = useState(0);
   const [remaining, setRemaining] = useState<number | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [clinician, setClinician] = useState<{ clinicianEmail: string } | null>(null);
+  const [codeInput, setCodeInput] = useState("");
+  const [linkMsg, setLinkMsg] = useState<string | null>(null);
+  const [linkBusy, setLinkBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const signedIn = ent.configured && ent.email !== null;
+
+  // Shared by the mount effect AND the redeem handler, so a fresh link's
+  // assigned audios appear without a reload.
+  const loadCloud = useCallback(async () => {
+    try {
+      const rows = await listAssignedAudios();
+      setCloud(rows);
+      setCloudError(null);
+    } catch {
+      setCloudError("Could not load your sessions — try again later.");
+    }
+  }, []);
 
   useEffect(() => {
     if (!signedIn) {
       // Sign-out (possibly from another tab) must drop the personalized list.
       setCloud([]);
       setCloudError(null);
+      setClinician(null);
+      setLinkMsg(null);
       return;
     }
-    let cancelled = false;
-    listAssignedAudios()
-      .then((rows) => {
-        if (!cancelled) {
-          setCloud(rows);
-          setCloudError(null);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setCloudError("Could not load your sessions — try again later.");
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [signedIn]);
+    void loadCloud();
+    getMyClinician()
+      .then((c) => setClinician(c))
+      .catch(() => setClinician(null));
+  }, [signedIn, loadCloud]);
 
   // Poll the shared engine while playing, mirroring the Studio transport.
   useEffect(() => {
@@ -91,6 +113,49 @@ export function Library({ onUpgrade, onBeforePlay }: LibraryProps) {
   const flash = (msg: string) => {
     setNotice(msg);
     window.setTimeout(() => setNotice(null), 2600);
+  };
+
+  const connectClinician = async () => {
+    const trimmed = codeInput.trim();
+    if (!trimmed) return;
+    setLinkBusy(true);
+    setLinkMsg(null);
+    try {
+      const result = await redeemInviteCode(trimmed);
+      if ("error" in result) {
+        setLinkMsg(
+          REDEEM_ERROR_COPY[result.error] ??
+            "Could not redeem the code — try again later.",
+        );
+      } else {
+        setClinician(result);
+        setCodeInput("");
+        flash("Connected ✓");
+        // The clinician may already have assigned audio — show it right away.
+        await loadCloud();
+      }
+    } catch {
+      setLinkMsg("Could not redeem the code — try again later.");
+    } finally {
+      setLinkBusy(false);
+    }
+  };
+
+  const disconnectClinician = async () => {
+    if (
+      !window.confirm(
+        "Disconnect from your clinician? Sessions they assigned may no longer be curated for you.",
+      )
+    ) {
+      return;
+    }
+    try {
+      await unlinkMyClinician();
+      setClinician(null);
+      await loadCloud();
+    } catch {
+      flash("Could not disconnect — try again later.");
+    }
   };
 
   const play = async (id: string, spec: CustomSession) => {
@@ -174,6 +239,47 @@ export function Library({ onUpgrade, onBeforePlay }: LibraryProps) {
           Your sessions in one place — made for you, and made by you.
         </p>
       </header>
+
+      {ent.configured && signedIn && (
+        <div className="library-section my-clinician">
+          <h2>My clinician</h2>
+          {clinician ? (
+            <>
+              <p className="library-note">
+                Connected to {clinician.clinicianEmail || "your clinician"}
+              </p>
+              <button
+                className="chip small"
+                onClick={() => void disconnectClinician()}
+              >
+                Disconnect
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="library-note">Have a code from your clinician?</p>
+              <div className="save-row">
+                <input
+                  className="text-input"
+                  value={codeInput}
+                  maxLength={16}
+                  placeholder="Invite code"
+                  aria-label="Clinician invite code"
+                  onChange={(e) => setCodeInput(e.target.value)}
+                />
+                <button
+                  className="chip"
+                  disabled={linkBusy || !codeInput.trim()}
+                  onClick={() => void connectClinician()}
+                >
+                  {linkBusy ? "Connecting…" : "Connect"}
+                </button>
+              </div>
+              {linkMsg && <p className="library-note">{linkMsg}</p>}
+            </>
+          )}
+        </div>
+      )}
 
       {ent.configured && (
         <div className="library-section">

@@ -5,6 +5,7 @@ import { SOUND_LABELS } from "../audio/constants";
 import type { AmbientKind } from "../audio/types";
 import type { ListeningMode, SessionConfig } from "../audio/session";
 import { BAND_COLORS, BAND_LABELS } from "./bands";
+import { getMyHiddenPresetIds } from "../lib/patientLink";
 import { isUnlocked } from "../state/tier";
 import { loadPrefs } from "../state/prefs";
 import {
@@ -33,6 +34,19 @@ export function Home({ onStart, onUpgrade }: HomeProps) {
   const [, refresh] = useReducer((n: number) => n + 1, 0);
   const premiumUnlocked = isUnlocked("premiumPresets");
 
+  // Presets a linked clinician hid for this patient (quick-260714-a8a).
+  // Returns [] standalone/signed-out — zero behavior change there.
+  const [hiddenIds, setHiddenIds] = useState<string[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    void getMyHiddenPresetIds().then((ids) => {
+      if (!cancelled) setHiddenIds(ids);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const progress = loadProgress();
   // The recommendation must stay honest in a long-lived tab: a PWA opened in
   // the morning and reopened at night may never remount Home, so re-evaluate
@@ -47,15 +61,22 @@ export function Home({ onStart, onUpgrade }: HomeProps) {
       document.removeEventListener("visibilitychange", update);
     };
   }, []);
-  const recommended = getPreset(recoId);
   const steps = journeySteps();
   const percent = journeyPercent();
+
+  // Clinician curation: presets hidden for this patient disappear from the
+  // grid, the goal picker, and the recommendation. If EVERYTHING is hidden
+  // (degenerate), fall back to the unfiltered recommendation.
+  const visiblePresets = PRESETS.filter((p) => !hiddenIds.includes(p.id));
+  const resolveVisible = (preset: Preset): Preset =>
+    hiddenIds.includes(preset.id) ? visiblePresets[0] ?? preset : preset;
+  const recommended = resolveVisible(getPreset(recoId));
 
   // Smart default (D-05): one tap starts the recommended session with the
   // user's last-used settings — no sheet, no decisions. Resolve the preset
   // again at click time so a stale render can't start yesterday's window.
   const startRecommended = () => {
-    const preset = getPreset(recommendedPresetId());
+    const preset = resolveVisible(getPreset(recommendedPresetId()));
     const prefs = loadPrefs();
     onStart({
       preset,
@@ -73,7 +94,7 @@ export function Home({ onStart, onUpgrade }: HomeProps) {
       .map((id) => PRESETS.find((p) => p.id === id))
       .filter((p): p is Preset => p !== undefined),
     ...PRESETS.filter((p) => !chosen.includes(p.id)),
-  ];
+  ].filter((p) => !hiddenIds.includes(p.id));
 
   return (
     <>
@@ -197,6 +218,7 @@ export function Home({ onStart, onUpgrade }: HomeProps) {
 
       {pickerOpen && (
         <GoalPicker
+          presets={visiblePresets}
           initial={progress.chosenGoals}
           onChoose={(ids) => {
             setChosenGoals(ids);
@@ -215,13 +237,15 @@ export function Home({ onStart, onUpgrade }: HomeProps) {
 }
 
 interface GoalPickerProps {
+  /** Presets to offer — the caller filters out clinician-hidden ones. */
+  presets: readonly Preset[];
   initial: string[];
   onChoose: (ids: string[]) => void;
   onSkip: () => void;
 }
 
-/** IKEA-effect goal picker (D-05): multi-select of the 8 goals, skippable. */
-function GoalPicker({ initial, onChoose, onSkip }: GoalPickerProps) {
+/** IKEA-effect goal picker (D-05): multi-select of visible goals, skippable. */
+function GoalPicker({ presets, initial, onChoose, onSkip }: GoalPickerProps) {
   const [selection, setSelection] = useState<string[]>(initial);
 
   const toggle = (id: string) =>
@@ -242,7 +266,7 @@ function GoalPicker({ initial, onChoose, onSkip }: GoalPickerProps) {
           Pick the goals that matter to you — we'll put them first.
         </p>
         <div className="goal-chips">
-          {PRESETS.map((preset) => (
+          {presets.map((preset) => (
             <button
               key={preset.id}
               className={`chip goal-chip ${selection.includes(preset.id) ? "selected" : ""}`}

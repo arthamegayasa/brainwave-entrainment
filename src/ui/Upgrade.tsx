@@ -23,14 +23,27 @@ const PREMIUM = [
   "Keep the harmonic frequency finder",
 ];
 
+// Professional gain framing (D-06): what the practice gains, patients free.
+const CLINICIAN = [
+  "Everything in Premium",
+  "Patient dashboard — up to 30 patients",
+  "Audio Bank with categories & filters",
+  "Assign custom audio to any patient",
+  "Curate which sessions each patient sees",
+  "Your patients listen free",
+];
+
 const PRICES = PRICING.IDR;
 
 export function Upgrade() {
   const [period, setPeriod] = useState<BillingPeriod>("annual");
-  const plan = period === "annual" ? PRICES.annual : PRICES.monthly;
   const ent = useEntitlement();
   const sessions = totalSessions();
   const streak = currentStreakDays();
+
+  const premiumPlan = period === "annual" ? PRICES.annual : PRICES.monthly;
+  const clinicianPlan =
+    period === "annual" ? PRICES.clinician.annual : PRICES.clinician.monthly;
 
   return (
     <section className="upgrade">
@@ -57,7 +70,32 @@ export function Upgrade() {
         </div>
       )}
 
-      <div className="plans">
+      {/* Page-level billing toggle — drives BOTH paid cards' period. */}
+      <div
+        className="billing-toggle page-toggle"
+        role="tablist"
+        aria-label="Billing period"
+      >
+        <button
+          role="tab"
+          aria-selected={period === "monthly"}
+          className={period === "monthly" ? "selected" : ""}
+          onClick={() => setPeriod("monthly")}
+        >
+          Monthly
+        </button>
+        <button
+          role="tab"
+          aria-selected={period === "annual"}
+          className={period === "annual" ? "selected" : ""}
+          onClick={() => setPeriod("annual")}
+        >
+          Annual
+          <span className="save-pill">Save {PRICES.annual.savePercent}%</span>
+        </button>
+      </div>
+
+      <div className="plans three">
         <div className="plan">
           <div className="plan-name">Free</div>
           <div className="plan-price">
@@ -77,32 +115,12 @@ export function Upgrade() {
           <div className="plan-badge">Most popular</div>
           <div className="plan-name">Premium</div>
 
-          <div className="billing-toggle" role="tablist" aria-label="Billing period">
-            <button
-              role="tab"
-              aria-selected={period === "monthly"}
-              className={period === "monthly" ? "selected" : ""}
-              onClick={() => setPeriod("monthly")}
-            >
-              Monthly
-            </button>
-            <button
-              role="tab"
-              aria-selected={period === "annual"}
-              className={period === "annual" ? "selected" : ""}
-              onClick={() => setPeriod("annual")}
-            >
-              Annual
-              <span className="save-pill">Save {PRICES.annual.savePercent}%</span>
-            </button>
-          </div>
-
           <div className="plan-price">
             {period === "annual" && (
               <span className="price-anchor">{PRICES.anchorAnnual.price}</span>
             )}
-            {plan.price}
-            <span>{plan.per}</span>
+            {premiumPlan.price}
+            <span>{premiumPlan.per}</span>
           </div>
           <div className="plan-subprice">
             {period === "annual"
@@ -117,9 +135,43 @@ export function Upgrade() {
           </ul>
 
           {ent.configured ? (
-            <PremiumCheckout period={period} ent={ent} />
+            <PlanCheckout plan="premium" period={period} ent={ent} />
           ) : (
             <LocalActivate />
+          )}
+        </div>
+
+        <div className="plan clinician">
+          <div className="plan-badge pro">For professionals</div>
+          <div className="plan-name">Clinician</div>
+
+          <div className="plan-price">
+            {period === "annual" && (
+              <span className="price-anchor">
+                {PRICES.clinician.annual.anchor.price}
+              </span>
+            )}
+            {clinicianPlan.price}
+            <span>{clinicianPlan.per}</span>
+          </div>
+          <div className="plan-subprice">
+            {period === "annual"
+              ? `≈ ${PRICES.clinician.annual.perMonth}/month · billed annually`
+              : "Billed monthly · cancel anytime"}
+          </div>
+
+          <ul>
+            {CLINICIAN.map((f) => (
+              <li key={f}>{f}</li>
+            ))}
+          </ul>
+
+          {ent.configured ? (
+            <PlanCheckout plan="clinician" period={period} ent={ent} />
+          ) : (
+            <p className="plan-note">
+              Available once payments are configured in this build.
+            </p>
           )}
         </div>
       </div>
@@ -149,11 +201,17 @@ function LocalActivate() {
   );
 }
 
-/** Real Midtrans checkout: magic-link sign-in → Snap payment → entitlement. */
-function PremiumCheckout({
+/**
+ * Real Midtrans checkout for a paid plan: magic-link sign-in → Snap payment →
+ * entitlement (+ clinician role promotion via the webhook for plan
+ * 'clinician'). The sign-in branch is shared between both paid cards.
+ */
+function PlanCheckout({
+  plan,
   period,
   ent,
 }: {
+  plan: "premium" | "clinician";
   period: BillingPeriod;
   ent: ReturnType<typeof useEntitlement>;
 }) {
@@ -165,11 +223,14 @@ function PremiumCheckout({
     return <p className="plan-note">Loading…</p>;
   }
 
-  if (ent.isPremium) {
+  // Active states: clinician card keys off the ROLE (clinician/admin);
+  // premium card keys off the entitlement (clinician tier counts as premium).
+  const active = plan === "clinician" ? ent.isClinician : ent.isPremium;
+  if (active) {
     return (
       <>
         <button className="start-btn compact" disabled>
-          Premium active ✓
+          {plan === "clinician" ? "Clinician active ✓" : "Premium active ✓"}
         </button>
         <p className="plan-note">
           Signed in as {ent.email}
@@ -182,7 +243,7 @@ function PremiumCheckout({
     );
   }
 
-  // Signed out → magic-link form.
+  // Signed out → magic-link form (shared).
   if (!ent.email) {
     const sendLink = async () => {
       if (!email.trim()) return;
@@ -218,12 +279,16 @@ function PremiumCheckout({
     );
   }
 
-  // Signed in, not premium → subscribe via Snap.
+  const prices = plan === "clinician" ? PRICES.clinician : PRICES;
+  const priceLabel =
+    period === "annual" ? prices.annual.price : prices.monthly.price;
+
+  // Signed in, not on this plan → subscribe via Snap.
   const subscribe = async () => {
     setBusy(true);
     setMsg(null);
     try {
-      const { token } = await createCheckout("premium", period);
+      const { token } = await createCheckout(plan, period);
       await loadSnap();
       openSnap(token, {
         onSuccess: () => {
@@ -244,7 +309,7 @@ function PremiumCheckout({
   return (
     <>
       <button className="start-btn compact" disabled={busy} onClick={() => void subscribe()}>
-        {busy ? "Starting…" : `Subscribe — ${period === "annual" ? PRICES.annual.price : PRICES.monthly.price}`}
+        {busy ? "Starting…" : `Subscribe — ${priceLabel}`}
       </button>
       {msg && <p className="plan-note">{msg}</p>}
       <p className="plan-note">
