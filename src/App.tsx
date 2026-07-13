@@ -8,6 +8,7 @@ import { Landing } from "./ui/Landing";
 import { Home } from "./ui/Home";
 import { Player, SessionComplete } from "./ui/Player";
 import { Builder } from "./ui/Builder";
+import { Dashboard } from "./ui/Dashboard";
 import { Library } from "./ui/Library";
 import { Science } from "./ui/Science";
 import { Upgrade } from "./ui/Upgrade";
@@ -22,6 +23,7 @@ type View =
   | "home"
   | "player"
   | "library"
+  | "dashboard"
   | "studio"
   | "science"
   | "upgrade";
@@ -39,7 +41,6 @@ function App() {
     endsAt: number | null;
   } | null>(null);
   const ent = useEntitlement();
-  const role = ent.role;
 
   // Journey step 1 (goal gradient): discovering the app counts immediately.
   useEffect(() => {
@@ -110,18 +111,27 @@ function App() {
     if (session.state.active) session.stop();
   };
 
-  // Studio appears in the nav only for admins (D-04).
+  // Dashboard + Studio appear in the nav only for clinicians/admins (D-06).
   const nav: Array<{ id: View; label: string }> = [
     { id: "home", label: "Sessions" },
     { id: "library", label: "Library" },
-    ...(role === "admin" ? [{ id: "studio" as View, label: "Studio" }] : []),
+    ...(ent.isClinician
+      ? [
+          { id: "dashboard" as View, label: "Dashboard" },
+          { id: "studio" as View, label: "Studio" },
+        ]
+      : []),
     { id: "science", label: "Science" },
     { id: "upgrade", label: "Premium" },
   ];
 
   const navCurrent = (id: View): boolean => {
     if (id === "home") return view === "home" || view === "player" || view === "landing";
-    if (id === "library") return view === "library" || (view === "studio" && role !== "admin");
+    if (id === "library")
+      return (
+        view === "library" ||
+        ((view === "studio" || view === "dashboard") && !ent.isClinician)
+      );
     return view === id;
   };
 
@@ -173,9 +183,15 @@ function App() {
       {view === "library" && (
         <Library onUpgrade={goUpgrade} onBeforePlay={handleCustomAudioStarts} />
       )}
-      {/* Non-admins landing on the studio view get the Library (D-04 fallback). */}
+      {/* Non-clinicians landing on dashboard/studio get the Library (D-06 fallback). */}
+      {view === "dashboard" &&
+        (ent.isClinician ? (
+          <Dashboard />
+        ) : (
+          <Library onUpgrade={goUpgrade} onBeforePlay={handleCustomAudioStarts} />
+        ))}
       {view === "studio" &&
-        (role === "admin" ? (
+        (ent.isClinician ? (
           <Builder onBeforePlay={handleCustomAudioStarts} />
         ) : (
           <Library onUpgrade={goUpgrade} onBeforePlay={handleCustomAudioStarts} />

@@ -4,11 +4,12 @@ import type { CustomSession } from "../audio/builder";
 import { sanitizeSession } from "../state/customPresets";
 
 /**
- * Cloud audio library (quick-260707-a47): admins publish Studio sessions as
- * templates or assign them to specific users; users read what RLS lets them
- * see. Every `spec` jsonb read from the cloud is UNTRUSTED and passes through
- * sanitizeSession before it can reach the audio engine — rows whose spec
- * fails sanitization are dropped, never played.
+ * Cloud audio library (quick-260707-a47, extended quick-260714-a8a):
+ * clinicians and admins publish Studio sessions — admins as shared templates,
+ * clinicians into their Audio Bank for patient assignment; users read what
+ * RLS lets them see. Every `spec` jsonb read from the cloud is UNTRUSTED and
+ * passes through sanitizeSession before it can reach the audio engine — rows
+ * whose spec fails sanitization are dropped, never played.
  */
 
 export interface CloudAudio {
@@ -18,6 +19,9 @@ export interface CloudAudio {
   spec: CustomSession;
   isTemplate: boolean;
   createdAt: string;
+  /** Audio Bank metadata (quick-260714-a8a) — optional for older callers. */
+  category?: string;
+  notes?: string | null;
 }
 
 interface AudioRow {
@@ -27,6 +31,8 @@ interface AudioRow {
   spec: unknown;
   is_template: boolean;
   created_at: string;
+  category?: string | null;
+  notes?: string | null;
 }
 
 function client(): SupabaseClient {
@@ -50,6 +56,8 @@ function toCloudAudio(row: AudioRow): CloudAudio | null {
     spec,
     isTemplate: row.is_template,
     createdAt: row.created_at,
+    category: row.category ?? "other",
+    notes: row.notes ?? null,
   };
 }
 
@@ -69,7 +77,11 @@ export async function listAssignedAudios(): Promise<CloudAudio[]> {
     .filter((a): a is CloudAudio => a !== null);
 }
 
-/** Admin: list every user for the assign dropdown (RLS blocks non-admins). */
+/**
+ * Admin-only: list every user. RLS limits non-admins to their own row (plus,
+ * for clinicians, their linked patients) — clinician flows must use
+ * clinician.listMyPatients() instead, never this.
+ */
 export async function listAllUsers(): Promise<
   Array<{ userId: string; email: string | null }>
 > {
@@ -84,10 +96,16 @@ export async function listAllUsers(): Promise<
   );
 }
 
-/** Admin: publish a Studio session; returns the new audio id. */
+/** Clinician/admin: publish a Studio session; returns the new audio id. */
 export async function publishAudio(
   spec: CustomSession,
-  opts: { name: string; goalTagline?: string; isTemplate: boolean },
+  opts: {
+    name: string;
+    goalTagline?: string;
+    isTemplate: boolean;
+    category?: string;
+    notes?: string;
+  },
 ): Promise<string> {
   const sb = client();
   const uid = await currentUserId(sb);
@@ -99,6 +117,8 @@ export async function publishAudio(
       goal_tagline: opts.goalTagline ?? null,
       spec,
       is_template: opts.isTemplate,
+      category: opts.category ?? "other",
+      notes: opts.notes ?? null,
     })
     .select("id")
     .single();

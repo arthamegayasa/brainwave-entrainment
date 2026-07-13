@@ -26,13 +26,14 @@ import {
 import { useEntitlement } from "../lib/useEntitlement";
 import { isPaymentsConfigured } from "../lib/supabase";
 import {
-  assignAudio,
   deleteAudio,
-  listAllUsers,
   listMyPublishedAudios,
   publishAudio,
 } from "../lib/audioLibrary";
 import type { CloudAudio } from "../lib/audioLibrary";
+import { AUDIO_CATEGORIES } from "../lib/clinician";
+import type { AudioCategory } from "../lib/clinician";
+import type { Role } from "../lib/roles";
 
 const LAYER_TYPE_LABELS: Record<BuilderLayerType, string> = {
   binaural: "Binaural",
@@ -291,8 +292,12 @@ export function Builder({ onBeforePlay }: BuilderProps) {
           </div>
           {notice && <div className="notice">{notice}</div>}
 
-          {ent.role === "admin" && isPaymentsConfigured && (
-            <PublishPanel getSession={currentSession} flash={flash} />
+          {ent.isClinician && isPaymentsConfigured && (
+            <PublishPanel
+              getSession={currentSession}
+              flash={flash}
+              role={ent.role}
+            />
           )}
 
           {saved.length > 0 && (
@@ -326,33 +331,30 @@ export function Builder({ onBeforePlay }: BuilderProps) {
 }
 
 /**
- * Admin-only publish panel (D-04): pushes the current Studio design to the
- * cloud library — either as a shared template or assigned to a single user.
- * Rendered only when role === "admin" AND Supabase is configured; RLS blocks
+ * Clinician publish panel (D-06): saves the current Studio design to the
+ * clinician's Audio Bank with category + notes; assignment to patients
+ * happens in the Dashboard. Admins additionally publish shared templates.
+ * Rendered only when isClinician AND Supabase is configured; RLS blocks
  * these operations server-side for everyone else regardless of UI state.
  */
 function PublishPanel({
   getSession,
   flash,
+  role,
 }: {
   getSession: () => CustomSession;
   flash: (msg: string) => void;
+  role: Role;
 }) {
   const [tagline, setTagline] = useState("");
-  const [users, setUsers] = useState<Array<{ userId: string; email: string | null }>>([]);
-  const [selectedUser, setSelectedUser] = useState("");
+  const [category, setCategory] = useState<AudioCategory>("other");
+  const [notes, setNotes] = useState("");
   const [published, setPublished] = useState<CloudAudio[]>([]);
   const [busy, setBusy] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
-      const [allUsers, mine] = await Promise.all([
-        listAllUsers(),
-        listMyPublishedAudios(),
-      ]);
-      setUsers(allUsers);
-      setPublished(mine);
-      setSelectedUser((prev) => prev || allUsers[0]?.userId || "");
+      setPublished(await listMyPublishedAudios());
     } catch {
       flash("Could not load library data");
     }
@@ -364,6 +366,26 @@ function PublishPanel({
     void refresh();
   }, [refresh]);
 
+  const saveToBank = async () => {
+    setBusy(true);
+    try {
+      const session = getSession();
+      await publishAudio(session, {
+        name: session.name,
+        goalTagline: tagline.trim() || undefined,
+        isTemplate: false,
+        category,
+        notes: notes.trim() || undefined,
+      });
+      flash("Saved to your Audio Bank ✓");
+      await refresh();
+    } catch (err) {
+      flash(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const publishTemplate = async () => {
     setBusy(true);
     try {
@@ -372,28 +394,10 @@ function PublishPanel({
         name: session.name,
         goalTagline: tagline.trim() || undefined,
         isTemplate: true,
+        category,
+        notes: notes.trim() || undefined,
       });
       flash("Published as template ✓");
-      await refresh();
-    } catch (err) {
-      flash(err instanceof Error ? err.message : "Publish failed");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const publishForUser = async () => {
-    if (!selectedUser) return;
-    setBusy(true);
-    try {
-      const session = getSession();
-      const id = await publishAudio(session, {
-        name: session.name,
-        goalTagline: tagline.trim() || undefined,
-        isTemplate: false,
-      });
-      await assignAudio(id, selectedUser);
-      flash("Published for user ✓");
       await refresh();
     } catch (err) {
       flash(err instanceof Error ? err.message : "Publish failed");
@@ -414,7 +418,7 @@ function PublishPanel({
 
   return (
     <>
-      <div className="builder-section-title">Publish</div>
+      <div className="builder-section-title">Audio Bank</div>
       <div className="publish-panel">
         <input
           className="text-input"
@@ -425,31 +429,43 @@ function PublishPanel({
           onChange={(e) => setTagline(e.target.value)}
         />
         <div className="publish-actions">
-          <button className="chip" disabled={busy} onClick={() => void publishTemplate()}>
-            Publish as template
-          </button>
-        </div>
-        <div className="publish-actions">
           <select
             className="select"
-            value={selectedUser}
-            aria-label="Assign to user"
-            onChange={(e) => setSelectedUser(e.target.value)}
+            value={category}
+            aria-label="Category"
+            onChange={(e) => setCategory(e.target.value as AudioCategory)}
           >
-            {users.map((u) => (
-              <option key={u.userId} value={u.userId}>
-                {u.email ?? u.userId}
+            {AUDIO_CATEGORIES.map((c) => (
+              <option key={c} value={c}>
+                {c}
               </option>
             ))}
           </select>
-          <button
-            className="chip"
-            disabled={busy || !selectedUser}
-            onClick={() => void publishForUser()}
-          >
-            Publish for this user
-          </button>
         </div>
+        <textarea
+          className="text-input"
+          value={notes}
+          rows={2}
+          maxLength={500}
+          placeholder="Notes (visible only to you)"
+          aria-label="Notes"
+          onChange={(e) => setNotes(e.target.value)}
+        />
+        <div className="publish-actions">
+          <button className="chip" disabled={busy} onClick={() => void saveToBank()}>
+            Save to Audio Bank
+          </button>
+          {role === "admin" && (
+            <button
+              className="chip"
+              disabled={busy}
+              onClick={() => void publishTemplate()}
+            >
+              Publish as template
+            </button>
+          )}
+        </div>
+        <p className="library-note">Assign it to patients from the Dashboard.</p>
         {published.length > 0 && (
           <div className="saved-list">
             {published.map((a) => (
