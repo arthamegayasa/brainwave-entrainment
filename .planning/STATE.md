@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-07-02)
 Phase: 1 of 3 (Audio Engine Core)
 Plan: 0 of TBD in current phase
 Status: Ready to plan
-Last activity: 2026-07-14 - Completed quick task 260714-df1: Audio Bank MP3 export (offline render + in-browser 320 kbps encode)
+Last activity: 2026-07-14 - Completed quick task 260714-p5o: Builder Layers panel — dark select popup, grouped Entrainment/Tone/Ambience dropdown, ambience synthesis distinctness tuning
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -62,6 +62,7 @@ None yet.
 | 260714-a8a | Clinician platform: patient dashboard, audio bank with filters, template curation per patient, 3-tier pricing | 2026-07-13 | 3dccfc7 | [260714-a8a-clinician-platform-patient-dashboard-aud](./quick/260714-a8a-clinician-platform-patient-dashboard-aud/) |
 | 260714-dc3 | Account menu in header: sign-in moved out of Premium page, profile/subscription/settings sheet | 2026-07-14 | 0c4f081 | [260714-dc3-account-menu-in-header-sign-in-moved-out](./quick/260714-dc3-account-menu-in-header-sign-in-moved-out/) |
 | 260714-df1 | Audio Bank MP3 export: offline BuilderEngine render + @breezystack/lamejs 320 kbps encode, per-card Download panel | 2026-07-14 | 41cb681 | [260714-df1-audio-bank-mp3-export-offline-render-cli](./quick/260714-df1-audio-bank-mp3-export-offline-render-cli/) |
+| 260714-p5o | Builder Layers panel: dark select popup fix, Entrainment/Tone/Ambience optgroups, ambience spectral-signature tests + synthesis tuning | 2026-07-14 | cd15a0d | [260714-p5o-fix-builder-layers-panel-dropdown-dark-t](./quick/260714-p5o-fix-builder-layers-panel-dropdown-dark-t/) |
 
 ## Deferred Items
 
