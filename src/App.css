@@ -1825,3 +1825,95 @@
     grid-template-columns: 1fr 1fr 1fr;
   }
 }
+
+/* ── Account button + sheet (quick-260714-dc3) ──────────────────────── */
+
+/* Circular topbar button: person icon signed out, email initial signed in */
+.account-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink-dim);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  font-weight: 600;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.account-btn:hover {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+
+.account-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* Sections inside the Account sheet */
+.account-section {
+  margin-top: 1.35rem;
+}
+
+.account-section h3 {
+  font-size: 0.78rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  font-weight: 600;
+  margin: 0 0 0.55rem;
+}
+
+.account-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.account-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--line-strong);
+  display: grid;
+  place-items: center;
+  font-weight: 600;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.account-email {
+  color: var(--ink-dim);
+  font-size: 0.92rem;
+  overflow-wrap: anywhere;
+}
+
+.account-copy {
+  color: var(--ink-dim);
+  font-size: 0.9rem;
+  margin: 0 0 0.7rem;
+}
+
+/* .plan-note centers text for plan cards — left-align it in the sheet */
+.account-note {
+  text-align: left;
+}
+
+/* Subtle danger styling for reset/disconnect actions */
+.chip.danger {
+  color: #e58c8c;
+  border-color: rgba(229, 140, 140, 0.4);
+}
+
+.chip.danger:hover {
+  color: #f0a3a3;
+  border-color: rgba(229, 140, 140, 0.7);
+  background: rgba(229, 140, 140, 0.08);
+}

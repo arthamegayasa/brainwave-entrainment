@@ -249,3 +249,17 @@ export function dismissReciprocityCard(): void {
 export function totalSessions(): number {
   return loadProgress().completedSessions.length;
 }
+
+/**
+ * Clear all persisted progress (quick-260714-dc3). The next loadProgress()
+ * re-initializes discovery, so the journey restarts from step 1. Never throws.
+ */
+export function resetProgress(): void {
+  const s = storage();
+  if (!s) return;
+  try {
+    s.removeItem(KEY);
+  } catch {
+    /* storage unavailable */
+  }
+}

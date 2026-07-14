@@ -50,3 +50,17 @@ export function savePrefs(patch: Partial<Prefs>): void {
   const next = { ...loadPrefs(), ...patch };
   s.setItem(KEY, JSON.stringify(next));
 }
+
+/**
+ * Clear all persisted preferences (quick-260714-dc3) — loadPrefs() returns
+ * DEFAULTS afterwards. Never throws.
+ */
+export function resetPrefs(): void {
+  const s = storage();
+  if (!s) return;
+  try {
+    s.removeItem(KEY);
+  } catch {
+    /* storage unavailable */
+  }
+}
