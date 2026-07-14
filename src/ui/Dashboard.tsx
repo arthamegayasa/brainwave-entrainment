@@ -455,9 +455,17 @@ function BankTab({ flash }: { flash: (msg: string) => void }) {
   const [category, setCategory] = useState<"all" | AudioCategory>("all");
   const [band, setBand] = useState<"all" | Band>("all");
   const [error, setError] = useState<string | null>(null);
-  // Single-flight MP3 export: lifted here so EVERY card's export controls
-  // disable while any one export runs (module flags wouldn't re-render siblings).
-  const [exportBusy, setExportBusy] = useState(false);
+  // Single-flight MP3 export: state mirrors the module-level flag (which
+  // survives remounts) so EVERY card's export controls disable while any one
+  // export runs — including after a tab switch mid-export.
+  const [exportBusy, setExportBusy] = useState(() => exportInFlight);
+  useEffect(() => {
+    exportBusyListener = setExportBusy;
+    setExportBusy(exportInFlight); // re-sync after a remount mid-export
+    return () => {
+      exportBusyListener = null;
+    };
+  }, []);
 
   const refresh = useCallback(async () => {
     try {
@@ -552,7 +560,6 @@ function BankTab({ flash }: { flash: (msg: string) => void }) {
               flash={flash}
               onChange={() => void refresh()}
               exportBusy={exportBusy}
-              setExportBusy={setExportBusy}
             />
           ))}
         </div>
@@ -563,20 +570,33 @@ function BankTab({ flash }: { flash: (msg: string) => void }) {
 
 const EXPORT_LENGTHS_MIN = [5, 10, 15, 30, 45, 60] as const;
 
+/**
+ * Remount-proof single-flight for MP3 exports. BankTab unmounts on tab
+ * switches / view changes while a long render keeps running — component
+ * state alone would reset, re-enable every Download button, and allow a
+ * second ~1GB OfflineAudioContext render in parallel. The module flag gates
+ * doDownload itself; the listener re-syncs whichever BankTab instance is
+ * currently mounted.
+ */
+let exportInFlight = false;
+let exportBusyListener: ((busy: boolean) => void) | null = null;
+function setExportInFlight(busy: boolean): void {
+  exportInFlight = busy;
+  exportBusyListener?.(busy);
+}
+
 function BankCard({
   audio,
   patients,
   flash,
   onChange,
   exportBusy,
-  setExportBusy,
 }: {
   audio: BankAudio;
   patients: PatientLink[];
   flash: (msg: string) => void;
   onChange: () => void;
   exportBusy: boolean;
-  setExportBusy: (busy: boolean) => void;
 }) {
   const [assignOpen, setAssignOpen] = useState(false);
   const [target, setTarget] = useState<string>("all");
@@ -654,7 +674,8 @@ function BankCard({
   };
 
   const doDownload = async () => {
-    setExportBusy(true);
+    if (exportInFlight) return; // remount-proof guard, not just the disabled attr
+    setExportInFlight(true);
     try {
       const blob = await exportSessionMp3(audio.spec, dlMin, (p, pct) =>
         setPhase({ phase: p, pct }),
@@ -662,7 +683,12 @@ function BankCard({
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${audio.name.replace(/[^a-zA-Z0-9]+/g, "-") || "session"}.mp3`;
+      // Strip leading/trailing dashes so whitespace-only or fully non-ASCII
+      // names fall back to "session" instead of downloading as "-.mp3".
+      const core = audio.name
+        .replace(/[^a-zA-Z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+      a.download = `${core || "session"}.mp3`;
       a.click();
       URL.revokeObjectURL(url);
       flash("MP3 saved ✓");
@@ -670,7 +696,7 @@ function BankCard({
       flash("Export failed — try a shorter length.");
     } finally {
       setPhase(null);
-      setExportBusy(false);
+      setExportInFlight(false);
     }
   };
 

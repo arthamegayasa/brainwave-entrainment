@@ -89,6 +89,10 @@ export function AccountSheet({
       await unlinkMyClinician();
       setClinician(null);
       void ent.refresh();
+      // The Library can stay mounted under this sheet with its own clinician
+      // + assigned-audio state — tell it to refetch so it doesn't keep
+      // showing "Connected" with stale, still-playable assigned sessions.
+      window.dispatchEvent(new Event("serenade:clinician-changed"));
       flash("Disconnected.");
     } catch (e) {
       flash(
@@ -212,7 +216,11 @@ export function AccountSheet({
             <div className="account-section">
               <h3>Subscription</h3>
               <p className="account-copy">
-                {ent.entitlement?.currentPeriodEnd
+                {/* Key on status too: a canceled/expired sub keeps its old
+                    current_period_end — that date must not read as "Active"
+                    right under a plan chip that says Free. */}
+                {ent.entitlement?.status === "active" &&
+                ent.entitlement.currentPeriodEnd
                   ? `Active until ${new Date(ent.entitlement.currentPeriodEnd).toLocaleDateString()}`
                   : "No active subscription — you're on Free."}
               </p>

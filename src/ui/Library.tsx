@@ -68,6 +68,16 @@ export function Library({ onSignIn, onBeforePlay }: LibraryProps) {
 
   const signedIn = ent.configured && ent.email !== null;
 
+  // The Account sheet can disconnect the clinician while this view stays
+  // mounted underneath it — it dispatches this event so we refetch instead of
+  // keeping a stale "Connected" block and playable assigned sessions.
+  const [clinicianTick, setClinicianTick] = useState(0);
+  useEffect(() => {
+    const bump = () => setClinicianTick((n) => n + 1);
+    window.addEventListener("serenade:clinician-changed", bump);
+    return () => window.removeEventListener("serenade:clinician-changed", bump);
+  }, []);
+
   // Shared by the mount effect AND the redeem handler, so a fresh link's
   // assigned audios appear without a reload.
   const loadCloud = useCallback(async () => {
@@ -112,7 +122,7 @@ export function Library({ onSignIn, onBeforePlay }: LibraryProps) {
     return () => {
       cancelled = true;
     };
-  }, [signedIn]);
+  }, [signedIn, clinicianTick]);
 
   // Poll the shared engine while playing, mirroring the Studio transport.
   useEffect(() => {
