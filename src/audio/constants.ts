@@ -23,12 +23,16 @@ export const DEMO = {
   monaural: { carrier: 200, beat: 10 },
   solfeggio: { tone: SOLFEGGIO.healing },
   ambient: {
-    // ASSUMED — tune by ear
-    ocean: { lowpassHz: 400, lfoHz: 0.1, lfoDepth: 0.35, baseGain: 0.65 },
-    // ASSUMED — tune by ear
-    wind: { bandpassHz: 600, q: 0.7, lfoHz: 0.15, sweepHz: 300 },
-    // ASSUMED — tune by ear (baseGain tames biquad resonance boost that clips)
-    rain: { highpassHz: 1000, lowpassHz: 7000, baseGain: 0.5 },
+    // Tuned for label distinctness (QUICK-260714-P5O); pinned by spectral
+    // signature tests in tests/audio/ambient.test.ts — keep them green.
+    // ~6.7 s wave period, deep swell; baseGain - lfoDepth > 0 (never negative)
+    // and baseGain + lfoDepth <= 1 (no clipping).
+    ocean: { lowpassHz: 400, lfoHz: 0.15, lfoDepth: 0.45, baseGain: 0.55 },
+    // ~4 s gust cycle so the bandpass sweep reads as moving wind, not waves.
+    wind: { bandpassHz: 600, q: 0.7, lfoHz: 0.25, sweepHz: 300 },
+    // Highpass raised to sharpen hiss vs wind's mid whoosh (baseGain tames
+    // biquad resonance boost that clips).
+    rain: { highpassHz: 1200, lowpassHz: 7000, baseGain: 0.5 },
   },
 } as const;
 
