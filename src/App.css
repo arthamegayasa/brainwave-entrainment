@@ -660,6 +660,30 @@
   font-size: 0.9rem;
 }
 
+.select {
+  /* Chromium derives the dropdown popup chrome from the control itself;
+     root-level color-scheme is not reliably applied to form-control popups
+     on Windows, so declare it on the select directly. */
+  color-scheme: dark;
+}
+
+.select option,
+.select optgroup {
+  /* Popup colors must be SOLID — the field's alpha background composites
+     to white in the popup, making light text unreadable. */
+  background-color: #131722;
+  color: var(--ink);
+}
+
+.select optgroup {
+  color: var(--ink-dim);
+  font-style: normal;
+}
+
+.select optgroup option {
+  color: var(--ink);
+}
+
 .num-input {
   width: 6.2rem;
 }
