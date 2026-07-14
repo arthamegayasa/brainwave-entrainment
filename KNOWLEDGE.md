@@ -56,3 +56,11 @@
 - **Cross-instance state di React tanpa store**: `useEntitlement` per-instance (App nav vs Upgrade page pakai instance beda). Perubahan role server-side setelah bayar tidak muncul di nav sampai reload — kecuali di-broadcast via `supabase.auth.refreshSession()` yang memicu `onAuthStateChange` di SEMUA instance sekaligus.
 - **Konsistensi band**: `preset.band` (kurItorial) harus === `bandForHz(targetHz)` (derivasi) — kalau tidak, frekuensi sama tampil beda label antara Home dan Audio Bank. Dijaga test invarian atas semua preset.
 - **Deploy edge function via MCP**: pertahankan `verify_jwt` per-function (create-transaction true, webhook false — webhook auth via signature SHA-512, bukan JWT).
+
+## Implementation Learnings (quick-260714-dc3 + df1, 2026-07-14)
+
+- **State single-flight yang harus selamat dari remount**: state React per-komponen hilang saat tab/view berganti — untuk operasi berat berjalan-lama (render MP3 ~1GB), flag single-flight WAJIB module-level dan di-guard di handler-nya sendiri (bukan hanya atribut `disabled`), dengan listener yang me-re-sync instance komponen yang sedang mounted.
+- **Dua permukaan UI yang memutasi data yang sama** (Account sheet vs Library untuk koneksi klinisi): sheet overlay tidak meng-unmount view di bawahnya — sinkronkan via `window.dispatchEvent(new Event("serenade:clinician-changed"))` + listener yang mem-bump dependency effect. Pola ringan tanpa store global.
+- **Field entitlement yang tidak pernah di-clear**: webhook revoke tidak menghapus `current_period_end` — SETIAP tampilan status langganan harus key pada `status === 'active'`, bukan keberadaan tanggal.
+- **PWA service worker menahan shell lama pasca-deploy**: verifikasi live pasca-deploy harus cek hash bundle dari server (curl, tanpa SW) sebelum menyimpulkan dari browser — atau unregister SW + clear caches + reload. User nyata mendapat update setelah reload berikutnya (workbox default).
+- **Ekspor MP3 dari engine sintesis**: BuilderEngine context-agnostic → render `OfflineAudioContext` (44.1kHz stereo) lalu encode `@breezystack/lamejs` 320kbps per blok 1152 sample dengan yield event-loop; fork breezystack dipakai karena lamejs asli pecah di bundler modern ('MPEGMode is not defined'). Sanitasi nama file: strip dash pinggir + fallback — nama full non-ASCII menghasilkan "-.mp3".
