@@ -13,7 +13,9 @@ import {
   shouldShowReciprocity,
   dismissReciprocityCard,
   totalSessions,
+  resetProgress,
 } from "../src/state/progress";
+import { loadPrefs, savePrefs, resetPrefs } from "../src/state/prefs";
 
 function installLocalStorage() {
   const store = new Map<string, string>();
@@ -155,6 +157,46 @@ describe("progress: reciprocity card", () => {
     expect(shouldShowReciprocity()).toBe(false);
     loadProgress();
     expect(shouldShowReciprocity()).toBe(false);
+  });
+});
+
+describe("progress: resetProgress / resetPrefs", () => {
+  beforeEach(installLocalStorage);
+
+  it("resetProgress clears completions/goals; loadProgress re-initializes discovery", () => {
+    expect(loadProgress().discoveredAt).not.toBeNull();
+    recordSessionCompleted("focus");
+    recordSessionCompleted("deep-sleep");
+    setChosenGoals(["focus", "deep-sleep"]);
+    resetProgress();
+    const fresh = loadProgress();
+    expect(fresh.completedSessions).toEqual([]);
+    expect(fresh.chosenGoals).toEqual([]);
+    expect(fresh.goalPickerDone).toBe(false);
+    // Discovery re-initializes on the post-reset load — a fresh non-null stamp.
+    expect(typeof fresh.discoveredAt).toBe("string");
+    expect(fresh.discoveredAt).not.toBeNull();
+    expect(totalSessions()).toBe(0);
+  });
+
+  it("resetProgress never throws when localStorage is unavailable", () => {
+    delete (globalThis as Record<string, unknown>).localStorage;
+    expect(() => resetProgress()).not.toThrow();
+  });
+
+  it("resetPrefs removes serenade.prefs.v1 so loadPrefs returns DEFAULTS", () => {
+    savePrefs({ lastDurationMin: 60, visited: true });
+    expect(localStorage.getItem("serenade.prefs.v1")).not.toBeNull();
+    resetPrefs();
+    expect(localStorage.getItem("serenade.prefs.v1")).toBeNull();
+    const prefs = loadPrefs();
+    expect(prefs.lastDurationMin).toBe(30);
+    expect(prefs.visited).toBe(false);
+  });
+
+  it("resetPrefs never throws when localStorage is unavailable", () => {
+    delete (globalThis as Record<string, unknown>).localStorage;
+    expect(() => resetPrefs()).not.toThrow();
   });
 });
 
