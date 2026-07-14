@@ -46,7 +46,17 @@ const LAYER_TYPE_LABELS: Record<BuilderLayerType, string> = {
   brown: SOUND_LABELS.brown,
 };
 
-const LAYER_TYPES = Object.keys(LAYER_TYPE_LABELS) as BuilderLayerType[];
+/**
+ * Grouped layer types for the dropdown. Values must stay byte-identical to
+ * BuilderLayerType members — saved custom presets store these strings.
+ * "pure" is a static tone (createSolfeggioLayer), NOT entrainment, so it
+ * gets its own group.
+ */
+const LAYER_TYPE_GROUPS: Array<{ label: string; types: BuilderLayerType[] }> = [
+  { label: "Entrainment", types: ["binaural", "isochronic", "monaural"] },
+  { label: "Tone", types: ["pure"] },
+  { label: "Ambience", types: ["rain", "ocean", "wind", "brown"] },
+];
 
 let layerCounter = 0;
 function newLayer(type: BuilderLayerType = "binaural"): BuilderLayerSpec {
@@ -513,10 +523,14 @@ function LayerCard({
           aria-label="Layer type"
           onChange={(e) => onPatch({ type: e.target.value as BuilderLayerType })}
         >
-          {LAYER_TYPES.map((t) => (
-            <option key={t} value={t}>
-              {LAYER_TYPE_LABELS[t]}
-            </option>
+          {LAYER_TYPE_GROUPS.map((group) => (
+            <optgroup key={group.label} label={group.label}>
+              {group.types.map((t) => (
+                <option key={t} value={t}>
+                  {LAYER_TYPE_LABELS[t]}
+                </option>
+              ))}
+            </optgroup>
           ))}
         </select>
         <button className="saved-del" aria-label="Remove layer" onClick={onRemove}>
