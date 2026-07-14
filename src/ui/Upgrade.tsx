@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ALL_UNLOCKED, getTier, setTier, PRICING } from "../state/tier";
 import type { BillingPeriod } from "../state/tier";
 import { useEntitlement } from "../lib/useEntitlement";
+import { supabase } from "../lib/supabase";
 import { createCheckout, signInWithEmail, signOut } from "../lib/payments";
 import { loadSnap, openSnap } from "../lib/snap";
 import { currentStreakDays, totalSessions } from "../state/progress";
@@ -293,7 +294,17 @@ function PlanCheckout({
       openSnap(token, {
         onSuccess: () => {
           setMsg("Payment received — activating…");
-          setTimeout(() => void ent.refresh(), 2500);
+          // A clinician purchase changes profiles.role server-side, which gates
+          // the App's nav (Dashboard/Studio) via a SEPARATE useEntitlement
+          // instance. refreshSession() fires onAuthStateChange, and every
+          // instance re-fetches on it — so the whole app re-gates, not just
+          // this page. Two attempts cover a webhook that lands a bit late.
+          const sync = () => {
+            void ent.refresh();
+            void supabase?.auth.refreshSession();
+          };
+          setTimeout(sync, 2500);
+          setTimeout(sync, 6000);
         },
         onPending: () => setMsg("Payment pending. We'll activate once it settles."),
         onError: () => setMsg("Payment failed. Please try again."),

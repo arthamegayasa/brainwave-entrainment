@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { bandForHz } from "../src/ui/bands";
+import { PRESETS } from "../src/audio/presets";
 
 // bandForHz is pure — no localStorage shim needed.
 describe("bandForHz (quick-260714-a8a)", () => {
@@ -27,4 +28,15 @@ describe("bandForHz (quick-260714-a8a)", () => {
     expect(bandForHz(30)).toBe("gamma");
     expect(bandForHz(40)).toBe("gamma");
   });
+});
+
+// Invariant: a built-in preset's curated band must equal the band derived from
+// its targetHz — so the same frequency never carries two different band labels
+// between Home (preset.band) and the clinician Audio Bank (bandForHz).
+describe("preset band consistency", () => {
+  for (const preset of PRESETS) {
+    it(`${preset.id}: band '${preset.band}' matches bandForHz(${preset.targetHz})`, () => {
+      expect(preset.band).toBe(bandForHz(preset.targetHz));
+    });
+  }
 });

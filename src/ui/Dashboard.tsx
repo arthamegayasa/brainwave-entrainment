@@ -288,6 +288,10 @@ function PatientDetail({
   const [assigned, setAssigned] = useState<PatientAssignment[]>([]);
   const [bank, setBank] = useState<BankAudio[]>([]);
   const [bankPick, setBankPick] = useState("");
+  // Presets with an in-flight visibility write — a second toggle is blocked
+  // until the first settles, so a fast uncheck→recheck can't commit its two
+  // independent requests out of order (DB 'hidden' while UI shows 'visible').
+  const [busyPresets, setBusyPresets] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
     try {
@@ -313,15 +317,23 @@ function PatientDetail({
 
   // CHECKED = VISIBLE: unchecking inserts the hidden row, checking removes it.
   const togglePreset = async (presetId: string, visible: boolean) => {
+    if (busyPresets.has(presetId)) return; // serialize per-preset writes
     const hide = !visible;
     setHidden((prev) =>
       hide ? [...prev, presetId] : prev.filter((id) => id !== presetId),
     );
+    setBusyPresets((prev) => new Set(prev).add(presetId));
     try {
       await setPresetHidden(patient.patientId, presetId, hide);
     } catch {
       flash("Could not update visibility");
       void load();
+    } finally {
+      setBusyPresets((prev) => {
+        const next = new Set(prev);
+        next.delete(presetId);
+        return next;
+      });
     }
   };
 
@@ -364,6 +376,7 @@ function PatientDetail({
                 <input
                   type="checkbox"
                   checked={visible}
+                  disabled={busyPresets.has(preset.id)}
                   onChange={(e) => void togglePreset(preset.id, e.target.checked)}
                 />
                 <span aria-hidden>{preset.emoji}</span> {preset.name}
@@ -525,7 +538,7 @@ function BankTab({ flash }: { flash: (msg: string) => void }) {
         <p className="library-note">No audio matches these filters.</p>
       )}
 
-      {filtered.length > 0 && (
+      {!error && filtered.length > 0 && (
         <div className="bank-grid">
           {filtered.map((audio) => (
             <BankCard

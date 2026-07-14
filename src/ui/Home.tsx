@@ -219,7 +219,9 @@ export function Home({ onStart, onUpgrade }: HomeProps) {
       {pickerOpen && (
         <GoalPicker
           presets={visiblePresets}
-          initial={progress.chosenGoals}
+          initial={progress.chosenGoals.filter((id) =>
+            visiblePresets.some((p) => p.id === id),
+          )}
           onChoose={(ids) => {
             setChosenGoals(ids);
             setPickerOpen(false);

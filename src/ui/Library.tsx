@@ -88,11 +88,30 @@ export function Library({ onUpgrade, onBeforePlay }: LibraryProps) {
       setLinkMsg(null);
       return;
     }
-    void loadCloud();
-    getMyClinician()
-      .then((c) => setClinician(c))
-      .catch(() => setClinician(null));
-  }, [signedIn, loadCloud]);
+    // Cancellation guard: if sign-out fires while these fetches are in flight,
+    // their resolutions must NOT repopulate the previous account's data (the
+    // "Made for you" list renders on assigned.length, not on signedIn).
+    let cancelled = false;
+    void listAssignedAudios()
+      .then((rows) => {
+        if (cancelled) return;
+        setCloud(rows);
+        setCloudError(null);
+      })
+      .catch(() => {
+        if (!cancelled) setCloudError("Could not load your sessions — try again later.");
+      });
+    void getMyClinician()
+      .then((c) => {
+        if (!cancelled) setClinician(c);
+      })
+      .catch(() => {
+        if (!cancelled) setClinician(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [signedIn]);
 
   // Poll the shared engine while playing, mirroring the Studio transport.
   useEffect(() => {

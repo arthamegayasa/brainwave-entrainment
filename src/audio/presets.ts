@@ -142,7 +142,10 @@ export const PRESETS: readonly Preset[] = [
     name: "Power Nap",
     tagline: "Sink into theta-delta, then wake refreshed at the end",
     emoji: "☀️",
-    band: "theta",
+    // Band reflects the deepest point (targetHz 3.5 Hz = delta), keeping
+    // preset.band === bandForHz(targetHz) consistent across all presets so a
+    // clinician recreating this in the Studio sees the same band label.
+    band: "delta",
     targetHz: 3.5,
     startHz: 10,
     endHz: 12,
