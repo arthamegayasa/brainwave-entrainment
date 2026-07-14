@@ -1917,3 +1917,41 @@
   border-color: rgba(229, 140, 140, 0.7);
   background: rgba(229, 140, 140, 0.08);
 }
+
+/* ── Audio Bank MP3 export panel (quick-260714-df1) ─────────────────── */
+
+.bank-download {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+  margin-top: 0.4rem;
+}
+
+.bank-download-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--ink-dim);
+}
+
+.bank-download-row .select {
+  flex: 1;
+}
+
+.bank-download-note {
+  font-size: 0.78rem;
+  color: var(--ink-faint);
+  margin: 0;
+}
+
+.export-warning {
+  font-size: 0.8rem;
+  margin: 0;
+  padding: 0.45rem 0.6rem;
+  border-radius: 8px;
+  color: #e5c07b;
+  border: 1px solid rgba(229, 192, 123, 0.4);
+  background: rgba(229, 192, 123, 0.08);
+}

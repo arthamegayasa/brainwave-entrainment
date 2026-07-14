@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { PRESETS } from "../audio/presets";
 import type { Band } from "../audio/presets";
+import { exportSessionMp3 } from "../audio/export";
 import { BAND_COLORS, BAND_LABELS } from "./bands";
 import { useEntitlement } from "../lib/useEntitlement";
 import {
@@ -454,6 +455,9 @@ function BankTab({ flash }: { flash: (msg: string) => void }) {
   const [category, setCategory] = useState<"all" | AudioCategory>("all");
   const [band, setBand] = useState<"all" | Band>("all");
   const [error, setError] = useState<string | null>(null);
+  // Single-flight MP3 export: lifted here so EVERY card's export controls
+  // disable while any one export runs (module flags wouldn't re-render siblings).
+  const [exportBusy, setExportBusy] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -547,6 +551,8 @@ function BankTab({ flash }: { flash: (msg: string) => void }) {
               patients={patients}
               flash={flash}
               onChange={() => void refresh()}
+              exportBusy={exportBusy}
+              setExportBusy={setExportBusy}
             />
           ))}
         </div>
@@ -555,16 +561,22 @@ function BankTab({ flash }: { flash: (msg: string) => void }) {
   );
 }
 
+const EXPORT_LENGTHS_MIN = [5, 10, 15, 30, 45, 60] as const;
+
 function BankCard({
   audio,
   patients,
   flash,
   onChange,
+  exportBusy,
+  setExportBusy,
 }: {
   audio: BankAudio;
   patients: PatientLink[];
   flash: (msg: string) => void;
   onChange: () => void;
+  exportBusy: boolean;
+  setExportBusy: (busy: boolean) => void;
 }) {
   const [assignOpen, setAssignOpen] = useState(false);
   const [target, setTarget] = useState<string>("all");
@@ -574,6 +586,12 @@ function BankCard({
   const [category, setCategory] = useState<AudioCategory>(audio.category);
   const [notes, setNotes] = useState(audio.notes ?? "");
   const [busy, setBusy] = useState(false);
+  const [dlOpen, setDlOpen] = useState(false);
+  const [dlMin, setDlMin] = useState(15);
+  const [phase, setPhase] = useState<{
+    phase: "rendering" | "encoding";
+    pct?: number;
+  } | null>(null);
 
   const notesPreview =
     audio.notes && audio.notes.length > 80
@@ -635,6 +653,34 @@ function BankCard({
     }
   };
 
+  const doDownload = async () => {
+    setExportBusy(true);
+    try {
+      const blob = await exportSessionMp3(audio.spec, dlMin, (p, pct) =>
+        setPhase({ phase: p, pct }),
+      );
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${audio.name.replace(/[^a-zA-Z0-9]+/g, "-") || "session"}.mp3`;
+      a.click();
+      URL.revokeObjectURL(url);
+      flash("MP3 saved ✓");
+    } catch {
+      flash("Export failed — try a shorter length.");
+    } finally {
+      setPhase(null);
+      setExportBusy(false);
+    }
+  };
+
+  const dlLabel =
+    phase === null
+      ? "Download MP3"
+      : phase.phase === "rendering"
+        ? "Rendering…"
+        : `Encoding ${phase.pct ?? 0}%`;
+
   return (
     <div
       className="bank-card"
@@ -662,7 +708,44 @@ function BankCard({
         <button className="chip small" onClick={() => void doDelete()}>
           Delete
         </button>
+        <button className="chip small" onClick={() => setDlOpen((v) => !v)}>
+          Download…
+        </button>
       </div>
+
+      {dlOpen && (
+        <div className="bank-download">
+          <label className="bank-download-row">
+            <span>Length</span>
+            <select
+              className="select"
+              value={dlMin}
+              disabled={exportBusy}
+              aria-label="Export length in minutes"
+              onChange={(e) => setDlMin(Number(e.target.value))}
+            >
+              {EXPORT_LENGTHS_MIN.map((m) => (
+                <option key={m} value={m}>
+                  {m} min
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className="bank-download-note">320 kbps MP3 · stereo</p>
+          {dlMin >= 45 && (
+            <p className="export-warning">
+              Long exports need a powerful device and can take a few minutes.
+            </p>
+          )}
+          <button
+            className="chip"
+            disabled={exportBusy}
+            onClick={() => void doDownload()}
+          >
+            {dlLabel}
+          </button>
+        </div>
+      )}
 
       {assignOpen &&
         (patients.length === 0 ? (
