@@ -106,19 +106,30 @@ Deno.serve(async (req: Request) => {
   }
   const snap = await snapRes.json();
 
-  // Mark the entitlement pending (idempotent upsert by user_id).
-  await admin.from("entitlements").upsert(
-    {
-      user_id: user.id,
-      tier: "free",
-      status: "pending",
-      provider: "midtrans",
-      provider_ref: orderId,
-      billing_period: period,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "user_id" },
-  );
+  // Mark the entitlement pending — but NEVER knock an already-active
+  // subscription down to free/pending just because a new checkout was opened.
+  // An active user upgrading (e.g. premium → clinician) who abandons the Snap
+  // popup must keep the sub they already paid for. Only write the pending
+  // marker for users without an active entitlement.
+  const { data: existing } = await admin
+    .from("entitlements")
+    .select("status")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (!existing || existing.status !== "active") {
+    await admin.from("entitlements").upsert(
+      {
+        user_id: user.id,
+        tier: "free",
+        status: "pending",
+        provider: "midtrans",
+        provider_ref: orderId,
+        billing_period: period,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id" },
+    );
+  }
 
   return json({ token: snap.token, order_id: orderId, redirect_url: snap.redirect_url });
 });

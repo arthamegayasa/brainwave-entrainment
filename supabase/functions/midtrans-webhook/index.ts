@@ -82,6 +82,15 @@ Deno.serve(async (req: Request) => {
   }
   if (!userId) return new Response("ok", { status: 200 });
 
+  // The current entitlement on file. Failure/pending handling keys on its
+  // provider_ref so an abandoned NEW checkout can never revoke a sub that a
+  // DIFFERENT, already-paid order granted.
+  const { data: current } = await admin
+    .from("entitlements")
+    .select("provider_ref, status")
+    .eq("user_id", userId)
+    .maybeSingle();
+
   if (isPaid) {
     await admin.from("entitlements").upsert(
       {
@@ -96,29 +105,40 @@ Deno.serve(async (req: Request) => {
       },
       { onConflict: "user_id" },
     );
+    // Role tracks the plan actually paid for. Never touch admins (role='user'
+    // / role='clinician' filters); role changes are service-role only (0004).
     if (plan === "clinician") {
-      // Promote user → clinician. The role='user' filter guarantees admins
-      // are never touched (role changes are service-role only per 0004).
       await admin
         .from("profiles")
         .update({ role: "clinician" })
         .eq("user_id", userId)
         .eq("role", "user");
+    } else {
+      // A paid premium (or legacy) order supersedes the clinician tier: the
+      // user chose the cheaper plan, so drop the professional role.
+      await admin
+        .from("profiles")
+        .update({ role: "user" })
+        .eq("user_id", userId)
+        .eq("role", "clinician");
     }
   } else if (isPending) {
-    await admin
-      .from("entitlements")
-      .update({ status: "pending", updated_at: new Date().toISOString() })
-      .eq("user_id", userId);
-  } else {
-    // deny / cancel / expire / failure → revoke the paid tier.
+    // Don't push an active sub back to pending for an unrelated new checkout.
+    if (!current || current.status !== "active" || current.provider_ref === orderId) {
+      await admin
+        .from("entitlements")
+        .update({ status: "pending", updated_at: new Date().toISOString() })
+        .eq("user_id", userId);
+    }
+  } else if (current && current.provider_ref === orderId) {
+    // deny / cancel / expire / failure → revoke ONLY when the failed order is
+    // the one currently on file. Abandoning a new checkout must not revoke a
+    // subscription earned by a prior, successful order.
     await admin
       .from("entitlements")
       .update({ tier: "free", status: "inactive", updated_at: new Date().toISOString() })
       .eq("user_id", userId);
     if (plan === "clinician") {
-      // Demote only when the FAILED order was a clinician order, and only a
-      // clinician role — admins stay admins.
       await admin
         .from("profiles")
         .update({ role: "user" })

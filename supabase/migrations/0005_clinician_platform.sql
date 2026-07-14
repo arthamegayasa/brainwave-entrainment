@@ -47,7 +47,10 @@ create table if not exists public.invite_codes (
   clinician_id uuid not null references auth.users(id) on delete cascade,
   created_at   timestamptz not null default now(),
   expires_at   timestamptz not null default (now() + interval '30 days'),
-  used_by      uuid references auth.users(id),
+  -- on delete set null: a redeemed code records used_by, but deleting that
+  -- patient's auth.users row (dashboard/GDPR erasure) must not FK-fail — keep
+  -- the code marked consumed while dropping the dangling reference.
+  used_by      uuid references auth.users(id) on delete set null,
   used_at      timestamptz
 );
 
@@ -86,7 +89,10 @@ begin
     return jsonb_build_object('error', 'not_signed_in');
   end if;
 
-  select * into v_row from public.invite_codes where code = v_code;
+  -- FOR UPDATE locks the code row so two patients redeeming the same code
+  -- concurrently serialize: the second waits, then sees used_by set and is
+  -- rejected. Without the lock both could pass the used_by IS NULL check.
+  select * into v_row from public.invite_codes where code = v_code for update;
   if not found then
     return jsonb_build_object('error', 'invalid_code');
   end if;
@@ -158,6 +164,37 @@ $$;
 
 revoke execute on function public.get_my_clinician() from public, anon;
 grant execute on function public.get_my_clinician() to authenticated;
+
+-- ── Unlink cleanup: sever the link, sever its curation and access ───────────
+-- template_visibility and audio_assignments are NOT FK-tied to patient_links,
+-- and the clinician RLS policies require the link to EXIST — so once the link
+-- is gone (either side can delete it) neither party could remove the orphans:
+-- hidden presets would stay hidden forever and the ex-patient would keep
+-- playing the clinician's assigned audio. This definer trigger does the
+-- cascade the schema can't express, running regardless of who severed the link.
+create or replace function public.cleanup_patient_link()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  delete from public.template_visibility
+   where clinician_id = old.clinician_id
+     and patient_id = old.patient_id;
+  delete from public.audio_assignments
+   where user_id = old.patient_id
+     and audio_id in (
+       select id from public.custom_audios where created_by = old.clinician_id
+     );
+  return old;
+end;
+$$;
+
+drop trigger if exists on_patient_link_deleted on public.patient_links;
+create trigger on_patient_link_deleted
+  after delete on public.patient_links
+  for each row execute function public.cleanup_patient_link();
 
 -- ── D-02: row level security on the new tables ──────────────────────────────
 alter table public.patient_links enable row level security;
@@ -237,11 +274,17 @@ create policy "patient reads own visibility"
 -- The 0002 "read templates and assigned" select policy stays untouched.
 drop policy if exists "admin full access" on public.custom_audios;
 
+-- with check forbids is_template = true: templates are visible to EVERY
+-- authenticated user via 0002's "read templates and assigned" policy, so
+-- publishing them is an admin-only privilege. Without this, any paying
+-- clinician could POST/PATCH is_template=true and inject audio app-wide.
+-- (USING stays unrestricted so a clinician can still read/delete their own
+-- rows; they can never own an is_template=true row in the first place.)
 drop policy if exists "clinician manage own" on public.custom_audios;
 create policy "clinician manage own"
   on public.custom_audios for all
   using (public.is_clinician() and created_by = auth.uid())
-  with check (public.is_clinician() and created_by = auth.uid());
+  with check (public.is_clinician() and created_by = auth.uid() and is_template = false);
 
 drop policy if exists "admin all" on public.custom_audios;
 create policy "admin all"
@@ -294,9 +337,15 @@ create policy "read own profile or admin"
   using (
     auth.uid() = user_id
     or public.is_admin()
-    or exists (
-      select 1 from public.patient_links pl
-      where pl.clinician_id = auth.uid() and pl.patient_id = user_id
+    or (
+      -- is_clinician() gate: a user demoted from clinician (failed/lapsed
+      -- order) must lose patient-PII access even while stale patient_links
+      -- rows persist until each patient disconnects.
+      public.is_clinician()
+      and exists (
+        select 1 from public.patient_links pl
+        where pl.clinician_id = auth.uid() and pl.patient_id = user_id
+      )
     )
   );
 
