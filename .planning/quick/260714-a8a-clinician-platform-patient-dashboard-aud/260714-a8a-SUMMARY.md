@@ -153,3 +153,26 @@ All created files verified on disk; commits 8b08704, 6844e95, 3dccfc7 verified i
 ---
 *Phase: quick-260714-a8a*
 *Completed: 2026-07-13*
+
+## Post-execution adversarial review + deployment (2026-07-14)
+
+58-agent review workflow (4 dimensions × 3-verifier adversarial panels): 13→ actually 17 confirmed findings (3/3 votes each), 1 refuted. All fixed in commits `672d7b0` (backend) + `6e79e87` (client):
+
+**Backend (migration 0005 hardened before apply + edge functions):**
+- custom_audios WITH CHECK `is_template = false` — clinicians can't publish app-wide templates (admin-only).
+- `cleanup_patient_link` AFTER DELETE trigger — unlinking cascades template_visibility + this-clinician's audio_assignments (no orphans; matches the Dashboard confirm copy).
+- Webhook failure/pending branches key on `provider_ref` — an abandoned NEW checkout can't revoke a sub from a prior paid order; create-transaction preserves active subs.
+- Paid premium order demotes clinician→user (role tracks the paid plan); clinician promote unchanged; admins never touched.
+- redeem_invite_code `SELECT ... FOR UPDATE` (single-use under race); invite_codes.used_by `ON DELETE SET NULL`; profiles clinician branch gated on `is_clinician()`.
+
+**Client:**
+- Per-preset serialized visibility writes (busyPresets + disabled); Audio Bank grid gated on !error; Library sign-out cancellation guard; Upgrade broadcasts role change via `supabase.auth.refreshSession()`; GoalPicker initial selection filtered to visible presets; Power Nap band theta→delta + preset.band===bandForHz(targetHz) invariant test.
+
+**Verification:** `npm run build` PASS; `npm test` 91/91 PASS excluding the pre-existing flaky `builder.test.ts` (isolated run 9/9). Live browser smoke test on https://brainwave-entrainment.vercel.app: 3-tier Upgrade (Free/Premium/Clinician) renders with Rp1,990,000 + Rp2,988,000 anchor + clinician bullets, signed-out nav correct (no Dashboard/Studio), zero console errors.
+
+**Deployment (via Supabase MCP + GitHub→Vercel):**
+- Migration `clinician_platform` (0005, hardened) applied to project pwvdobvbwoagvtzqyhfz. Advisors: remaining warnings by-design (RLS-gated authenticated visibility, is_clinician/is_admin EXECUTE required by policies, RPCs granted to authenticated with internal auth.uid() checks) or pre-existing (leaked-password protection — app is passwordless magic-link).
+- Edge functions create-transaction (v2, verify_jwt=true) + midtrans-webhook (v2, verify_jwt=false) deployed.
+- Pushed to GitHub main → Vercel auto-deploy dpl_J2khMNto… READY, bare domain brainwave-entrainment.vercel.app auto-followed to commit 6e79e87.
+
+**Deferred:** auto-demotion when a clinician subscription lapses WITHOUT a failed order needs a cron/expiry job (same recurring-renewal limitation as ADR-009) — noted in deferred-items.md.
