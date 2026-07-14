@@ -34,7 +34,8 @@ import {
  */
 
 interface LibraryProps {
-  onUpgrade: () => void;
+  /** Opens the Account sheet (quick-260714-dc3) — sign-in lives there now. */
+  onSignIn: () => void;
   /** Called before custom audio starts — the App stops any preset session. */
   onBeforePlay: () => void;
 }
@@ -48,7 +49,7 @@ const REDEEM_ERROR_COPY: Record<string, string> = {
   not_signed_in: "Please sign in first.",
 };
 
-export function Library({ onUpgrade, onBeforePlay }: LibraryProps) {
+export function Library({ onSignIn, onBeforePlay }: LibraryProps) {
   const ent = useEntitlement();
   const [cloud, setCloud] = useState<CloudAudio[]>([]);
   const [cloudError, setCloudError] = useState<string | null>(null);
@@ -309,11 +310,10 @@ export function Library({ onUpgrade, onBeforePlay }: LibraryProps) {
           {ent.loading && <p className="library-note">Loading your sessions…</p>}
           {!ent.loading && !signedIn && (
             <p className="library-note">
-              Sign in on the{" "}
-              <button className="link-btn" onClick={onUpgrade}>
-                Premium page
-              </button>{" "}
-              to see sessions made for you.
+              Sign in to see sessions made for you.{" "}
+              <button className="chip small" onClick={onSignIn}>
+                Sign in
+              </button>
             </p>
           )}
           {signedIn && cloudError && <p className="library-note">{cloudError}</p>}

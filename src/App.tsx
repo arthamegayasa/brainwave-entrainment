@@ -12,6 +12,7 @@ import { Dashboard } from "./ui/Dashboard";
 import { Library } from "./ui/Library";
 import { Science } from "./ui/Science";
 import { Upgrade } from "./ui/Upgrade";
+import { AccountSheet } from "./ui/Account";
 import { useSession } from "./ui/useSession";
 import { stopBuilderPlayback } from "./ui/builderEngine";
 import type { SessionConfig } from "./audio/session";
@@ -34,6 +35,7 @@ const COMPLETION_MIN_SEC = 300;
 function App() {
   const [view, setView] = useState<View>("landing");
   const [completed, setCompleted] = useState<{ presetName: string } | null>(null);
+  const [accountOpen, setAccountOpen] = useState(false);
   const activePresetRef = useRef<{
     id: string;
     name: string;
@@ -163,6 +165,20 @@ function App() {
             </button>
           ))}
         </nav>
+        <button
+          className="account-btn"
+          aria-label="Account"
+          onClick={() => setAccountOpen((v) => !v)}
+        >
+          {ent.email ? (
+            ent.email.charAt(0).toUpperCase()
+          ) : (
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+              <circle cx="12" cy="8" r="4" />
+              <path d="M4 20.5c0-3.6 3.6-6 8-6s8 2.4 8 6V21H4v-.5z" />
+            </svg>
+          )}
+        </button>
       </header>
 
       {view === "landing" && (
@@ -181,23 +197,46 @@ function App() {
         <Player session={session} onExit={handleExit} />
       )}
       {view === "library" && (
-        <Library onUpgrade={goUpgrade} onBeforePlay={handleCustomAudioStarts} />
+        <Library
+          onSignIn={() => setAccountOpen(true)}
+          onBeforePlay={handleCustomAudioStarts}
+        />
       )}
       {/* Non-clinicians landing on dashboard/studio get the Library (D-06 fallback). */}
       {view === "dashboard" &&
         (ent.isClinician ? (
           <Dashboard />
         ) : (
-          <Library onUpgrade={goUpgrade} onBeforePlay={handleCustomAudioStarts} />
+          <Library
+            onSignIn={() => setAccountOpen(true)}
+            onBeforePlay={handleCustomAudioStarts}
+          />
         ))}
       {view === "studio" &&
         (ent.isClinician ? (
           <Builder onBeforePlay={handleCustomAudioStarts} />
         ) : (
-          <Library onUpgrade={goUpgrade} onBeforePlay={handleCustomAudioStarts} />
+          <Library
+            onSignIn={() => setAccountOpen(true)}
+            onBeforePlay={handleCustomAudioStarts}
+          />
         ))}
       {view === "science" && <Science />}
-      {view === "upgrade" && <Upgrade />}
+      {view === "upgrade" && <Upgrade onSignIn={() => setAccountOpen(true)} />}
+
+      {accountOpen && (
+        <AccountSheet
+          onClose={() => setAccountOpen(false)}
+          onManagePlan={() => {
+            setAccountOpen(false);
+            setView("upgrade");
+          }}
+          onOpenLibrary={() => {
+            setAccountOpen(false);
+            setView("library");
+          }}
+        />
+      )}
 
       <footer className="foot">
         A relaxation &amp; meditation tool — not a medical device.{" "}

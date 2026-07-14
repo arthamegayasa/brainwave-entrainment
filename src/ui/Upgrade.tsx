@@ -3,7 +3,7 @@ import { ALL_UNLOCKED, getTier, setTier, PRICING } from "../state/tier";
 import type { BillingPeriod } from "../state/tier";
 import { useEntitlement } from "../lib/useEntitlement";
 import { supabase } from "../lib/supabase";
-import { createCheckout, signInWithEmail, signOut } from "../lib/payments";
+import { createCheckout } from "../lib/payments";
 import { loadSnap, openSnap } from "../lib/snap";
 import { currentStreakDays, totalSessions } from "../state/progress";
 
@@ -36,7 +36,7 @@ const CLINICIAN = [
 
 const PRICES = PRICING.IDR;
 
-export function Upgrade() {
+export function Upgrade({ onSignIn }: { onSignIn: () => void }) {
   const [period, setPeriod] = useState<BillingPeriod>("annual");
   const ent = useEntitlement();
   const sessions = totalSessions();
@@ -136,7 +136,7 @@ export function Upgrade() {
           </ul>
 
           {ent.configured ? (
-            <PlanCheckout plan="premium" period={period} ent={ent} />
+            <PlanCheckout plan="premium" period={period} ent={ent} onSignIn={onSignIn} />
           ) : (
             <LocalActivate />
           )}
@@ -168,7 +168,7 @@ export function Upgrade() {
           </ul>
 
           {ent.configured ? (
-            <PlanCheckout plan="clinician" period={period} ent={ent} />
+            <PlanCheckout plan="clinician" period={period} ent={ent} onSignIn={onSignIn} />
           ) : (
             <p className="plan-note">
               Available once payments are configured in this build.
@@ -203,20 +203,22 @@ function LocalActivate() {
 }
 
 /**
- * Real Midtrans checkout for a paid plan: magic-link sign-in → Snap payment →
- * entitlement (+ clinician role promotion via the webhook for plan
- * 'clinician'). The sign-in branch is shared between both paid cards.
+ * Real Midtrans checkout for a paid plan: sign-in via the Account sheet →
+ * Snap payment → entitlement (+ clinician role promotion via the webhook for
+ * plan 'clinician'). Identity actions (sign-in/sign-out) live in the Account
+ * sheet (quick-260714-dc3) — this card is purely a checkout surface.
  */
 function PlanCheckout({
   plan,
   period,
   ent,
+  onSignIn,
 }: {
   plan: "premium" | "clinician";
   period: BillingPeriod;
   ent: ReturnType<typeof useEntitlement>;
+  onSignIn: () => void;
 }) {
-  const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -238,44 +240,20 @@ function PlanCheckout({
           {ent.entitlement?.currentPeriodEnd
             ? ` · renews ${new Date(ent.entitlement.currentPeriodEnd).toLocaleDateString()}`
             : ""}
-          . <button className="link-btn" onClick={() => void signOut()}>Sign out</button>
+          .
         </p>
       </>
     );
   }
 
-  // Signed out → magic-link form (shared).
+  // Signed out → the Account sheet owns the sign-in form (shared).
   if (!ent.email) {
-    const sendLink = async () => {
-      if (!email.trim()) return;
-      setBusy(true);
-      setMsg(null);
-      try {
-        await signInWithEmail(email.trim());
-        setMsg("Check your email for a sign-in link, then return here.");
-      } catch (e) {
-        setMsg(e instanceof Error ? e.message : "Could not send the link");
-      } finally {
-        setBusy(false);
-      }
-    };
     return (
       <>
-        <div className="save-row">
-          <input
-            className="text-input"
-            type="email"
-            placeholder="you@email.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            aria-label="Email for sign-in"
-          />
-          <button className="chip" disabled={busy} onClick={() => void sendLink()}>
-            {busy ? "Sending…" : "Sign in"}
-          </button>
-        </div>
-        {msg && <p className="plan-note">{msg}</p>}
-        <p className="plan-note">Sign in to subscribe — no password needed.</p>
+        <button className="start-btn compact" onClick={onSignIn}>
+          Sign in to subscribe
+        </button>
+        <p className="plan-note">No password needed — we'll email you a link.</p>
       </>
     );
   }
@@ -323,10 +301,7 @@ function PlanCheckout({
         {busy ? "Starting…" : `Subscribe — ${priceLabel}`}
       </button>
       {msg && <p className="plan-note">{msg}</p>}
-      <p className="plan-note">
-        Signed in as {ent.email}.{" "}
-        <button className="link-btn" onClick={() => void signOut()}>Sign out</button>
-      </p>
+      <p className="plan-note">Signed in as {ent.email}.</p>
     </>
   );
 }
