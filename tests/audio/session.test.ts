@@ -1,9 +1,9 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import { OfflineAudioContext } from "node-web-audio-api";
 import { SessionEngine } from "../../src/audio/session";
 import { getPreset } from "../../src/audio/presets";
 import type { Preset } from "../../src/audio/presets";
-import { countZeroCrossings, maxAbs } from "./helpers";
+import { countZeroCrossings, maxAbs, seededRandom } from "./helpers";
 
 /** A fast test preset: beat ramps 10 → 40 Hz over 0.8s within a 2s render. */
 const FAST_PRESET: Preset = {
@@ -18,6 +18,26 @@ const FAST_PRESET: Preset = {
 };
 
 describe("SessionEngine (SCH-01..04, PRE-03)", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it.each([1, 2])("bounds a tone and ambience mix on both channels (noise seed %i)", async (seed) => {
+    vi.spyOn(Math, "random").mockImplementation(seededRandom(seed));
+    const ctx = new OfflineAudioContext(2, 132300, 44100);
+    const engine = new SessionEngine(ctx as unknown as BaseAudioContext);
+    engine.start({
+      preset: { ...getPreset("focus"), carrierHz: 200 },
+      durationMin: null,
+      mode: "headphone",
+      ambient: "brown",
+      solfeggioTone: 528,
+    });
+    const buffer = await ctx.startRendering();
+    for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+      expect(maxAbs(buffer.getChannelData(channel))).toBeGreaterThan(0.05);
+      expect(maxAbs(buffer.getChannelData(channel))).toBeLessThanOrEqual(1.0);
+    }
+  });
+
   it("binaural session ramps the beat on the audio clock", async () => {
     const ctx = new OfflineAudioContext(2, 88200, 44100); // 2 s
     const engine = new SessionEngine(ctx as unknown as BaseAudioContext);
