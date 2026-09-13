@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="360" viewBox="0 0 1280 360" role="img" aria-labelledby="title desc">
+  <title id="title">Serenade — Brainwave Entrainment</title>
+  <desc id="desc">An audio instrument for quiet moments. Mint and lavender sound waves flow over a deep navy background. Decorative illustration, not an EEG trace.</desc>
+  <defs>
+    <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#0c2027"/><stop offset=".6" stop-color="#0d101a"/><stop offset="1" stop-color="#1c1730"/></linearGradient>
+    <linearGradient id="wave"><stop stop-color="#55d4b7"/><stop offset="1" stop-color="#b6a2eb"/></linearGradient>
+    <radialGradient id="halo"><stop stop-color="#4bc4a9" stop-opacity=".2"/><stop offset="1" stop-color="#4bc4a9" stop-opacity="0"/></radialGradient>
+  </defs>
+  <rect width="1280" height="360" rx="24" fill="url(#bg)"/>
+  <circle cx="1030" cy="175" r="255" fill="url(#halo)"/>
+  <g fill="none" stroke="#cee8e5" stroke-opacity=".08">
+    <circle cx="1030" cy="174" r="60"/><circle cx="1030" cy="174" r="101"/><circle cx="1030" cy="174" r="145"/>
+  </g>
+  <g font-family="Arial, Helvetica, sans-serif">
+    <circle cx="67" cy="61" r="5" fill="#56d0b4"/>
+    <text x="84" y="67" fill="#91b5b8" font-size="14" letter-spacing="3">BRAINWAVE ENTRAINMENT</text>
+    <text x="59" y="159" fill="#f1f2f6" font-family="Georgia, 'Times New Roman', serif" font-size="78">Serenade</text>
+    <text x="64" y="202" fill="#64d5bd" font-size="24">An audio instrument for quiet moments.</text>
+    <text x="64" y="244" fill="#a6abb9" font-size="17">Choose a goal. Shape the sound. Listen at your own pace.</text>
+    <text x="64" y="314" fill="#b9bdc9" font-size="13" letter-spacing="2">REAL-TIME AUDIO   /   LAYERED STUDIO   /   BROWSER FIRST</text>
+  </g>
+  <g fill="none" stroke="url(#wave)" stroke-linecap="round">
+    <path d="M790 178 C816 178 816 130 840 130 S864 228 890 228 914 102 940 102 964 254 990 254 1014 96 1040 96 1064 234 1090 234 1114 137 1140 137 1164 192 1210 178" stroke-width="3"/>
+    <path d="M790 178 C823 178 823 209 854 209 S884 144 916 144 946 217 978 217 1008 133 1040 133 1070 213 1102 213 1132 160 1164 160 1190 178 1210 178" stroke-width="2" opacity=".5"/>
+    <path d="M790 178 H1210" stroke-width="1" opacity=".22"/>
+  </g>
+  <text x="883" y="290" fill="#819b9e" font-family="Arial, Helvetica, sans-serif" font-size="12" letter-spacing="2">SYNTHESIZED IN YOUR BROWSER</text>
+</svg>
