@@ -91,7 +91,7 @@ describe("Ambient layers (ENG-05)", () => {
   }, 30000);
 
   it("engine registry contains all 8 kinds", () => {
-    const ctx = new AudioContext();
+    const ctx = new AudioContext({ sinkId: { type: "none" } });
     const engine = new AudioEngine(ctx as unknown as BaseAudioContext);
     expect(engine.implementedKinds.sort()).toEqual(
       ["binaural", "brown", "isochronic", "monaural", "ocean", "rain", "solfeggio", "wind"],

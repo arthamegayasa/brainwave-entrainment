@@ -3,6 +3,7 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/arthamegayasa/brainwave-entrainment/actions/workflows/checks.yml"><img src="https://github.com/arthamegayasa/brainwave-entrainment/actions/workflows/checks.yml/badge.svg?branch=main" alt="Tests and production build status" /></a>
   <img src="https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=white" alt="React 19" />
   <img src="https://img.shields.io/badge/TypeScript-5.9-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript 5.9" />
   <img src="https://img.shields.io/badge/Audio-Web_Audio_API-56CBB4?style=flat-square" alt="Web Audio API" />
