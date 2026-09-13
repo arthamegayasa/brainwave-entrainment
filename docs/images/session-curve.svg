@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="590" viewBox="0 0 1200 590" role="img" aria-labelledby="title desc">
+  <title id="title">How a Serenade session unfolds</title>
+  <desc id="desc">A 30-minute Meditating audio session starts with a 10 Hz beat setting, reaches 6 Hz after 12 minutes, holds until minute 25, and returns to 10 Hz at minute 30. The frequency schedule controls synthesized sound, not measured brain activity.</desc>
+  <defs>
+    <linearGradient id="area" x2="0" y2="1"><stop stop-color="#55d4b7" stop-opacity=".22"/><stop offset="1" stop-color="#55d4b7" stop-opacity=".02"/></linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#73878d"/></marker>
+  </defs>
+  <rect width="1200" height="590" rx="20" fill="#101722"/>
+  <g font-family="Arial, Helvetica, sans-serif">
+    <text x="48" y="53" fill="#60d4b9" font-size="13" letter-spacing="2">A SESSION, STEP BY STEP</text>
+    <text x="48" y="92" fill="#edf0f7" font-size="29" font-weight="600">One curve. A gradually changing sound.</text>
+    <text x="48" y="124" fill="#a8b0bf" font-size="16">Meditating preset · 30 minutes · generated beat frequency</text>
+    <rect x="97" y="169" width="398" height="213" rx="4" fill="#62d5bb" fill-opacity=".045"/>
+    <rect x="495" y="169" width="431" height="213" rx="4" fill="#a694e5" fill-opacity=".05"/>
+    <rect x="926" y="169" width="166" height="213" rx="4" fill="#62d5bb" fill-opacity=".045"/>
+    <g fill="#a9b2c1" font-size="14" text-anchor="middle">
+      <text x="297" y="159">01 · RAMP IN</text><text x="711" y="159">02 · HOLD</text><text x="1009" y="159">03 · RAMP OUT</text>
+    </g>
+    <g stroke="#475465" stroke-opacity=".45" stroke-dasharray="4 6">
+      <path d="M98 210 H1092"/><path d="M98 339 H1092"/>
+      <path d="M495 175 V382"/><path d="M926 175 V382"/>
+    </g>
+    <path d="M98 210 L495 339 L926 339 L1092 210 V382 H98Z" fill="url(#area)"/>
+    <path d="M98 210 L495 339 L926 339 L1092 210" fill="none" stroke="#62d5bb" stroke-width="4" stroke-linejoin="round"/>
+    <g fill="#e8fff8" stroke="#101722" stroke-width="3"><circle cx="98" cy="210" r="7"/><circle cx="495" cy="339" r="7"/><circle cx="926" cy="339" r="7"/><circle cx="1092" cy="210" r="7"/></g>
+    <g fill="#adb8c7" font-size="14" text-anchor="end"><text x="79" y="215">10 Hz</text><text x="79" y="344">6 Hz</text></g>
+    <path d="M98 382 H1092" stroke="#536070"/>
+    <g fill="#adb8c7" font-size="14" text-anchor="middle"><text x="98" y="407">0 min</text><text x="495" y="407">12 min</text><text x="926" y="407">25 min</text><text x="1092" y="407">30 min</text></g>
+    <g fill="#192332" stroke="#344455"><rect x="48" y="452" width="229" height="52" rx="10"/><rect x="327" y="452" width="229" height="52" rx="10"/><rect x="606" y="452" width="229" height="52" rx="10"/><rect x="885" y="452" width="267" height="52" rx="10"/></g>
+    <g fill="#d9e4ed" font-size="15" text-anchor="middle"><text x="162" y="484">Choose a preset or curve</text><text x="442" y="484">Schedule on audio clock</text><text x="721" y="484">Synthesize and mix layers</text><text x="1018" y="484">Play locally / render MP3*</text></g>
+    <g stroke="#73878d" marker-end="url(#arrow)"><path d="M285 478 H317"/><path d="M564 478 H596"/><path d="M843 478 H875"/></g>
+    <text x="48" y="543" fill="#9aa7b8" font-size="13">This is a sound schedule, not an EEG trace or a prediction of a listener's brain activity.</text>
+    <text x="48" y="566" fill="#798a9d" font-size="12">* MP3 export is available for Audio Bank sessions. Opening and closing ramps adapt to the selected duration.</text>
+  </g>
+</svg>
