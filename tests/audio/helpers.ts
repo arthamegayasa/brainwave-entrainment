@@ -1,5 +1,14 @@
 /** Shared analysis helpers for offline-render tests. */
 
+/** Repeatable noise inputs for regressions that must exercise the same peaks. */
+export function seededRandom(seed: number): () => number {
+  let state = seed;
+  return () => {
+    state = (Math.imul(1664525, state) + 1013904223) >>> 0;
+    return state / 4294967296;
+  };
+}
+
 export function countZeroCrossings(data: Float32Array): number {
   let count = 0;
   for (let i = 1; i < data.length; i++) {

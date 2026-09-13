@@ -7,6 +7,7 @@ import { createBinauralSessionLayer } from "./layers/binaural";
 import { createIsochronicSessionLayer } from "./layers/isochronic";
 import { createSolfeggioLayer } from "./layers/solfeggio";
 import { createAmbientLayer } from "./layers/ambient";
+import { createSampleCeiling } from "./sampleCeiling";
 
 export type ListeningMode = "headphone" | "speaker";
 
@@ -78,7 +79,7 @@ export class SessionEngine {
     this.volumes = { ...DEFAULT_VOLUMES, ...volumes };
     this.masterGain = ctx.createGain();
     this.masterGain.gain.value = 0;
-    // Safety limiter: layered output must never clip or slam ears (T-01-03).
+    // Compress layered peaks before the final sample ceiling.
     const limiter = ctx.createDynamicsCompressor();
     limiter.threshold.value = -6;
     limiter.knee.value = 4;
@@ -86,7 +87,9 @@ export class SessionEngine {
     limiter.attack.value = 0.003;
     limiter.release.value = 0.25;
     this.masterGain.connect(limiter);
-    limiter.connect(ctx.destination);
+    const ceiling = createSampleCeiling(ctx);
+    limiter.connect(ceiling);
+    ceiling.connect(ctx.destination);
     this.entrainGain = ctx.createGain();
     this.entrainGain.gain.value = this.volumes.entrainment;
     this.entrainGain.connect(this.masterGain);

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { OfflineAudioContext } from "node-web-audio-api";
 import { BuilderEngine } from "../../src/audio/builder";
 import type { BuilderCurve, BuilderLayerSpec, CustomSession } from "../../src/audio/builder";
@@ -10,7 +10,7 @@ import {
   exportSessionJSON,
   importSessionJSON,
 } from "../../src/state/customPresets";
-import { countZeroCrossings, maxAbs } from "./helpers";
+import { countZeroCrossings, maxAbs, seededRandom } from "./helpers";
 
 const CURVE: BuilderCurve = {
   startHz: 10,
@@ -33,7 +33,10 @@ function layer(partial: Partial<BuilderLayerSpec>): BuilderLayerSpec {
 }
 
 describe("BuilderEngine (BLD-01, BLD-03)", () => {
-  it("plays multiple layers simultaneously with per-layer methods", async () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it.each([1, 2])("keeps mixed layers within full scale on both channels (noise seed %i)", async (seed) => {
+    vi.spyOn(Math, "random").mockImplementation(seededRandom(seed));
     const ctx = new OfflineAudioContext(2, 88200, 44100);
     const engine = new BuilderEngine(ctx as unknown as BaseAudioContext);
     engine.start(
@@ -46,8 +49,10 @@ describe("BuilderEngine (BLD-01, BLD-03)", () => {
       null,
     );
     const buffer = await ctx.startRendering();
-    expect(maxAbs(buffer.getChannelData(0))).toBeGreaterThan(0.05);
-    expect(maxAbs(buffer.getChannelData(0))).toBeLessThanOrEqual(1.0);
+    for (let channel = 0; channel < buffer.numberOfChannels; channel++) {
+      expect(maxAbs(buffer.getChannelData(channel))).toBeGreaterThan(0.05);
+      expect(maxAbs(buffer.getChannelData(channel))).toBeLessThanOrEqual(1.0);
+    }
   });
 
   it("follow layers ride the custom curve (beat ramps 10 → 40)", async () => {

@@ -7,6 +7,7 @@ import { createIsochronicSessionLayer } from "./layers/isochronic";
 import { createMonauralSessionLayer } from "./layers/monaural";
 import { createSolfeggioLayer } from "./layers/solfeggio";
 import { createAmbientLayer } from "./layers/ambient";
+import { createSampleCeiling } from "./sampleCeiling";
 import type { Preset } from "./presets";
 
 export type EntrainmentLayerType = "binaural" | "isochronic" | "monaural";
@@ -108,7 +109,7 @@ export class BuilderEngine {
     this.ctx = ctx;
     this.masterGain = ctx.createGain();
     this.masterGain.gain.value = 0;
-    // Safety limiter: arbitrary layer stacks must never clip or slam ears.
+    // Compress layered peaks before the final sample ceiling.
     const limiter = ctx.createDynamicsCompressor();
     limiter.threshold.value = -6;
     limiter.knee.value = 4;
@@ -116,7 +117,9 @@ export class BuilderEngine {
     limiter.attack.value = 0.003;
     limiter.release.value = 0.25;
     this.masterGain.connect(limiter);
-    limiter.connect(ctx.destination);
+    const ceiling = createSampleCeiling(ctx);
+    limiter.connect(ceiling);
+    ceiling.connect(ctx.destination);
   }
 
   get isRunning(): boolean {
