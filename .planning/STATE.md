@@ -12,7 +12,7 @@ See: .planning/PROJECT.md (updated 2026-07-02)
 Phase: 1 of 3 (Audio Engine Core)
 Plan: 0 of TBD in current phase
 Status: Ready to plan
-Last activity: 2026-07-14 - Completed quick task 260714-p5o: Builder Layers panel — dark select popup, grouped Entrainment/Tone/Ambience dropdown, ambience synthesis distinctness tuning
+Last activity: 2026-09-25 - Completed quick task 260925-k3m: real pause/resume (+ lock screen), preset MP3 export, Premium layout fix, code-split bundle, Playwright E2E in CI
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -63,6 +63,8 @@ None yet.
 | 260714-dc3 | Account menu in header: sign-in moved out of Premium page, profile/subscription/settings sheet | 2026-07-14 | 0c4f081 | [260714-dc3-account-menu-in-header-sign-in-moved-out](./quick/260714-dc3-account-menu-in-header-sign-in-moved-out/) |
 | 260714-df1 | Audio Bank MP3 export: offline BuilderEngine render + @breezystack/lamejs 320 kbps encode, per-card Download panel | 2026-07-14 | 41cb681 | [260714-df1-audio-bank-mp3-export-offline-render-cli](./quick/260714-df1-audio-bank-mp3-export-offline-render-cli/) |
 | 260714-p5o | Builder Layers panel: dark select popup fix, Entrainment/Tone/Ambience optgroups, ambience spectral-signature tests + synthesis tuning | 2026-07-14 | cd15a0d | [260714-p5o-fix-builder-layers-panel-dropdown-dark-t](./quick/260714-p5o-fix-builder-layers-panel-dropdown-dark-t/) |
+| 260925-r7d | Cross-device audio robustness: shared AudioContext + iOS playback session + interruption resume banner + idle suspend; sample-rate-invariant noise; build-then-timestamp scheduling | 2026-09-25 | 0c9d1df, e907e76 | [260925-r7d-cross-device-audio-robustness](./quick/260925-r7d-cross-device-audio-robustness/) |
+| 260925-k3m | Pause/resume (Player + lock screen, audio-clock completion time), preset MP3 export via SessionEngine + app-wide export store, Premium equal-column layout, lazy views/encoder (main chunk 554.7→338.3 kB), Playwright E2E + CI | 2026-09-25 | e907e76 | [260925-k3m-pause-preset-mp3-bundle-e2e](./quick/260925-k3m-pause-preset-mp3-bundle-e2e/) |
 
 ## Deferred Items
 
