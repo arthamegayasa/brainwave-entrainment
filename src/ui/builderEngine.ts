@@ -1,20 +1,25 @@
 import { BuilderEngine } from "../audio/builder";
+import { acquireAudio, releaseAudio } from "./audioContext";
 
 /**
  * Shared BuilderEngine singleton (quick-260707-a47): Studio and Library both
- * start custom sessions through this module, so they share ONE AudioContext
- * and only one custom session plays at a time. The AudioContext must be
- * created/resumed inside a user gesture (UI-08); the engine itself never
- * creates one (ENG-07).
+ * start custom sessions through this module, so only one custom session
+ * plays at a time. It runs on the app's shared AudioContext; the engine
+ * itself never creates one (ENG-07).
  */
 
-let ctx: AudioContext | null = null;
 let engine: BuilderEngine | null = null;
+/** Watches for a timed session's natural end while no view polls the transport. */
+let endWatch: number | undefined;
 
-export async function ensureBuilder(): Promise<BuilderEngine> {
-  if (!ctx) ctx = new AudioContext();
-  if (ctx.state === "suspended") await ctx.resume();
-  if (!engine) engine = new BuilderEngine(ctx);
+/** Call inside the user gesture that starts playback (UI-08). */
+export function ensureBuilder(): BuilderEngine {
+  const ctx = acquireAudio("builder");
+  engine ??= new BuilderEngine(ctx);
+  // The user may navigate away from Studio/Library mid-session; without a
+  // watcher, nobody would notice the end and release the audio device.
+  window.clearInterval(endWatch);
+  endWatch = window.setInterval(getNowPlaying, 1000);
   return engine;
 }
 
@@ -43,13 +48,13 @@ export function setNowPlaying(id: string | null): void {
  */
 export function getNowPlaying(): string | null {
   if (!engine || !engine.isRunning) {
-    nowPlayingId = null;
+    goIdle();
     return null;
   }
   const p = engine.progress();
   if (p.remainingSec !== null && p.remainingSec <= 0) {
     engine.stop();
-    nowPlayingId = null;
+    goIdle();
     return null;
   }
   return nowPlayingId;
@@ -58,5 +63,12 @@ export function getNowPlaying(): string | null {
 /** Stop custom-audio playback and clear the shared transport state. */
 export function stopBuilderPlayback(): void {
   engine?.stop();
+  goIdle();
+}
+
+/** Clear the transport and hand the audio device back. */
+function goIdle(): void {
   nowPlayingId = null;
+  window.clearInterval(endWatch);
+  releaseAudio("builder");
 }

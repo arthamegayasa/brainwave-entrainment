@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useState } from "react";
+import { useEffect, useReducer, useState, useSyncExternalStore } from "react";
 import { PRESETS, DURATIONS_MIN, getPreset } from "../audio/presets";
 import type { Preset } from "../audio/presets";
 import { SOUND_LABELS } from "../audio/constants";
@@ -8,6 +8,7 @@ import { BAND_COLORS, BAND_LABELS } from "./bands";
 import { getMyHiddenPresetIds } from "../lib/patientLink";
 import { isUnlocked } from "../state/tier";
 import { loadPrefs } from "../state/prefs";
+import { exportLabel, getExportJob, runMp3Export, subscribeExport } from "./mp3Export";
 import {
   dismissReciprocityCard,
   journeyPercent,
@@ -306,8 +307,32 @@ function SetupSheet({ preset, onClose, onStart }: SetupSheetProps) {
   );
   const [mode, setMode] = useState<ListeningMode>(prefs.lastMode);
   const [ambient, setAmbient] = useState<AmbientKind | null>(preset.defaultAmbient);
+  const exportJob = useSyncExternalStore(subscribeExport, getExportJob);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const exportId = `preset:${preset.id}`;
 
   const accent = BAND_COLORS[preset.band];
+
+  // Same engine and mixer volumes as live playback; keeps running (and
+  // downloads) even if the sheet is closed mid-export.
+  const download = async (length: number) => {
+    setExportError(null);
+    const config = { preset, durationMin: length, mode, ambient, solfeggioTone: null };
+    const earLabel = mode === "headphone" ? "headphones" : "speaker";
+    try {
+      await runMp3Export(
+        exportId,
+        `Serenade ${preset.name} ${length} min ${earLabel}`,
+        async (onPhase) => {
+          // Dynamic on purpose: code-splits the MP3 encoder out of startup.
+          const { exportPresetMp3 } = await import("../audio/export");
+          return exportPresetMp3(config, loadPrefs().volumes, onPhase);
+        },
+      );
+    } catch {
+      setExportError("Export failed — try a shorter length.");
+    }
+  };
 
   return (
     <div
@@ -396,6 +421,32 @@ function SetupSheet({ preset, onClose, onStart }: SetupSheetProps) {
         >
           Start Session
         </button>
+        <div className="setup-download">
+          <button
+            className="pill-btn"
+            disabled={durationMin === null || exportJob !== null}
+            onClick={() => {
+              if (durationMin !== null) void download(durationMin);
+            }}
+          >
+            {exportJob?.id === exportId ? exportLabel(exportJob) : "⬇ Download as MP3"}
+          </button>
+          <p className="bank-download-note">
+            {durationMin === null
+              ? "Pick a length to download — infinite sessions play live only."
+              : "Plays in any music app, even with the screen locked · 320 kbps"}
+          </p>
+          {durationMin !== null && durationMin >= 45 && (
+            <p className="export-warning">
+              Long exports need a powerful device and can take a few minutes.
+            </p>
+          )}
+          {exportError && (
+            <p className="export-warning" role="alert">
+              {exportError}
+            </p>
+          )}
+        </div>
         <button className="close-btn" onClick={onClose}>
           Cancel
         </button>

@@ -129,9 +129,9 @@ export function Builder({ onBeforePlay }: BuilderProps) {
     window.setTimeout(() => setNotice(null), 2600);
   };
 
-  const handlePlay = async () => {
+  const handlePlay = () => {
     onBeforePlay(); // one pair of ears: any running preset session stops first
-    const e = await ensureBuilder();
+    const e = ensureBuilder();
     e.stop();
     e.start(layers, curve, durationMin);
     setNowPlaying(STUDIO_PREVIEW_ID);
@@ -230,7 +230,7 @@ export function Builder({ onBeforePlay }: BuilderProps) {
               </button>
             </>
           ) : (
-            <button className="start-btn compact" onClick={() => void handlePlay()}>
+            <button className="start-btn compact" onClick={handlePlay}>
               ▶ Play
             </button>
           )}

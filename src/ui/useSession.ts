@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { SessionEngine, DEFAULT_VOLUMES } from "../audio/session";
 import type {
   ListeningMode,
@@ -10,16 +10,23 @@ import type { Preset } from "../audio/presets";
 import type { AmbientKind } from "../audio/types";
 import type { SessionSchedule } from "../audio/schedule";
 import { loadPrefs, savePrefs } from "../state/prefs";
+import {
+  acquireAudio,
+  isAudioPaused,
+  pauseAudio,
+  releaseAudio,
+  resumeAudio,
+  subscribeAudio,
+} from "./audioContext";
 
-// Module-level singletons: the AudioContext must be created/resumed inside a
-// user gesture (UI-08); the engine itself never creates one (ENG-07).
-let ctx: AudioContext | null = null;
+// Module-level singleton on the shared AudioContext; the engine itself never
+// creates a context (ENG-07).
 let engine: SessionEngine | null = null;
 
-async function ensureEngine(): Promise<SessionEngine> {
-  if (!ctx) ctx = new AudioContext();
-  if (ctx.state === "suspended") await ctx.resume();
-  if (!engine) engine = new SessionEngine(ctx, loadPrefs().volumes);
+/** Call inside the user gesture that starts playback (UI-08). */
+function ensureEngine(): SessionEngine {
+  const ctx = acquireAudio("session");
+  engine ??= new SessionEngine(ctx, loadPrefs().volumes);
   return engine;
 }
 
@@ -30,6 +37,9 @@ function updateMediaSession(cfg: SessionConfig | null, handlers?: { stop: () => 
     if (!cfg) {
       navigator.mediaSession.metadata = null;
       navigator.mediaSession.playbackState = "none";
+      for (const action of ["play", "pause", "stop"] as const) {
+        navigator.mediaSession.setActionHandler(action, null);
+      }
       return;
     }
     navigator.mediaSession.metadata = new MediaMetadata({
@@ -37,8 +47,8 @@ function updateMediaSession(cfg: SessionConfig | null, handlers?: { stop: () => 
       artist: "Serenade — Healing Audio",
       album: cfg.preset.tagline,
     });
-    navigator.mediaSession.playbackState = "playing";
-    navigator.mediaSession.setActionHandler("pause", () => handlers?.stop());
+    navigator.mediaSession.setActionHandler("play", resumeAudio);
+    navigator.mediaSession.setActionHandler("pause", pauseAudio);
     navigator.mediaSession.setActionHandler("stop", () => handlers?.stop());
   } catch {
     /* media session is progressive enhancement only */
@@ -56,6 +66,8 @@ const IDLE_PROGRESS: SessionProgress = {
 
 export interface SessionState {
   active: boolean;
+  /** The user paused: the audio clock, and with it the whole session, is held. */
+  paused: boolean;
   preset: Preset | null;
   config: SessionConfig | null;
   progress: SessionProgress;
@@ -64,21 +76,34 @@ export interface SessionState {
 
 export interface SessionApi {
   state: SessionState;
-  start: (config: SessionConfig) => Promise<void>;
+  start: (config: SessionConfig) => void;
   stop: () => void;
+  pause: () => void;
+  resume: () => void;
   setAmbient: (kind: AmbientKind | null) => void;
   setVolume: (channel: keyof SessionVolumes, v: number) => void;
   getSchedule: () => SessionSchedule | null;
 }
 
-/** React binding for SessionEngine: gesture-safe start + polled progress. */
-export function useSession(onEnded?: () => void): SessionApi {
+/**
+ * React binding for SessionEngine: gesture-safe start + polled progress.
+ * `onEnded` receives when a finite session actually ended, read off the audio
+ * clock: pauses and device interruptions move it later, a throttled poll
+ * that notices hours afterwards does not.
+ */
+export function useSession(onEnded?: (endedAt: Date) => void): SessionApi {
   const [active, setActive] = useState(false);
   const [config, setConfig] = useState<SessionConfig | null>(null);
   const [progress, setProgress] = useState<SessionProgress>(IDLE_PROGRESS);
   const [volumes, setVolumes] = useState<SessionVolumes>({ ...DEFAULT_VOLUMES });
+  const paused = useSyncExternalStore(subscribeAudio, isAudioPaused);
   const onEndedRef = useRef(onEnded);
   onEndedRef.current = onEnded;
+
+  useEffect(() => {
+    if (!active || !("mediaSession" in navigator)) return;
+    navigator.mediaSession.playbackState = paused ? "paused" : "playing";
+  }, [active, paused]);
 
   // Poll progress for the UI only — audio timing itself lives on the audio
   // clock inside SessionEngine (SCH-03); this interval merely repaints.
@@ -89,9 +114,13 @@ export function useSession(onEnded?: () => void): SessionApi {
       const p = engine.progress();
       setProgress(p);
       if (!p.running) {
+        const cfg = engine.getConfig();
+        const overrunSec =
+          cfg?.durationMin == null ? 0 : Math.max(0, p.elapsedSec - cfg.durationMin * 60);
         setActive(false);
         setConfig(null);
-        onEndedRef.current?.();
+        releaseAudio("session");
+        onEndedRef.current?.(new Date(Date.now() - overrunSec * 1000));
       }
     }, 250);
     return () => window.clearInterval(id);
@@ -99,6 +128,7 @@ export function useSession(onEnded?: () => void): SessionApi {
 
   const stop = useCallback(() => {
     engine?.stop();
+    releaseAudio("session");
     setActive(false);
     setConfig(null);
     setProgress(IDLE_PROGRESS);
@@ -106,8 +136,8 @@ export function useSession(onEnded?: () => void): SessionApi {
   }, []);
 
   const start = useCallback(
-    async (cfg: SessionConfig) => {
-      const e = await ensureEngine();
+    (cfg: SessionConfig) => {
+      const e = ensureEngine();
       e.start(cfg);
       setConfig(cfg);
       setActive(true);
@@ -148,6 +178,7 @@ export function useSession(onEnded?: () => void): SessionApi {
   return {
     state: {
       active,
+      paused: active && paused,
       preset: config?.preset ?? null,
       config,
       progress,
@@ -155,6 +186,8 @@ export function useSession(onEnded?: () => void): SessionApi {
     },
     start,
     stop,
+    pause: pauseAudio,
+    resume: resumeAudio,
     setAmbient,
     setVolume,
     getSchedule,

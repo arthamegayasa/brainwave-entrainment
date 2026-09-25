@@ -1,7 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { OfflineAudioContext, AudioBuffer } from "node-web-audio-api";
-import { renderSession, encodeMp3 } from "../../src/audio/export";
+import { renderSession, renderPreset, encodeMp3 } from "../../src/audio/export";
 import type { CustomSession } from "../../src/audio/builder";
+import { getPreset } from "../../src/audio/presets";
+import { DEFAULT_VOLUMES } from "../../src/audio/session";
+import { countZeroCrossings } from "./helpers";
 
 const SPEC: CustomSession = {
   version: 1,
@@ -83,5 +86,35 @@ describe("export engine (offline render + MP3 encode)", () => {
     const blob = await encodeMp3(mono as unknown as globalThis.AudioBuffer);
     expect(blob.size).toBeGreaterThan(500);
     expect(await looksLikeMp3(blob)).toBe(true);
+  });
+});
+
+describe("preset export (renderPreset)", () => {
+  const preset = { ...getPreset("deep-meditation"), carrierHz: 200 };
+  const SECONDS = 3;
+
+  it("headphone export keeps the binaural beat between the ears", async () => {
+    const buffer = await renderPreset(
+      { preset, durationMin: SECONDS / 60, mode: "headphone", ambient: null },
+      DEFAULT_VOLUMES,
+      createContext,
+    );
+    expect(buffer.numberOfChannels).toBe(2);
+    expect(buffer.length).toBe(SECONDS * 44100);
+    // One second mid-session: L = carrier, R = carrier + beat (~6–10 Hz).
+    const left = countZeroCrossings(buffer.getChannelData(0).slice(22050, 66150));
+    const right = countZeroCrossings(buffer.getChannelData(1).slice(22050, 66150));
+    expect(Math.abs(left - 200)).toBeLessThanOrEqual(1);
+    expect(right - left).toBeGreaterThanOrEqual(5);
+  });
+
+  it("speaker export renders one channel for the identical-ears isochronic mix", async () => {
+    const buffer = await renderPreset(
+      { preset, durationMin: SECONDS / 60, mode: "speaker", ambient: "rain" },
+      DEFAULT_VOLUMES,
+      createContext,
+    );
+    expect(buffer.numberOfChannels).toBe(1);
+    expect(rms(buffer.getChannelData(0).slice(22050, 66150))).toBeGreaterThan(0.01);
   });
 });
