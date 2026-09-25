@@ -114,27 +114,37 @@ export class SessionEngine {
     const durationSec = config.durationMin === null ? null : config.durationMin * 60;
     this.schedule = buildSchedule(config.preset, durationSec);
 
+    // Build every graph BEFORE reading the clock. Noise buffers cost real
+    // main-thread time on slow devices while the audio thread keeps
+    // rendering, so a timestamp taken first would already lie in the past
+    // when sources start — cutting into their fade-ins (audible clicks).
+    const startBeat = config.preset.startHz;
+    // Entrainment layer by listening mode (PRE-03).
+    const entrainment =
+      config.mode === "headphone"
+        ? createBinauralSessionLayer(this.ctx, config.preset.carrierHz, startBeat)
+        : createIsochronicSessionLayer(this.ctx, config.preset.carrierHz, startBeat);
+    const ambient = config.ambient ? createAmbientLayer(this.ctx, config.ambient) : null;
+    const solfeggio = config.solfeggioTone
+      ? createSolfeggioLayer(this.ctx, config.solfeggioTone)
+      : null;
+
     const t = this.ctx.currentTime;
     this.startTime = t;
     this.endTime = durationSec === null ? null : t + durationSec;
 
-    // Entrainment layer by listening mode (PRE-03).
-    const startBeat = config.preset.startHz;
-    this.entrainment =
-      config.mode === "headphone"
-        ? createBinauralSessionLayer(this.ctx, config.preset.carrierHz, startBeat)
-        : createIsochronicSessionLayer(this.ctx, config.preset.carrierHz, startBeat);
-    this.entrainment.output.connect(this.entrainGain);
-    this.entrainment.start(t);
-    this.entrainment.scheduleBeat(this.schedule.points, t);
-    this.entrainment.onEnded = () => this.onEnded?.();
+    this.entrainment = entrainment;
+    entrainment.output.connect(this.entrainGain);
+    entrainment.start(t);
+    entrainment.scheduleBeat(this.schedule.points, t);
+    entrainment.onEnded = () => this.onEnded?.();
 
-    if (config.ambient) this.attachAmbient(config.ambient, t);
+    if (ambient) this.startAmbient(ambient, t);
 
-    if (config.solfeggioTone) {
-      this.solfeggioLayer = createSolfeggioLayer(this.ctx, config.solfeggioTone);
-      this.solfeggioLayer.output.connect(this.solfeggioGain);
-      this.solfeggioLayer.start(t);
+    if (solfeggio) {
+      this.solfeggioLayer = solfeggio;
+      solfeggio.output.connect(this.solfeggioGain);
+      solfeggio.start(t);
     }
 
     // Master fade-in now; for finite sessions schedule the gentle end fade and
@@ -144,7 +154,7 @@ export class SessionEngine {
       const fadeStart = Math.max(t, this.endTime - END_FADE_SEC);
       this.masterGain.gain.setValueAtTime(this.volumes.master, fadeStart);
       this.masterGain.gain.linearRampToValueAtTime(0.0001, this.endTime);
-      this.entrainment.stop(this.endTime);
+      entrainment.stop(this.endTime);
       this.ambientLayer?.stop(this.endTime);
       this.solfeggioLayer?.stop(this.endTime);
     }
@@ -169,15 +179,15 @@ export class SessionEngine {
   /** Swap the ambient bed live without interrupting the session (UI-03). */
   setAmbient(kind: AmbientKind | null): void {
     if (!this.config) return;
+    // Build before reading the clock (see start()).
+    const next = kind ? createAmbientLayer(this.ctx, kind) : null;
     const t = this.ctx.currentTime;
-    if (this.ambientLayer) {
-      this.ambientLayer.stop(t);
-      this.ambientLayer = null;
-    }
-    if (kind) {
-      const layer = this.attachAmbient(kind, t);
+    this.ambientLayer?.stop(t);
+    this.ambientLayer = null;
+    if (next) {
+      this.startAmbient(next, t);
       // Keep the pre-scheduled end stop for finite sessions.
-      if (this.endTime !== null) layer.stop(this.endTime);
+      if (this.endTime !== null) next.stop(this.endTime);
     }
     this.config = { ...this.config, ambient: kind };
   }
@@ -234,11 +244,9 @@ export class SessionEngine {
     };
   }
 
-  private attachAmbient(kind: AmbientKind, t: number): SoundLayer {
-    const layer = createAmbientLayer(this.ctx, kind);
+  private startAmbient(layer: SoundLayer, t: number): void {
     layer.output.connect(this.ambientGain);
     layer.start(t);
     this.ambientLayer = layer;
-    return layer;
   }
 }
