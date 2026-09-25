@@ -135,11 +135,14 @@ export class BuilderEngine {
     const durationSec = durationMin === null ? null : durationMin * 60;
     this.curve = curve;
     this.schedule = curveSchedule(curve, durationSec);
+    // Build before reading the clock (see SessionEngine.start): noise
+    // buffers are slow, and the audio thread does not wait for them.
+    const built = layers.map((spec) => this.build(spec));
     const t = this.ctx.currentTime;
     this.startTime = t;
     this.endTime = durationSec === null ? null : t + durationSec;
 
-    for (const spec of layers) this.attach(spec, t);
+    for (const entry of built) this.launch(entry, t);
 
     fadeIn(this.masterGain.gain, this.master, t, 1.5);
     if (this.endTime !== null) {
@@ -163,8 +166,9 @@ export class BuilderEngine {
   /** Add a layer to a running session (no-op when idle). */
   addLayer(spec: BuilderLayerSpec): void {
     if (!this.schedule) return;
-    this.attach(spec, this.ctx.currentTime);
-    if (this.endTime !== null) this.live.get(spec.id)?.layer.stop(this.endTime);
+    const entry = this.build(spec);
+    this.launch(entry, this.ctx.currentTime);
+    if (this.endTime !== null) entry.layer.stop(this.endTime);
   }
 
   removeLayer(id: string): void {
@@ -203,7 +207,8 @@ export class BuilderEngine {
     };
   }
 
-  private attach(spec: BuilderLayerSpec, t: number): void {
+  /** Create a layer's nodes, unstarted — the slow part (noise buffers). */
+  private build(spec: BuilderLayerSpec): LiveLayer {
     const gain = this.ctx.createGain();
     gain.gain.value = Math.min(Math.max(spec.gain, 0), 1);
     gain.connect(this.masterGain);
@@ -220,25 +225,28 @@ export class BuilderEngine {
           : spec.type === "isochronic"
             ? createIsochronicSessionLayer
             : createMonauralSessionLayer;
-      const rampable = create(this.ctx, spec.carrierHz, startBeat);
-      if (spec.beatMode === "follow" && this.schedule) {
-        // Offset schedule so mid-session layers join the curve where it is now.
-        const elapsed = t - this.startTime;
-        const shifted = this.schedule.points
-          .map((p) => ({ time: Math.max(0, p.time - elapsed), hz: p.hz }))
-          .filter((p, i, arr) => i === arr.length - 1 || p.time >= 0);
-        rampable.scheduleBeat(shifted.length ? shifted : this.schedule.points, t);
-      }
-      layer = rampable;
+      layer = create(this.ctx, spec.carrierHz, startBeat);
     } else if (spec.type === "pure") {
       layer = createSolfeggioLayer(this.ctx, spec.carrierHz);
     } else {
       layer = createAmbientLayer(this.ctx, spec.type);
     }
-
     layer.output.connect(gain);
+    return { spec, layer, gain };
+  }
+
+  /** Start a built layer at `t`; follow layers join the curve where it is now. */
+  private launch(entry: LiveLayer, t: number): void {
+    const { spec, layer } = entry;
+    if (spec.beatMode === "follow" && this.schedule && "scheduleBeat" in layer) {
+      const elapsed = t - this.startTime;
+      const shifted = this.schedule.points
+        .map((p) => ({ time: Math.max(0, p.time - elapsed), hz: p.hz }))
+        .filter((p, i, arr) => i === arr.length - 1 || p.time >= 0);
+      layer.scheduleBeat(shifted.length ? shifted : this.schedule.points, t);
+    }
     layer.start(t);
-    this.live.set(spec.id, { spec, layer, gain });
+    this.live.set(spec.id, entry);
   }
 }
 

@@ -3,18 +3,24 @@ import "@fontsource/fraunces/600.css";
 import "@fontsource/albert-sans/400.css";
 import "@fontsource/albert-sans/600.css";
 import "./App.css";
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Landing } from "./ui/Landing";
 import { Home } from "./ui/Home";
 import { Player, SessionComplete } from "./ui/Player";
-import { Builder } from "./ui/Builder";
-import { Dashboard } from "./ui/Dashboard";
-import { Library } from "./ui/Library";
-import { Science } from "./ui/Science";
-import { Upgrade } from "./ui/Upgrade";
-import { AccountSheet } from "./ui/Account";
+
+// Dynamic on purpose: views off the pick-a-goal-and-listen path are
+// code-split, so the first load only ships what starting a session needs.
+const Builder = lazy(() => import("./ui/Builder").then((m) => ({ default: m.Builder })));
+const Dashboard = lazy(() => import("./ui/Dashboard").then((m) => ({ default: m.Dashboard })));
+const Library = lazy(() => import("./ui/Library").then((m) => ({ default: m.Library })));
+const Science = lazy(() => import("./ui/Science").then((m) => ({ default: m.Science })));
+const Upgrade = lazy(() => import("./ui/Upgrade").then((m) => ({ default: m.Upgrade })));
+const AccountSheet = lazy(() =>
+  import("./ui/Account").then((m) => ({ default: m.AccountSheet })),
+);
 import { useSession } from "./ui/useSession";
 import { stopBuilderPlayback } from "./ui/builderEngine";
+import { isAudioBlocked, resumeAudio, subscribeAudio } from "./ui/audioContext";
 import type { SessionConfig } from "./audio/session";
 import { useEntitlement } from "./lib/useEntitlement";
 import { loadProgress, recordSessionCompleted } from "./state/progress";
@@ -36,52 +42,34 @@ function App() {
   const [view, setView] = useState<View>("landing");
   const [completed, setCompleted] = useState<{ presetName: string } | null>(null);
   const [accountOpen, setAccountOpen] = useState(false);
-  const activePresetRef = useRef<{
-    id: string;
-    name: string;
-    /** Epoch ms of the scheduled end for timed sessions (null = infinite). */
-    endsAt: number | null;
-  } | null>(null);
+  const activePresetRef = useRef<{ id: string; name: string } | null>(null);
   const ent = useEntitlement();
+  const audioBlocked = useSyncExternalStore(subscribeAudio, isAudioBlocked);
 
   // Journey step 1 (goal gradient): discovering the app counts immediately.
   useEffect(() => {
     loadProgress();
   }, []);
 
-  const session = useSession(() => {
-    // Natural end — the engine finished the full session.
+  const session = useSession((endedAt) => {
+    // Natural end — the engine finished the full session. Credit it at the
+    // end on the audio clock, not whenever this poll callback finally runs:
+    // a locked phone can hold the tab for hours, and an overnight sleep
+    // session must not land on the next morning's streak day.
     const active = activePresetRef.current;
     if (active) {
-      // Credit timed sessions at their scheduled end, not at whenever this
-      // poll callback finally runs: on a locked phone the tab can stay
-      // suspended for hours past the real end, and an overnight sleep session
-      // must not land on the next morning's streak day.
-      const at =
-        active.endsAt === null
-          ? new Date()
-          : new Date(Math.min(Date.now(), active.endsAt));
-      recordSessionCompleted(active.id, at);
+      recordSessionCompleted(active.id, endedAt);
       setCompleted({ presetName: active.name });
       activePresetRef.current = null;
     }
     setView("home");
   });
 
-  const handleStart = async (config: SessionConfig) => {
+  const handleStart = (config: SessionConfig) => {
     stopBuilderPlayback(); // one pair of ears: custom audio stops first
     setCompleted(null);
-    await session.start(config);
-    // Assign the ref only after start() resolves: the old session's natural
-    // end can fire mid-await, and it must credit the OLD preset, not this one.
-    activePresetRef.current = {
-      id: config.preset.id,
-      name: config.preset.name,
-      endsAt:
-        config.durationMin === null
-          ? null
-          : Date.now() + config.durationMin * 60_000,
-    };
+    session.start(config);
+    activePresetRef.current = { id: config.preset.id, name: config.preset.name };
     setView("player");
   };
 
@@ -181,6 +169,18 @@ function App() {
         </button>
       </header>
 
+      {audioBlocked && (
+        <div className="audio-paused" role="alert">
+          <span>
+            Your device paused the audio — a call, alarm, or another app took
+            over. Your session is waiting where it stopped.
+          </span>
+          <button className="start-btn compact" onClick={resumeAudio}>
+            Resume audio
+          </button>
+        </div>
+      )}
+
       {view === "landing" && (
         <Landing onEnter={() => setView("home")} onScience={() => setView("science")} />
       )}
@@ -191,52 +191,54 @@ function App() {
             onDone={() => setCompleted(null)}
           />
         ) : (
-          <Home onStart={(c) => void handleStart(c)} onUpgrade={goUpgrade} />
+          <Home onStart={handleStart} onUpgrade={goUpgrade} />
         ))}
       {view === "player" && session.state.active && (
         <Player session={session} onExit={handleExit} />
       )}
-      {view === "library" && (
-        <Library
-          onSignIn={() => setAccountOpen(true)}
-          onBeforePlay={handleCustomAudioStarts}
-        />
-      )}
-      {/* Non-clinicians landing on dashboard/studio get the Library (D-06 fallback). */}
-      {view === "dashboard" &&
-        (ent.isClinician ? (
-          <Dashboard />
-        ) : (
+      <Suspense fallback={null}>
+        {view === "library" && (
           <Library
             onSignIn={() => setAccountOpen(true)}
             onBeforePlay={handleCustomAudioStarts}
           />
-        ))}
-      {view === "studio" &&
-        (ent.isClinician ? (
-          <Builder onBeforePlay={handleCustomAudioStarts} />
-        ) : (
-          <Library
-            onSignIn={() => setAccountOpen(true)}
-            onBeforePlay={handleCustomAudioStarts}
-          />
-        ))}
-      {view === "science" && <Science />}
-      {view === "upgrade" && <Upgrade onSignIn={() => setAccountOpen(true)} />}
+        )}
+        {/* Non-clinicians landing on dashboard/studio get the Library (D-06 fallback). */}
+        {view === "dashboard" &&
+          (ent.isClinician ? (
+            <Dashboard />
+          ) : (
+            <Library
+              onSignIn={() => setAccountOpen(true)}
+              onBeforePlay={handleCustomAudioStarts}
+            />
+          ))}
+        {view === "studio" &&
+          (ent.isClinician ? (
+            <Builder onBeforePlay={handleCustomAudioStarts} />
+          ) : (
+            <Library
+              onSignIn={() => setAccountOpen(true)}
+              onBeforePlay={handleCustomAudioStarts}
+            />
+          ))}
+        {view === "science" && <Science />}
+        {view === "upgrade" && <Upgrade onSignIn={() => setAccountOpen(true)} />}
 
-      {accountOpen && (
-        <AccountSheet
-          onClose={() => setAccountOpen(false)}
-          onManagePlan={() => {
-            setAccountOpen(false);
-            setView("upgrade");
-          }}
-          onOpenLibrary={() => {
-            setAccountOpen(false);
-            setView("library");
-          }}
-        />
-      )}
+        {accountOpen && (
+          <AccountSheet
+            onClose={() => setAccountOpen(false)}
+            onManagePlan={() => {
+              setAccountOpen(false);
+              setView("upgrade");
+            }}
+            onOpenLibrary={() => {
+              setAccountOpen(false);
+              setView("library");
+            }}
+          />
+        )}
+      </Suspense>
 
       <footer className="foot">
         A relaxation &amp; meditation tool — not a medical device.{" "}

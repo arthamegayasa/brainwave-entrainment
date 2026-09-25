@@ -1,10 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { OfflineAudioContext, AudioContext } from "node-web-audio-api";
 import { createAmbientLayer } from "../../src/audio/layers/ambient";
-import { createBrownNoiseBuffer } from "../../src/audio/noise";
+import { createBrownNoiseBuffer, NOISE_REFERENCE_RATE } from "../../src/audio/noise";
 import { AudioEngine } from "../../src/audio/engine";
-import type { AmbientKind } from "../../src/audio/types";
-import { maxAbs, countZeroCrossings, rmsSeries } from "./helpers";
+import type { AmbientKind, SoundLayer } from "../../src/audio/types";
+import { maxAbs, countZeroCrossings, rmsSeries, seededRandom } from "./helpers";
 
 const KINDS: AmbientKind[] = ["rain", "ocean", "wind", "brown"];
 
@@ -142,5 +142,63 @@ describe("Ambience spectral signatures (QUICK-260714-P5O)", () => {
     expect(windCv, "wind must move far more than rain").toBeGreaterThan(
       3 * rainCv,
     );
+  }, 60000);
+});
+
+/** Analysis bands in Hz, below the Nyquist of every tested device rate. */
+const BANDS_HZ = [125, 500, 2000];
+const RATE_SECONDS = 6;
+/** Skip the layer fade-in before measuring. */
+const RATE_SKIP_SECONDS = 0.5;
+/**
+ * Device rates to match. 16 kHz is left out on purpose: bilinear warping of
+ * rain's 7 kHz lowpass that close to Nyquist costs ~1 dB there, a physical
+ * limit of the rate rather than a synthesis error.
+ */
+const DEVICE_RATES = [22050, 48000, 96000, 192000];
+
+/**
+ * RMS of a kind's output inside fixed-Hz analysis bands at `sampleRate`.
+ * Bandpass biquads are specified in Hz, so an ambience that sounds the same
+ * on every device measures the same per-band level at every rate.
+ */
+async function bandLevels(kind: AmbientKind, sampleRate: number): Promise<number[]> {
+  const ctx = new OfflineAudioContext(BANDS_HZ.length, RATE_SECONDS * sampleRate, sampleRate);
+  // Seed directly rather than vi.spyOn: a spy records every call, and a
+  // 192 kHz noise buffer needs millions of them.
+  const random = Math.random;
+  Math.random = seededRandom(7);
+  let layer: SoundLayer;
+  try {
+    layer = createAmbientLayer(ctx as unknown as BaseAudioContext, kind);
+  } finally {
+    Math.random = random;
+  }
+  const merger = ctx.createChannelMerger(BANDS_HZ.length);
+  BANDS_HZ.forEach((hz, i) => {
+    const band = ctx.createBiquadFilter();
+    band.type = "bandpass";
+    band.frequency.value = hz;
+    band.Q.value = 1.4; // ~1 octave wide
+    layer.output.connect(band as unknown as AudioNode);
+    band.connect(merger, 0, i);
+  });
+  merger.connect(ctx.destination);
+  layer.start(0);
+  const buffer = await ctx.startRendering();
+  const skip = RATE_SKIP_SECONDS * sampleRate;
+  return BANDS_HZ.map((_, i) => rms(buffer.getChannelData(i).slice(skip)));
+}
+
+describe("Ambience is identical across device sample rates", () => {
+  it.each(KINDS)("%s keeps its per-band level within 1 dB of the tuned rate", async (kind) => {
+    const reference = await bandLevels(kind, NOISE_REFERENCE_RATE);
+    for (const rate of DEVICE_RATES) {
+      const levels = await bandLevels(kind, rate);
+      BANDS_HZ.forEach((hz, i) => {
+        const deltaDb = 20 * Math.log10(levels[i] / reference[i]);
+        expect(Math.abs(deltaDb), `${kind} @ ${rate} Hz, ${hz} Hz band`).toBeLessThan(1);
+      });
+    }
   }, 60000);
 });

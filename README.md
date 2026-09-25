@@ -56,10 +56,10 @@ Choose a duration, headphones or speakers, and a synthesized ambient layer befor
 | **Start with a goal** | Eight presets, goal preferences, time-aware recommendations, and a local listening journey. |
 | **Choose how to listen** | Binaural headphone mode or isochronic speaker mode; 15, 30, 45, 60 minutes, or an open-ended session. |
 | **Blend the atmosphere** | Synthesized rain, ocean, wind, and brown noise with adjustable playback controls. |
-| **Follow the session** | A live curve visualization, optional frequency details, smooth gain changes, and an end-of-session view. |
+| **Follow the session** | A live curve visualization, optional frequency details, smooth gain changes, pause/resume (also from the lock screen), and an end-of-session view. |
 | **Design custom audio** | Studio layers for binaural, isochronic, monaural, pure tone, and ambience; per-layer gains, custom curves, harmonic frequency suggestions, and JSON import/export. |
 | **Curate an audio library** | With a configured backend and clinician/admin role: an Audio Bank, reusable templates, patient invitations, and individual audio assignments. |
-| **Export a session** | Audio Bank entries can be rendered locally and encoded as stereo MP3 files, with progress shown in the interface. |
+| **Export a session** | Any timed preset (with your chosen listening mode, ambience, and mixer volumes) and Audio Bank entries render locally to 320 kbps MP3 files, with progress shown in the interface. An MP3 plays in any music app, including with the screen locked. |
 | **Install the app** | A production PWA build caches the app shell and assets. Core synthesized listening can work offline after the app has loaded and been cached. |
 
 **Access in this build:** preset and duration feature gates are currently unlocked by `ALL_UNLOCKED` in [`src/state/tier.ts`](src/state/tier.ts). Studio and Dashboard still have a separate clinician/admin role gate. Backend account, library, and payment operations need a network connection and their own configuration.
@@ -183,14 +183,18 @@ Read the [payment architecture](docs/payments/PAYMENTS-ARCHITECTURE.md) before c
 | `npm test` | Run Vitest, including real offline audio rendering with `node-web-audio-api`. |
 | `npm run build` | Type-check, build the app, and generate the PWA service worker. |
 | `npm run preview` | Serve the production build locally. |
+| `npm run test:e2e` | Build, then run the Playwright end-to-end suite against `vite preview` (first run: `npx playwright install chromium`). |
 
-The suite checks rendered signals, pulse counts, fades, scheduling, layer behavior, MP3 export, imported-session validation, and local state. At the documentation refresh, **110 tests across 16 files passed**, and the production build completed.
+The unit suite checks rendered signals, pulse counts, fades, scheduling, layer behavior, sample-rate-independent ambience, preset and Audio Bank MP3 export, imported-session validation, and local state. The end-to-end suite drives the production build in Chromium: start, pause, resume, and end a session; device interruptions with and without a required tap; a full 15-minute preset MP3 download; and the Premium plan layout at phone, tablet, and desktop widths. At the documentation refresh, **120 unit tests across 17 files** and **8 end-to-end tests** passed, and the production build completed.
 
 For contributions, keep audio logic in `src/audio`, keep preset constants centralized, and include a focused test for behavior changes. Run the test suite and production build before opening a pull request. Implementation decisions and gotchas are recorded in [DECISIONS.md](DECISIONS.md) and [KNOWLEDGE.md](KNOWLEDGE.md).
 
 **Platform notes**
 
 - Playback begins from a user gesture because browsers restrict autoplay.
+- Preset sessions and custom audio share one `AudioContext` ([`src/ui/audioContext.ts`](src/ui/audioContext.ts)). On Safari 16.4+ it declares a `playback` audio session, so iPhone audio still plays when the ring/silent switch is on; starting a session then pauses other apps' music, as native audio apps do.
+- Ambient noise is synthesized with sample-rate-independent constants, so the same ambience has the same level and tone at 22.05, 44.1, 48, 96, or 192 kHz.
+- If the device pauses audio mid-session (call, alarm, another app), the session holds its place on the audio clock. Serenade retries automatically and shows **Resume audio** when the browser requires a tap.
 - PWA installation and offline caching should be checked using the production build served over HTTPS or localhost. Backend operations remain online features.
 - Mobile operating systems may suspend browser audio in the background. Media Session controls improve integration but do not guarantee uninterrupted playback on iOS.
 - There is no dedicated lint command in the current package scripts. The build includes TypeScript checking.

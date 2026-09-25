@@ -1,11 +1,13 @@
 import { Mp3Encoder } from "@breezystack/lamejs";
 import { BuilderEngine } from "./builder";
 import type { CustomSession } from "./builder";
+import { SessionEngine } from "./session";
+import type { SessionConfig, SessionVolumes } from "./session";
 
 /**
- * Offline MP3 export for bank sessions (engine layer — pure TS, no React).
- * Renders a sanitized CustomSession through the existing BuilderEngine inside
- * an OfflineAudioContext, then encodes the result to MP3 entirely in the
+ * Offline MP3 export for bank sessions and presets (engine layer — pure TS,
+ * no React). Renders through the same engine the live player uses inside an
+ * OfflineAudioContext, then encodes the result to MP3 entirely in the
  * browser (ADR-004: synthesis stays 100% client-side, no audio files served).
  */
 
@@ -40,6 +42,28 @@ export function renderSession(
   const ctx = createContext(2, length, SAMPLE_RATE);
   const engine = new BuilderEngine(ctx);
   engine.start(spec.layers, spec.curve, durationMin);
+  return ctx.startRendering();
+}
+
+/** A preset session with a fixed length — infinite sessions cannot be exported. */
+export type TimedSessionConfig = SessionConfig & { durationMin: number };
+
+/**
+ * Render a preset session offline through the live SessionEngine, so curve,
+ * layer mix, the listener's mixer volumes, fades, and the limiter carry over.
+ * Speaker mode is identical on both ears and renders mono (half the memory;
+ * encodeMp3 duplicates it). Headphone mode must stay stereo: the binaural
+ * beat IS the difference between the ears.
+ */
+export function renderPreset(
+  config: TimedSessionConfig,
+  volumes: Partial<SessionVolumes>,
+  createContext: ContextFactory = defaultFactory,
+): Promise<AudioBuffer> {
+  const channels = config.mode === "headphone" ? 2 : 1;
+  const length = Math.round(SAMPLE_RATE * config.durationMin * 60);
+  const ctx = createContext(channels, length, SAMPLE_RATE);
+  new SessionEngine(ctx, volumes).start(config);
   return ctx.startRendering();
 }
 
@@ -103,6 +127,19 @@ export async function exportSessionMp3(
 ): Promise<Blob> {
   onPhase?.("rendering");
   const buffer = await renderSession(spec, durationMin);
+  return encodeMp3(buffer, {
+    onProgress: (pct) => onPhase?.("encoding", pct),
+  });
+}
+
+/** One-call preset export: offline render, then MP3 encode (see exportSessionMp3). */
+export async function exportPresetMp3(
+  config: TimedSessionConfig,
+  volumes: Partial<SessionVolumes>,
+  onPhase?: (phase: ExportPhase, pct?: number) => void,
+): Promise<Blob> {
+  onPhase?.("rendering");
+  const buffer = await renderPreset(config, volumes);
   return encodeMp3(buffer, {
     onProgress: (pct) => onPhase?.("encoding", pct),
   });

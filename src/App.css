@@ -400,6 +400,13 @@
   animation: breathe 9s ease-in-out infinite reverse;
 }
 
+/* Paused session: the breathing orb holds with the audio. */
+.player.paused .orb,
+.player.paused .orb-ring,
+.player.paused .orb-halo {
+  animation-play-state: paused;
+}
+
 @keyframes breathe {
   0%,
   100% {
@@ -1099,6 +1106,25 @@
   margin-bottom: 1.6rem;
 }
 
+/* The device paused the shared AudioContext mid-playback (call, alarm, lock). */
+.audio-paused {
+  position: sticky;
+  top: 0.75rem;
+  z-index: 30;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem 1.2rem;
+  margin-bottom: 1.4rem;
+  padding: 0.9rem 1.1rem;
+  border: 1px solid color-mix(in srgb, var(--band-alpha) 40%, transparent);
+  border-radius: var(--radius);
+  /* Opaque: it sticks over the player's timer while the page scrolls. */
+  background: color-mix(in srgb, var(--band-alpha) 12%, var(--bg));
+  font-size: 0.9rem;
+}
+
 .plans {
   display: grid;
   grid-template-columns: 1fr;
@@ -1583,7 +1609,8 @@
 
 /* Upgrade: contrast anchor + personal stakes */
 .price-anchor {
-  margin-right: 0.5rem;
+  /* Own line: beside the price it overflowed three-up plan cards. */
+  display: block;
   font-size: 0.55em;
   color: var(--ink-faint);
   text-decoration: line-through;
@@ -1845,8 +1872,15 @@
 
 /* Three plans: 2-up on tablet (third wraps), 3-up at desktop */
 @media (min-width: 1020px) {
+  /* Three cards need more than the 760px reading column. */
+  .upgrade {
+    max-width: 1000px;
+  }
+
   .plans.three {
-    grid-template-columns: 1fr 1fr 1fr;
+    /* minmax(0, …): plain 1fr keeps a min-content floor, so the priced cards'
+       long lines squeezed the Free card into a narrow column. */
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
@@ -1978,4 +2012,19 @@
   color: #e5c07b;
   border: 1px solid rgba(229, 192, 123, 0.4);
   background: rgba(229, 192, 123, 0.08);
+}
+
+/* Preset MP3 download in the session setup sheet */
+.setup-download {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 1rem;
+  text-align: center;
+}
+
+.setup-download .pill-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
 }

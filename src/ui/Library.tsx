@@ -188,12 +188,12 @@ export function Library({ onSignIn, onBeforePlay }: LibraryProps) {
     }
   };
 
-  const play = async (id: string, spec: CustomSession) => {
+  const play = (id: string, spec: CustomSession) => {
     onBeforePlay(); // one pair of ears: any running preset session stops first
     const prefs = loadPrefs();
     const durationMin =
       prefs.lastDurationMin === "inf" ? null : prefs.lastDurationMin ?? 30;
-    const engine = await ensureBuilder();
+    const engine = ensureBuilder();
     engine.stop();
     engine.start(spec.layers, spec.curve, durationMin);
     setNowPlaying(id);
@@ -235,7 +235,7 @@ export function Library({ onSignIn, onBeforePlay }: LibraryProps) {
   };
 
   // Resolve a play target from either list by id (cloud first, then saved).
-  const playFrom = async (id: string) => {
+  const playFrom = (id: string) => {
     const cloudHit = cloud.find((a) => a.id === id);
     if (cloudHit) return play(id, cloudHit.spec);
     const savedHit = saved.find((s) => s.id === id);
@@ -253,7 +253,7 @@ export function Library({ onSignIn, onBeforePlay }: LibraryProps) {
         </button>
       </span>
     ) : (
-      <button className="chip" onClick={() => void playFrom(id)}>
+      <button className="chip" onClick={() => playFrom(id)}>
         ▶ Play
       </button>
     );

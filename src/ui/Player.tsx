@@ -67,7 +67,7 @@ interface PlayerProps {
 }
 
 export function Player({ session, onExit }: PlayerProps) {
-  const { preset, config, progress, volumes } = session.state;
+  const { preset, config, progress, volumes, paused } = session.state;
   if (!preset || !config) return null;
 
   const accent = BAND_COLORS[preset.band];
@@ -78,7 +78,7 @@ export function Player({ session, onExit }: PlayerProps) {
 
   return (
     <section
-      className="player"
+      className={paused ? "player paused" : "player"}
       style={{ "--accent": accent } as React.CSSProperties}
     >
       <h2 className="session-name">
@@ -94,7 +94,7 @@ export function Player({ session, onExit }: PlayerProps) {
 
       <div className="phase-label">
         {progress.remainingSec === null ? "Infinite session · " : ""}
-        {PHASE_LABELS[progress.phase]}
+        {paused ? "Paused" : PHASE_LABELS[progress.phase]}
       </div>
 
       <SessionViz
@@ -104,6 +104,15 @@ export function Player({ session, onExit }: PlayerProps) {
       />
 
       <div className="player-controls">
+        {paused ? (
+          <button className="pill-btn" onClick={session.resume}>
+            ▶ Resume
+          </button>
+        ) : (
+          <button className="pill-btn" onClick={session.pause}>
+            ❚❚ Pause
+          </button>
+        )}
         <button className="pill-btn stop" onClick={onExit}>
           ■ End Session
         </button>
