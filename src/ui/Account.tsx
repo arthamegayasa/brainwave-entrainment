@@ -19,6 +19,8 @@ interface AccountSheetProps {
   onManagePlan: () => void;
   /** Navigate to the Library view (the caller closes the sheet). */
   onOpenLibrary: () => void;
+  /** Navigate to the privacy policy (the caller closes the sheet). */
+  onOpenPrivacy: () => void;
 }
 
 function capitalize(s: string): string {
@@ -29,6 +31,7 @@ export function AccountSheet({
   onClose,
   onManagePlan,
   onOpenLibrary,
+  onOpenPrivacy,
 }: AccountSheetProps) {
   const ent = useEntitlement();
   const [email, setEmail] = useState("");
@@ -193,6 +196,12 @@ export function AccountSheet({
               </button>
             </div>
             {msg && <p className="plan-note account-note">{msg}</p>}
+            <p className="plan-note account-note">
+              How we handle your data:{" "}
+              <button className="link-btn" onClick={onOpenPrivacy}>
+                Privacy policy
+              </button>
+            </p>
           </div>
         )}
 

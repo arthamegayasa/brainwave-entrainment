@@ -959,29 +959,34 @@
 
 /* ── Science ─────────────────────────────────────────────────────────── */
 
-.science {
+.science,
+.privacy {
   max-width: 760px;
   margin: 0 auto;
   animation: fade-in 0.4s ease both;
   padding-bottom: 3rem;
 }
 
-.science-head {
+.science-head,
+.privacy-head {
   text-align: center;
   padding: 1.5rem 0 2rem;
 }
 
-.science-head h1 {
+.science-head h1,
+.privacy-head h1 {
   font-size: clamp(1.8rem, 5vw, 2.8rem);
 }
 
-.science-head p {
+.science-head p,
+.privacy-head p {
   color: var(--ink-dim);
   max-width: 520px;
   margin: 0.8rem auto 0;
 }
 
-.science-section {
+.science-section,
+.privacy-section {
   border: 1px solid var(--line);
   border-left: 3px solid var(--tier-color, var(--line-strong));
   border-radius: var(--radius);
@@ -1012,7 +1017,8 @@
   margin-bottom: 0.7rem;
 }
 
-.science-section h2 {
+.science-section h2,
+.privacy-section h2 {
   font-size: 1.35rem;
   margin-bottom: 0.5rem;
 }
@@ -1070,6 +1076,78 @@
 
 .disclaimer strong {
   color: var(--band-alpha);
+}
+
+/* ── Privacy policy ──────────────────────────────────────────────────── */
+
+/* Layout shared with Science (.science*); the switch shares .billing-toggle. */
+.privacy {
+  overflow-wrap: break-word;
+}
+
+.privacy .lang-switch {
+  width: fit-content;
+  margin: 0 auto;
+}
+
+.privacy .lang-switch button {
+  flex: none;
+}
+
+.privacy-draft {
+  display: block;
+  border: 1px dashed color-mix(in srgb, var(--band-beta) 55%, transparent);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--band-beta) 8%, transparent);
+  padding: 1rem 1.2rem;
+  margin-bottom: 1.3rem;
+  font-size: 0.87rem;
+  color: var(--ink-dim);
+}
+
+.privacy-draft strong {
+  color: var(--band-beta);
+}
+
+.privacy-points {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.92rem;
+}
+
+.privacy-points strong {
+  font-weight: 600;
+}
+
+.privacy-note {
+  margin: 1rem 0 0;
+  font-size: 0.85rem;
+  color: var(--ink-faint);
+  font-style: italic;
+}
+
+.privacy-contact {
+  margin: 0;
+}
+
+.privacy-placeholder {
+  color: var(--band-alpha);
+  background: color-mix(in srgb, var(--band-alpha) 14%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--band-alpha) 60%, transparent);
+  border-radius: 6px;
+  padding: 0.1rem 0.4rem;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+.privacy-governing {
+  margin: 0;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--ink-faint);
 }
 
 /* ── Upgrade ─────────────────────────────────────────────────────────── */
@@ -1224,9 +1302,10 @@
   text-align: center;
 }
 
-/* ── Billing toggle (Upgrade) ────────────────────────────────────────── */
+/* ── Billing toggle (Upgrade) + language switch (Privacy) ───────────── */
 
-.billing-toggle {
+.billing-toggle,
+.lang-switch {
   display: flex;
   gap: 0.25rem;
   padding: 0.25rem;
@@ -1236,7 +1315,8 @@
   background: rgba(255, 255, 255, 0.03);
 }
 
-.billing-toggle button {
+.billing-toggle button,
+.lang-switch button {
   flex: 1;
   display: inline-flex;
   align-items: center;
@@ -1249,11 +1329,13 @@
   transition: color 0.2s, background 0.2s;
 }
 
-.billing-toggle button:hover {
+.billing-toggle button:hover,
+.lang-switch button:hover {
   color: var(--ink);
 }
 
-.billing-toggle button.selected {
+.billing-toggle button.selected,
+.lang-switch button.selected {
   color: var(--ink);
   background: color-mix(in srgb, var(--accent) 16%, transparent);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent);

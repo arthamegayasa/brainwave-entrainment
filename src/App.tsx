@@ -14,6 +14,7 @@ const Builder = lazy(() => import("./ui/Builder").then((m) => ({ default: m.Buil
 const Dashboard = lazy(() => import("./ui/Dashboard").then((m) => ({ default: m.Dashboard })));
 const Library = lazy(() => import("./ui/Library").then((m) => ({ default: m.Library })));
 const Science = lazy(() => import("./ui/Science").then((m) => ({ default: m.Science })));
+const Privacy = lazy(() => import("./ui/Privacy").then((m) => ({ default: m.Privacy })));
 const Upgrade = lazy(() => import("./ui/Upgrade").then((m) => ({ default: m.Upgrade })));
 const AccountSheet = lazy(() =>
   import("./ui/Account").then((m) => ({ default: m.AccountSheet })),
@@ -33,7 +34,8 @@ type View =
   | "dashboard"
   | "studio"
   | "science"
-  | "upgrade";
+  | "upgrade"
+  | "privacy";
 
 /** A session counts as completed when at least 5 minutes were listened. */
 const COMPLETION_MIN_SEC = 300;
@@ -223,7 +225,13 @@ function App() {
             />
           ))}
         {view === "science" && <Science />}
-        {view === "upgrade" && <Upgrade onSignIn={() => setAccountOpen(true)} />}
+        {view === "privacy" && <Privacy />}
+        {view === "upgrade" && (
+          <Upgrade
+            onSignIn={() => setAccountOpen(true)}
+            onOpenPrivacy={() => setView("privacy")}
+          />
+        )}
 
         {accountOpen && (
           <AccountSheet
@@ -236,6 +244,10 @@ function App() {
               setAccountOpen(false);
               setView("library");
             }}
+            onOpenPrivacy={() => {
+              setAccountOpen(false);
+              setView("privacy");
+            }}
           />
         )}
       </Suspense>
@@ -244,6 +256,10 @@ function App() {
         A relaxation &amp; meditation tool — not a medical device.{" "}
         <button className="link-btn" onClick={() => setView("science")}>
           Learn the science
+        </button>{" "}
+        ·{" "}
+        <button className="link-btn" onClick={() => setView("privacy")}>
+          Privacy policy
         </button>
       </footer>
     </div>
