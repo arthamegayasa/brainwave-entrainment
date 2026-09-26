@@ -15,20 +15,24 @@ import {
 } from "../lib/clinician";
 import type { AudioCategory, BankAudio, PatientLink } from "../lib/clinician";
 import { PatientsTab } from "./PatientsTab";
+import { PeopleTab } from "./PeopleTab";
 
 /**
  * Clinician Dashboard (D-06): Patients tab (the table of the Clinician's
  * Patients with their Patient Status, each opening in a drawer with their
  * detail) and Audio Bank tab (filterable card grid of the clinician's
- * published sessions). The App renders this only for clinicians/admins; RLS
- * enforces every rule server-side regardless.
+ * published sessions). The Admin also gets the Clinicians & Patients tab:
+ * everyone on Serenade in the same table + drawer (#13). The App renders this
+ * only for clinicians/admins; RLS enforces every rule server-side regardless.
  */
 
 const BANDS: readonly Band[] = ["delta", "theta", "alpha", "beta", "gamma"];
 
+type DashboardTab = "patients" | "bank" | "people";
+
 export function Dashboard() {
   const ent = useEntitlement();
-  const [tab, setTab] = useState<"patients" | "bank">("patients");
+  const [tab, setTab] = useState<DashboardTab>("patients");
   const [notice, setNotice] = useState<string | null>(null);
 
   const flash = (msg: string) => {
@@ -76,13 +80,21 @@ export function Dashboard() {
         >
           Audio Bank
         </button>
+        {ent.role === "admin" && (
+          <button
+            role="tab"
+            aria-selected={tab === "people"}
+            className={tab === "people" ? "selected" : ""}
+            onClick={() => setTab("people")}
+          >
+            Clinicians &amp; Patients
+          </button>
+        )}
       </div>
 
-      {tab === "patients" ? (
-        <PatientsTab flash={flash} patientLimit={ent.patientLimit} />
-      ) : (
-        <BankTab flash={flash} />
-      )}
+      {tab === "patients" && <PatientsTab flash={flash} patientLimit={ent.patientLimit} />}
+      {tab === "bank" && <BankTab flash={flash} />}
+      {tab === "people" && ent.role === "admin" && <PeopleTab flash={flash} />}
 
       {notice && (
         <div className="notice dash-notice" role="status">

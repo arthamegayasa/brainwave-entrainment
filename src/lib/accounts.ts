@@ -124,6 +124,31 @@ export async function changeOwnPassword(password: string): Promise<void> {
   await invoke("change-password", { password });
 }
 
+/** Someone in the password access log; null in a view when their account was deleted. */
+export interface PasswordLogPerson {
+  id: string;
+  name: string | null;
+  username: string | null;
+  /** The email to show; never an internal login email (ADR-018). */
+  email: string | null;
+}
+
+/** One password view (ADR-015): who revealed whose password, and when. */
+export interface PasswordView {
+  revealedAt: string;
+  viewer: PasswordLogPerson | null;
+  target: PasswordLogPerson | null;
+}
+
+/**
+ * The Admin's password access log, newest view first (the server answers up
+ * to 1000). Anyone else gets AccountError("not_allowed").
+ */
+export async function loadPasswordViews(): Promise<PasswordView[]> {
+  const { entries } = await invoke<{ entries: PasswordView[] }>("password-access-log", {});
+  return entries;
+}
+
 /**
  * Switches the Premium grant on a Patient's Link (ADR-014). Refusals arrive
  * as AccountError with a SetPremiumGrantError code.

@@ -2326,9 +2326,342 @@
   background: var(--accent);
 }
 
-/* Columns give way as the table narrows. */
+/* Role badges: one per role, both when roles overlap (#13) */
+.role-badges {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.role-badge {
+  padding: 0.12rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.66rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  border: 1px solid currentColor;
+}
+
+.role-badge--admin {
+  color: var(--band-gamma);
+}
+
+.role-badge--clinician {
+  color: var(--band-theta);
+}
+
+.role-badge--patient {
+  color: var(--band-delta);
+}
+
+.role-badge--regular {
+  color: var(--ink-faint);
+}
+
+/* Inactive Clinician flag */
+.inactive-pill {
+  display: inline-flex;
+  padding: 0.08rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  white-space: nowrap;
+  color: color-mix(in srgb, var(--band-beta) 85%, var(--ink));
+  border: 1px dashed color-mix(in srgb, var(--band-beta) 55%, transparent);
+}
+
+/* The Admin's Clinicians & Patients tab: role tabs, scope banner, filter chips */
+.roster-tabs {
+  display: flex;
+  gap: 0.15rem;
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.roster-tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.6rem 0.85rem 0.7rem;
+  font-size: 0.9rem;
+  color: var(--ink-dim);
+  white-space: nowrap;
+  transition: color 0.15s;
+}
+
+.roster-tab::after {
+  content: "";
+  position: absolute;
+  left: 0.55rem;
+  right: 0.55rem;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px;
+  background: transparent;
+  transition: background 0.2s;
+}
+
+.roster-tab:hover,
+.roster-tab[aria-selected="true"] {
+  color: var(--ink);
+}
+
+.roster-tab[aria-selected="true"]::after {
+  background: var(--accent);
+}
+
+.roster-tab-count {
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  background: var(--bg-raised-hover);
+  color: var(--ink-dim);
+}
+
+.roster-tab[aria-selected="true"] .roster-tab-count {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--ink);
+}
+
+.roster-scope,
+.roster-callout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 1rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--line));
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+.roster-callout {
+  justify-content: space-between;
+  margin-bottom: 1.1rem;
+  font-size: 0.84rem;
+  color: var(--ink-dim);
+}
+
+.roster-callout strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.roster-scope-back {
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  font-size: 0.82rem;
+  color: var(--ink-dim);
+  white-space: nowrap;
+}
+
+.roster-scope-back:hover {
+  color: var(--ink);
+  background: var(--bg-raised-hover);
+}
+
+.roster-scope-text {
+  flex: 1;
+  min-width: 12rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.2rem 0.7rem;
+  font-size: 0.82rem;
+  color: var(--ink-dim);
+}
+
+.roster-scope-text h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: 1.05rem;
+  color: var(--ink);
+  outline: none;
+}
+
+.roster-caseload {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+}
+
+.roster-caseload strong {
+  color: var(--ink);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.roster-chipbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.roster-chipbar-label {
+  margin-right: 0.15rem;
+  font-size: 0.75rem;
+  color: var(--ink-faint);
+}
+
+.roster-fchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.25rem 0.55rem 0.25rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  color: var(--ink);
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--line));
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.roster-fchip span {
+  font-size: 0.7rem;
+  color: var(--ink-dim);
+}
+
+.roster-fchip:hover {
+  border-color: var(--accent);
+}
+
+.roster-fchip:hover span {
+  color: var(--ink);
+}
+
+.roster-clear-all {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.78rem;
+  color: var(--ink-dim);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--line-strong);
+}
+
+.roster-clear-all:hover {
+  color: var(--ink);
+}
+
+/* Admin table cells */
+.roster-kind-clinician .roster-name {
+  font-family: var(--font-display);
+  letter-spacing: 0.01em;
+}
+
+.roster-load {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.45rem;
+}
+
+.roster-load-main {
+  font-size: 0.82rem;
+  color: var(--ink-dim);
+  white-space: nowrap;
+}
+
+.roster-load-main strong {
+  color: var(--ink);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.roster-load-warn {
+  color: color-mix(in srgb, var(--band-beta) 85%, var(--ink));
+}
+
+.roster-clin {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.2rem 0.4rem;
+}
+
+.roster-clin-link {
+  padding: 0;
+  font-size: 0.84rem;
+  color: var(--ink-dim);
+  text-align: left;
+  text-decoration: underline;
+  text-decoration-color: var(--line-strong);
+  text-underline-offset: 3px;
+  white-space: nowrap;
+}
+
+.roster-clin-link:hover {
+  color: var(--ink);
+  text-decoration-color: var(--accent);
+}
+
+/* The Admin's password views */
+.password-views {
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.password-views summary {
+  cursor: pointer;
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+.password-views-table {
+  width: 100%;
+  margin: 0.4rem 0 0.8rem;
+  border-collapse: collapse;
+  font-size: 0.84rem;
+}
+
+.password-views-table th {
+  padding: 0.4rem 0.6rem;
+  text-align: left;
+  font-weight: 500;
+  font-size: 0.7rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  border-bottom: 1px solid var(--line-strong);
+}
+
+.password-views-table td {
+  padding: 0.45rem 0.6rem;
+  color: var(--ink-dim);
+  border-bottom: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+
+.password-views-table td:first-child {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Columns give way as the table narrows; the Admin's two extra columns first. */
+@container roster (max-width: 1040px) {
+  .roster--admin .roster-c-stopped,
+  .roster--admin .roster-c-assigned {
+    display: none;
+  }
+}
+
 @container roster (max-width: 960px) {
   .roster-c-assigned {
+    display: none;
+  }
+}
+
+@container roster (max-width: 900px) {
+  .roster--admin .roster-c-plays,
+  .roster--admin .roster-c-premium {
     display: none;
   }
 }
@@ -2336,6 +2669,12 @@
 @container roster (max-width: 860px) {
   .roster-c-stopped,
   .roster-c-premium {
+    display: none;
+  }
+}
+
+@container roster (min-width: 720px) and (max-width: 819px) {
+  .roster--admin .roster-c-week {
     display: none;
   }
 }
@@ -2442,6 +2781,24 @@
 
   .roster-c-week {
     grid-area: week;
+    justify-self: end;
+  }
+
+  .roster--admin .roster-table tr.roster-row {
+    grid-template-areas:
+      "name status"
+      "last week"
+      "clin role";
+  }
+
+  .roster-c-clin {
+    grid-area: clin;
+    min-width: 0;
+    font-size: 0.8rem;
+  }
+
+  .roster-c-role {
+    grid-area: role;
     justify-self: end;
   }
 

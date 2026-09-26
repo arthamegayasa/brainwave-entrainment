@@ -353,8 +353,8 @@ export async function loadListeningHistory(userId: string, now: number): Promise
   };
 }
 
-interface PatientActivityRow {
-  patient_id: string;
+/** One User's account creation and week of listening, as patient_activity() and user_overview() return them. */
+export interface ActivityRow {
   account_created_at: string;
   last_play_at: string | null;
   time_zone: string | null;
@@ -362,6 +362,19 @@ interface PatientActivityRow {
   stopped_7d: number;
   listened_sec_7d: number;
   daily_listened_sec: number[];
+}
+
+/** Those columns as the Listening core reads them. */
+export function activityFromRow(row: ActivityRow): PatientActivity {
+  return {
+    accountCreatedAt: row.account_created_at,
+    lastPlayAt: row.last_play_at,
+    timeZone: row.time_zone,
+    plays7: row.plays_7d,
+    stopped7: row.stopped_7d,
+    listenedSec7: row.listened_sec_7d,
+    dailySec7: row.daily_listened_sec,
+  };
 }
 
 /**
@@ -374,17 +387,6 @@ export async function loadPatientActivity(): Promise<Map<string, PatientActivity
   const { data, error } = await supabase.rpc("patient_activity");
   if (error) throw error;
   return new Map(
-    (data as PatientActivityRow[]).map((row) => [
-      row.patient_id,
-      {
-        accountCreatedAt: row.account_created_at,
-        lastPlayAt: row.last_play_at,
-        timeZone: row.time_zone,
-        plays7: row.plays_7d,
-        stopped7: row.stopped_7d,
-        listenedSec7: row.listened_sec_7d,
-        dailySec7: row.daily_listened_sec,
-      },
-    ]),
+    (data as Array<ActivityRow & { patient_id: string }>).map((row) => [row.patient_id, activityFromRow(row)]),
   );
 }

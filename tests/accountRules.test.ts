@@ -5,6 +5,7 @@ import {
   firstName,
   generatePassword,
   internalLoginEmail,
+  isInactiveClinician,
   isValidUsername,
   keepsPasswordCopy,
   mayChangeUsername,
@@ -19,6 +20,7 @@ import {
   patientLimitOf,
   personalUrlPath,
   personalUrlTarget,
+  rolesOf,
   shownEmail,
   suggestUsername,
   takenOrLockedUsernames,
@@ -625,5 +627,44 @@ describe("may disconnect a Patient or switch their Premium grant", () => {
       ok: false,
       reason: "not_allowed",
     });
+  });
+});
+
+describe("roles of a User", () => {
+  it("shows a User without a Link or a Clinician role as a Regular", () => {
+    expect(rolesOf({ role: "user", clinicianId: null, patientCount: 0 })).toEqual(["regular"]);
+  });
+
+  it("shows a linked User as a Patient", () => {
+    expect(rolesOf({ role: "user", clinicianId: "clinician-a", patientCount: 0 })).toEqual(["patient"]);
+  });
+
+  it("shows both roles for a Clinician who is someone's Patient", () => {
+    expect(rolesOf({ role: "clinician", clinicianId: "clinician-a", patientCount: 3 })).toEqual([
+      "clinician",
+      "patient",
+    ]);
+  });
+
+  it("shows the Admin as the Admin, with or without Patients", () => {
+    expect(rolesOf({ role: "admin", clinicianId: null, patientCount: 0 })).toEqual(["admin"]);
+    expect(rolesOf({ role: "admin", clinicianId: null, patientCount: 4 })).toEqual(["admin"]);
+  });
+
+  it("keeps an Inactive Clinician a Clinician, never a Regular", () => {
+    expect(rolesOf({ role: "user", clinicianId: null, patientCount: 2 })).toEqual(["clinician"]);
+    expect(rolesOf({ role: "user", clinicianId: "clinician-a", patientCount: 1 })).toEqual(["clinician", "patient"]);
+  });
+});
+
+describe("Inactive Clinician", () => {
+  it("is a User who still has Patients but no longer holds the Clinician role", () => {
+    expect(isInactiveClinician({ role: "user", patientCount: 1 })).toBe(true);
+  });
+
+  it("is not a Clinician or the Admin with Patients, nor a User without any", () => {
+    expect(isInactiveClinician({ role: "clinician", patientCount: 5 })).toBe(false);
+    expect(isInactiveClinician({ role: "admin", patientCount: 5 })).toBe(false);
+    expect(isInactiveClinician({ role: "user", patientCount: 0 })).toBe(false);
   });
 });

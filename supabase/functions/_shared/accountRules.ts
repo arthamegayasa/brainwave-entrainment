@@ -39,6 +39,19 @@ export function shownEmail(account: {
 }
 
 /**
+ * How an account reads to someone else: its name, else the email to show,
+ * else its @Username. Null when it has none of them.
+ */
+export function accountLabel(account: {
+  name: string | null;
+  /** The email to show (`shownEmail`), never an internal login email. */
+  email: string | null;
+  username: string | null;
+}): string | null {
+  return account.name ?? account.email ?? (account.username ? `@${account.username}` : null);
+}
+
+/**
  * The customer details a payment provider (Midtrans) receives for an
  * account's checkout: the email shown for it, never an internal login email,
  * and none for a Username account without a contact email.
@@ -203,6 +216,37 @@ export function patientLimitOf(user: Pick<PatientCreator, "role" | "patientLimit
 /** A Clinician, or the Admin, who holds every Clinician power. */
 export function hasClinicianPowers(role: AccountRole): boolean {
   return role === "clinician" || role === "admin";
+}
+
+/**
+ * An Inactive Clinician (CONTEXT.md): a User who is still the Clinician of
+ * Links but no longer holds the Clinician role. Their Patients stay linked,
+ * unmonitored, until the role returns or the Admin Transfers them.
+ */
+export function isInactiveClinician(user: { role: AccountRole; patientCount: number }): boolean {
+  return !hasClinicianPowers(user.role) && user.patientCount > 0;
+}
+
+/** A role as the Dashboard shows it: the stored role, or Patient and Regular derived from Links. */
+export type ShownRole = "admin" | "clinician" | "patient" | "regular";
+
+/**
+ * Every role a User holds, in the order the badges show them. Roles overlap:
+ * a Clinician can be someone's Patient. An Inactive Clinician stays a
+ * Clinician (flagged apart), never a Regular.
+ */
+export function rolesOf(user: {
+  role: AccountRole;
+  /** The Clinician of their Link; null without a Link. */
+  clinicianId: string | null;
+  /** The Patients Linked to them. */
+  patientCount: number;
+}): ShownRole[] {
+  if (user.role === "admin") return ["admin"];
+  const roles: ShownRole[] = [];
+  if (user.role === "clinician" || isInactiveClinician(user)) roles.push("clinician");
+  if (user.clinicianId !== null) roles.push("patient");
+  return roles.length > 0 ? roles : ["regular"];
 }
 
 /**
