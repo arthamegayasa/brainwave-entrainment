@@ -142,7 +142,7 @@ The audio engine is plain TypeScript, independent of React. Preset definitions l
 src/
   audio/                 Audio engine, presets, curves, layers, MP3 export
     layers/              Binaural, isochronic, monaural, pure tone, ambience
-  state/                 Local preferences, progress, custom sessions, tiers
+  state/                 Local preferences, progress, custom sessions, tiers, Listening core
   ui/                    Home, Player, Studio, Library, Dashboard, Science
   lib/                   Optional accounts, roles, library, payment clients
 tests/                   Audio render assertions and state tests
@@ -176,6 +176,8 @@ Frontend `VITE_*` values are included in the browser bundle. Server credentials 
 
 The connected system also needs the schemas in [`supabase/migrations`](supabase/migrations), appropriate roles and access policies, Auth redirect settings, and the Edge Functions in [`supabase/functions`](supabase/functions): checkout and the payment webhook, plus `create-patient`, `suggest-username`, `change-username`, `resolve-login` and `personal-url` for Clinician-created Patient accounts that sign in with a Username and password, from the homepage or their Personal URL `/p/<username>` ([ADR-016](DECISIONS.md), [ADR-018](DECISIONS.md)). After a Username change the old Personal URL redirects to the new one until another Patient claims the old Username, which nobody else can do for 30 days. Every Patient password is also kept as an encrypted copy that their Clinician and the Admin can reveal, with every reveal logged ([ADR-015](DECISIONS.md)): `reveal-password`, `reset-password` and `change-password` (the Patient's own change in Account) use the [password copy key](#password-copy-key), and `password-access-log` lets the Admin read the log. A Link lasts until the Clinician (or the Admin) ends it with `disconnect-patient`; the Patient cannot, and keeps signing in with their Username and password afterwards. Each Link carries a Premium grant, on by default, that `set-premium-grant` switches ([ADR-014](DECISIONS.md)). Environment variables alone do not provision these services. Locally, `npx supabase functions serve` runs them against the local stack.
 
+Signed-in Users also build a Listening History on the server ([ADR-017](DECISIONS.md)). Every Play of 30 seconds or more, of a Preset or of Custom Audio or a saved session in the Library (never a Studio preview), and every MP3 Download goes to the `plays` and `downloads` tables. The app inserts them itself under row-level security, without an Edge Function. Plays made offline wait in a queue on the device and are sent when the app starts, comes back online, or becomes visible again. Their ids are generated on the device, so a re-send never makes a second row. Signed-out listening stays on the device.
+
 Read the [payment architecture](docs/payments/PAYMENTS-ARCHITECTURE.md) before changing checkout. The [sandbox notes](docs/payments/SANDBOX-SETUP.md) describe an earlier configured environment; substitute your own project and verify its current settings. They are not evidence of a working payment deployment for a fresh clone. Preset feature gating still needs integration with server entitlements before it can be treated as a production paywall.
 
 ### Password copy key
@@ -203,7 +205,7 @@ In production, use a separate key. Generate one with `node -e "console.log(requi
 | `npm run test:e2e` | Build, then run the Playwright end-to-end suite against `vite preview` (first run: `npx playwright install chromium`). |
 | `npx supabase test db` | Run the pgTAP database access-rule tests against the local Supabase stack (see [Database access rules](#database-access-rules)). |
 
-The unit suite checks rendered signals, pulse counts, fades, scheduling, layer behavior, sample-rate-independent ambience, preset and Audio Bank MP3 export, imported-session validation, and local state. The end-to-end suite drives the production build in Chromium: start, pause, resume, and end a session; device interruptions with and without a required tap; a full 15-minute preset MP3 download; the Premium plan layout at phone, tablet, and desktop widths; and a Personal URL deep link. At the documentation refresh, **157 unit tests across 18 files** and **9 end-to-end tests** passed, and the production build completed.
+The unit suite checks rendered signals, pulse counts, fades, scheduling, layer behavior, sample-rate-independent ambience, preset and Audio Bank MP3 export, imported-session validation, the Play recorder and offline queue of the Listening core, and local state. The end-to-end suite drives the production build in Chromium: start, pause, resume, and end a session; device interruptions with and without a required tap; a full 15-minute preset MP3 download; the Premium plan layout at phone, tablet, and desktop widths; and a Personal URL deep link. At the documentation refresh, **213 unit tests across 20 files** and **9 end-to-end tests** passed, and the production build completed.
 
 For contributions, keep audio logic in `src/audio`, keep preset constants centralized, and include a focused test for behavior changes. Run the test suite and production build before opening a pull request. Implementation decisions and gotchas are recorded in [DECISIONS.md](DECISIONS.md) and [KNOWLEDGE.md](KNOWLEDGE.md).
 

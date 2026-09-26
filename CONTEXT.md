@@ -85,7 +85,7 @@ Premium yang dibawa Link seorang Patient, dinyalakan atau dimatikan Clinician-ny
 _Avoid_: premium gratis, akses klinisi
 
 **Play**:
-Satu kali pemutaran satu Preset atau Custom Audio oleh satu User: kapan mulai, kapan berhenti, berapa lama benar-benar didengar, dan apakah selesai.
+Satu kali pemutaran satu Preset, Custom Audio, atau sesi Studio yang tersimpan di perangkat (diputar dari Library) oleh satu User: kapan mulai, kapan berhenti, berapa lama benar-benar didengar, dan apakah selesai.
 _Avoid_: sesi, log
 
 **Download**:

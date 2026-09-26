@@ -10,8 +10,9 @@ import {
   listCustomSessions,
   saveCustomSession,
 } from "../state/customPresets";
+import type { AudioKind } from "../state/listening";
 import { loadPrefs } from "../state/prefs";
-import { formatClock } from "./bands";
+import { bandForHz, formatClock } from "./bands";
 import {
   ensureBuilder,
   getBuilderEngine,
@@ -19,6 +20,7 @@ import {
   setNowPlaying,
   stopBuilderPlayback,
 } from "./builderEngine";
+import { libraryPlayStarted } from "./playAdapters";
 
 /**
  * Library (D-04): the user-facing home for custom audio — cloud sessions
@@ -96,7 +98,8 @@ export function Library({ onSignIn, onBeforePlay }: LibraryProps) {
     window.setTimeout(() => setNotice(null), 2600);
   };
 
-  const play = (id: string, spec: CustomSession) => {
+  /** Play `spec` as `kind` (cloud Custom Audio or a saved session) under the list's id and name. */
+  const play = (kind: AudioKind, id: string, name: string, spec: CustomSession) => {
     onBeforePlay(); // one pair of ears: any running preset session stops first
     const prefs = loadPrefs();
     const durationMin =
@@ -106,6 +109,10 @@ export function Library({ onSignIn, onBeforePlay }: LibraryProps) {
     engine.start(spec.layers, spec.curve, durationMin);
     setNowPlaying(id);
     setPlayingId(id);
+    libraryPlayStarted(
+      { kind, id, name, emoji: null, band: bandForHz(spec.curve.targetHz) },
+      durationMin,
+    );
   };
 
   const stop = () => {
@@ -145,9 +152,9 @@ export function Library({ onSignIn, onBeforePlay }: LibraryProps) {
   // Resolve a play target from either list by id (cloud first, then saved).
   const playFrom = (id: string) => {
     const cloudHit = cloud.find((a) => a.id === id);
-    if (cloudHit) return play(id, cloudHit.spec);
+    if (cloudHit) return play("custom", id, cloudHit.name, cloudHit.spec);
     const savedHit = saved.find((s) => s.id === id);
-    if (savedHit) return play(id, savedHit);
+    if (savedHit) return play("saved", id, savedHit.name, savedHit);
   };
 
   const transport = (id: string) =>

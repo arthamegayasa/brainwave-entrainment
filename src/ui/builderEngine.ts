@@ -36,7 +36,29 @@ export function getBuilderEngine(): BuilderEngine | null {
  */
 let nowPlayingId: string | null = null;
 
+/**
+ * Told once when the item that owned the engine stops playing: `naturalEnd`
+ * when a timed session reached its end, otherwise something stopped it first
+ * (Stop, another item, or a preset session taking over).
+ */
+type PlaybackEndListener = (id: string, naturalEnd: boolean) => void;
+const endListeners = new Set<PlaybackEndListener>();
+
+export function onBuilderPlaybackEnd(listener: PlaybackEndListener): () => void {
+  endListeners.add(listener);
+  return () => endListeners.delete(listener);
+}
+
+function endItem(naturalEnd: boolean): void {
+  const id = nowPlayingId;
+  nowPlayingId = null;
+  if (id === null) return;
+  for (const listener of endListeners) listener(id, naturalEnd);
+}
+
 export function setNowPlaying(id: string | null): void {
+  // Another item took the engine over: the one playing so far was stopped.
+  if (id !== nowPlayingId) endItem(false);
   nowPlayingId = id;
 }
 
@@ -48,13 +70,13 @@ export function setNowPlaying(id: string | null): void {
  */
 export function getNowPlaying(): string | null {
   if (!engine || !engine.isRunning) {
-    goIdle();
+    goIdle(false);
     return null;
   }
   const p = engine.progress();
   if (p.remainingSec !== null && p.remainingSec <= 0) {
     engine.stop();
-    goIdle();
+    goIdle(true);
     return null;
   }
   return nowPlayingId;
@@ -63,12 +85,12 @@ export function getNowPlaying(): string | null {
 /** Stop custom-audio playback and clear the shared transport state. */
 export function stopBuilderPlayback(): void {
   engine?.stop();
-  goIdle();
+  goIdle(false);
 }
 
 /** Clear the transport and hand the audio device back. */
-function goIdle(): void {
-  nowPlayingId = null;
+function goIdle(naturalEnd: boolean): void {
+  endItem(naturalEnd);
   window.clearInterval(endWatch);
   releaseAudio("builder");
 }

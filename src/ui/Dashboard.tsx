@@ -735,11 +735,19 @@ function BankCard({
 
   const doDownload = async () => {
     try {
-      const saved = await runMp3Export(audio.id, audio.name, async (onPhase) => {
-        // Dynamic on purpose: code-splits the MP3 encoder out of startup.
-        const { exportSessionMp3 } = await import("../audio/export");
-        return exportSessionMp3(audio.spec, dlMin, onPhase);
-      });
+      const saved = await runMp3Export(
+        audio.id,
+        audio.name,
+        {
+          audio: { kind: "custom", id: audio.id, name: audio.name, emoji: null, band: audio.band },
+          lengthMin: dlMin,
+        },
+        async (onPhase) => {
+          // Dynamic on purpose: code-splits the MP3 encoder out of startup.
+          const { exportSessionMp3 } = await import("../audio/export");
+          return exportSessionMp3(audio.spec, dlMin, onPhase);
+        },
+      );
       if (saved) flash("MP3 saved ✓");
     } catch {
       flash("Export failed — try a shorter length.");

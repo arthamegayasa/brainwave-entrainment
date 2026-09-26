@@ -28,6 +28,7 @@ import { isAudioBlocked, resumeAudio, subscribeAudio } from "./ui/audioContext";
 import type { SessionConfig } from "./audio/session";
 import { useEntitlement } from "./lib/useEntitlement";
 import { loadProgress, recordSessionCompleted } from "./state/progress";
+import { startListeningSync } from "./lib/listening";
 import { parsePersonalUrlPath } from "../supabase/functions/_shared/accountRules.ts";
 
 type View =
@@ -60,6 +61,10 @@ function App() {
   useEffect(() => {
     loadProgress();
   }, []);
+
+  // Listening History (ADR-017): Plays and Downloads of the signed-in User
+  // queued on this device go to the server now and whenever it is back online.
+  useEffect(() => startListeningSync(), []);
 
   // Once the app leaves the Personal URL page, the address returns to "/", so
   // a reload opens the app as usual instead of the password page again.

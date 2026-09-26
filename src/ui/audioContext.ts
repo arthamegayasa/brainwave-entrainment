@@ -141,6 +141,11 @@ export function isAudioPaused(): boolean {
   return userPaused;
 }
 
+/** True while the audio clock runs: false while paused by the User or held by the device. */
+export function isAudioRunning(): boolean {
+  return ctx?.state === "running";
+}
+
 /**
  * True while audio should be playing but the device holds the context paused
  * and a user gesture is needed. A fresh start gets a grace period, so the
