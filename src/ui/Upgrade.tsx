@@ -53,14 +53,41 @@ export function Upgrade({
   const clinicianPlan =
     period === "annual" ? PRICES.clinician.annual : PRICES.clinician.monthly;
 
+  // Each role sees only its own paid plan (roles overlap): a Patient sees
+  // Premium, a Clinician (or the Admin) sees Clinician, a Clinician who is
+  // also a Patient sees both; only a Regular User sees Free and all plans.
+  const isPatient = ent.link !== null;
+  const showFree = !isPatient && !ent.isClinician;
+  const showPremium = isPatient || !ent.isClinician;
+  const showClinician = ent.isClinician || !isPatient;
+  const cardCount = [showFree, showPremium, showClinician].filter(Boolean).length;
+  const plansClass =
+    cardCount === 3 ? "plans three" : cardCount === 1 ? "plans one" : "plans";
+  // The annual pill quotes Premium's saving unless Clinician is the only plan.
+  const savePercent = showPremium
+    ? PRICES.annual.savePercent
+    : PRICES.clinician.annual.savePercent;
+
   return (
     <section className="upgrade">
       <header className="upgrade-head">
-        <h1>Unlock your full potential</h1>
-        <p>
-          SwaraSanti Premium unlocks the Studio, frequency finder, custom curves,
-          and unlimited duration.
-        </p>
+        {showPremium ? (
+          <>
+            <h1>Unlock your full potential</h1>
+            <p>
+              SwaraSanti Premium unlocks the Studio, frequency finder, custom
+              curves, and unlimited duration.
+            </p>
+          </>
+        ) : (
+          <>
+            <h1>Grow your practice</h1>
+            <p>
+              SwaraSanti Clinician gives you a patient dashboard, an Audio Bank,
+              and per-patient session curation — and your patients listen free.
+            </p>
+          </>
+        )}
       </header>
 
       {ALL_UNLOCKED && (
@@ -78,7 +105,7 @@ export function Upgrade({
         </div>
       )}
 
-      {/* Page-level billing toggle — drives BOTH paid cards' period. */}
+      {/* Page-level billing toggle — drives every paid card shown. */}
       <div
         className="billing-toggle page-toggle"
         role="tablist"
@@ -99,101 +126,107 @@ export function Upgrade({
           onClick={() => setPeriod("annual")}
         >
           Annual
-          <span className="save-pill">Save {PRICES.annual.savePercent}%</span>
+          <span className="save-pill">Save {savePercent}%</span>
         </button>
       </div>
 
-      <div className="plans three">
-        <div className="plan">
-          <div className="plan-name">Free</div>
-          <div className="plan-price">
-            {PRICES.symbol}0<span>/forever</span>
+      <div className={plansClass}>
+        {showFree && (
+          <div className="plan">
+            <div className="plan-name">Free</div>
+            <div className="plan-price">
+              {PRICES.symbol}0<span>/forever</span>
+            </div>
+            <ul>
+              {FREE.map((f) => (
+                <li key={f}>{f}</li>
+              ))}
+            </ul>
+            <button className="pill-btn" disabled>
+              Current plan
+            </button>
           </div>
-          <ul>
-            {FREE.map((f) => (
-              <li key={f}>{f}</li>
-            ))}
-          </ul>
-          <button className="pill-btn" disabled>
-            Current plan
-          </button>
-        </div>
+        )}
 
-        <div className="plan featured">
-          <div className="plan-badge">Most popular</div>
-          <div className="plan-name">Premium</div>
+        {showPremium && (
+          <div className="plan featured">
+            <div className="plan-badge">Most popular</div>
+            <div className="plan-name">Premium</div>
 
-          <div className="plan-price">
-            {period === "annual" && (
-              <span className="price-anchor">{PRICES.anchorAnnual.price}</span>
+            <div className="plan-price">
+              {period === "annual" && (
+                <span className="price-anchor">{PRICES.anchorAnnual.price}</span>
+              )}
+              {premiumPlan.price}
+              <span>{premiumPlan.per}</span>
+            </div>
+            <div className="plan-subprice">
+              {period === "annual"
+                ? `≈ ${PRICES.annual.perMonth}/month · billed annually`
+                : "Billed monthly · cancel anytime"}
+            </div>
+
+            <ul>
+              {PREMIUM.map((f) => (
+                <li key={f}>{f}</li>
+              ))}
+            </ul>
+
+            {ent.configured ? (
+              <PlanCheckout
+                plan="premium"
+                period={period}
+                ent={ent}
+                onSignIn={onSignIn}
+                onOpenPrivacy={onOpenPrivacy}
+              />
+            ) : (
+              <LocalActivate />
             )}
-            {premiumPlan.price}
-            <span>{premiumPlan.per}</span>
           </div>
-          <div className="plan-subprice">
-            {period === "annual"
-              ? `≈ ${PRICES.annual.perMonth}/month · billed annually`
-              : "Billed monthly · cancel anytime"}
-          </div>
+        )}
 
-          <ul>
-            {PREMIUM.map((f) => (
-              <li key={f}>{f}</li>
-            ))}
-          </ul>
+        {showClinician && (
+          <div className="plan clinician">
+            <div className="plan-badge pro">For professionals</div>
+            <div className="plan-name">Clinician</div>
 
-          {ent.configured ? (
-            <PlanCheckout
-              plan="premium"
-              period={period}
-              ent={ent}
-              onSignIn={onSignIn}
-              onOpenPrivacy={onOpenPrivacy}
-            />
-          ) : (
-            <LocalActivate />
-          )}
-        </div>
+            <div className="plan-price">
+              {period === "annual" && (
+                <span className="price-anchor">
+                  {PRICES.clinician.annual.anchor.price}
+                </span>
+              )}
+              {clinicianPlan.price}
+              <span>{clinicianPlan.per}</span>
+            </div>
+            <div className="plan-subprice">
+              {period === "annual"
+                ? `≈ ${PRICES.clinician.annual.perMonth}/month · billed annually`
+                : "Billed monthly · cancel anytime"}
+            </div>
 
-        <div className="plan clinician">
-          <div className="plan-badge pro">For professionals</div>
-          <div className="plan-name">Clinician</div>
+            <ul>
+              {CLINICIAN.map((f) => (
+                <li key={f}>{f}</li>
+              ))}
+            </ul>
 
-          <div className="plan-price">
-            {period === "annual" && (
-              <span className="price-anchor">
-                {PRICES.clinician.annual.anchor.price}
-              </span>
+            {ent.configured ? (
+              <PlanCheckout
+                plan="clinician"
+                period={period}
+                ent={ent}
+                onSignIn={onSignIn}
+                onOpenPrivacy={onOpenPrivacy}
+              />
+            ) : (
+              <p className="plan-note">
+                Available once payments are configured in this build.
+              </p>
             )}
-            {clinicianPlan.price}
-            <span>{clinicianPlan.per}</span>
           </div>
-          <div className="plan-subprice">
-            {period === "annual"
-              ? `≈ ${PRICES.clinician.annual.perMonth}/month · billed annually`
-              : "Billed monthly · cancel anytime"}
-          </div>
-
-          <ul>
-            {CLINICIAN.map((f) => (
-              <li key={f}>{f}</li>
-            ))}
-          </ul>
-
-          {ent.configured ? (
-            <PlanCheckout
-              plan="clinician"
-              period={period}
-              ent={ent}
-              onSignIn={onSignIn}
-              onOpenPrivacy={onOpenPrivacy}
-            />
-          ) : (
-            <p className="plan-note">
-              Available once payments are configured in this build.
-            </p>
-          )}
-        </div>
+        )}
       </div>
     </section>
   );

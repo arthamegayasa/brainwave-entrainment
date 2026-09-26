@@ -1177,6 +1177,12 @@
     grid-template-columns: 1fr 1fr;
     align-items: start;
   }
+
+  /* A single plan card: one centred column, not the left half of two. */
+  .plans.one {
+    grid-template-columns: minmax(0, 420px);
+    justify-content: center;
+  }
 }
 
 .plan {
