@@ -1,0 +1,6 @@
+# ADR-010: Behavioral-economics design layer (2026-07-07)
+
+**Context:** Produk secara teknis lengkap tapi belum dirancang di sekitar pola pengambilan keputusan user. Prinsip behavioral economics (smart defaults, goal gradient, reciprocity, IKEA effect, loss aversion, contrast anchoring) terbukti menaikkan completion & conversion.
+**Decision:** Enam prinsip diimplementasikan sebagai layer state client-side (`src/state/progress.ts`, localStorage `serenade.progress.v1`, pure TS tanpa React): (1) Smart default — kartu "Recommended now" berbasis jam lokal, one-tap start; (2) Goal gradient — journey 4 langkah yang step pertamanya auto-complete (tidak pernah 0%), streak dots Mon–Sun, session-complete view; (3) IKEA effect — goal picker skippable saat first visit, urutan grid dipersonalisasi; (4) Reciprocity — playback tidak pernah butuh akun; nudge upgrade hanya muncul setelah ≥2 sesi selesai dan dismissible; (5) Loss aversion — copy premium keep/protect-framing + blok personal stakes berbasis streak di Upgrade; (6) Contrast anchoring — anchor Rp588.000 (12× bulanan, dicoret) di samping hero tahunan Rp249.000.
+**Consequences:** Semua state behavioral berada di localStorage (privacy-friendly, tanpa backend); angka harga tidak berubah — hanya framing. Konstanta `anchorAnnual` diturunkan dari harga bulanan di `tier.ts`.
+**Status:** Accepted (implemented).

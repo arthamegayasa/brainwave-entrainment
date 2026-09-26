@@ -74,6 +74,34 @@ Keputusan membuat satu Custom Audio tampil di Library satu User: oleh Clinician 
 **Library**:
 Tampilan milik User yang berisi Custom Audio yang di-assign kepadanya, Template, dan sesi Studio yang ia simpan sendiri.
 
+**Beat**:
+Frekuensi brainwave yang dituju sebuah Play, dalam Hz; bergerak mengikuti ramp sesi.
+_Avoid_: frekuensi otak, brainwave Hz
+
+**Carrier**:
+Nada yang membawa Beat agar terdengar; di Preset selalu frekuensi Solfeggio.
+_Avoid_: nada dasar, base tone
+
+**Listening mode**:
+Cara Beat disampaikan: Headphones (binaural, Beat dari selisih nada kiri dan kanan) atau Speaker (isochronic, Carrier yang dipulse).
+_Avoid_: metode, method
+
+**Scene**:
+Lukisan beranimasi (tempat khayalan atau ilustrasi ilmiah yang menenangkan) yang mewakili sebuah Preset atau Custom Audio di kartu, Player, dan Media controls.
+_Avoid_: gambar, artwork, background
+
+### Pemutaran
+
+**Player**:
+Layar penuh untuk Play yang sedang berjalan, baik Preset maupun Custom Audio.
+
+**Mini-player**:
+Bar ringkas di tampilan lain selama sebuah Play berjalan; menyentuhnya membuka Player.
+
+**Media controls**:
+Kontrol pemutaran dari sistem operasi (notifikasi dan lock screen) untuk audio yang sedang diputar SwaraSanti.
+_Avoid_: notifikasi media, Now Playing
+
 ### Akses & pemakaian
 
 **Premium**:

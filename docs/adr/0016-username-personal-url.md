@@ -1,0 +1,7 @@
+# ADR-016: Username + Personal URL `/p/<username>` (2026-09-25)
+
+**Context:** Patient belum tentu punya email, tapi harus bisa masuk cukup dengan password lewat alamat yang dikirim Clinician-nya.
+**Decision:** Setiap Patient punya Username unik se-platform. Personal URL = `<domain>/p/<username>`: menampilkan nama depan Patient dan satu kolom password; di perangkat yang sudah login langsung masuk. Login di homepage menerima email atau Username + password. Bila Username diganti, Personal URL lama terus mengalihkan ke yang baru sampai Username lama diambil Patient lain, dan Username lama dikunci 30 hari sebelum boleh diambil; Username akun yang dihapus juga dikunci 30 hari. Username dan login password tetap berlaku setelah Link diputus.
+**Considered Options:** `<domain>/<username>` (bentrok dengan halaman app sekarang dan yang akan datang); `<domain>/<clinician>/<username>` (Username boleh sama antar-Clinician, tapi URL berubah saat Transfer); `<domain>/p/<username>-<kode acak>` (tidak bisa ditebak, tapi sulit diingat dan diketik).
+**Consequences:** Username bisa ditebak, sehingga keberadaan seorang Patient dan nama depannya terbuka bagi siapa pun yang mencoba URL; perlindungan sepenuhnya ada di password dan pembatasan percobaan login. App sekarang tidak punya URL routing (`App.tsx` memakai state `view`), jadi butuh router dan rewrite SPA di hosting.
+**Status:** Accepted (design, grilling 2026-09-25).

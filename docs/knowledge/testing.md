@@ -1,0 +1,28 @@
+# Testing & smoke
+
+Vitest (`tests/`), Playwright (`e2e/`), pgTAP (`supabase/tests/database`), dan smoke di stack Supabase lokal.
+
+## Unit test (Vitest)
+
+- **Testing Web Audio di Node**: `node-web-audio-api` 2.0.0 memberi `OfflineAudioContext` NYATA — unit test = assertion terhadap sampel yang benar-benar dirender (zero-crossing, RMS envelope, pulse count), bukan mock. Test env Vitest = "node" (bukan jsdom). Cast `as unknown as BaseAudioContext` untuk friksi tipe.
+- **Seeding `Math.random` di render besar**: `vi.spyOn(Math, "random")` merekam setiap panggilan — buffer noise 192 kHz = jutaan panggilan → OOM worker vitest. Swap langsung `Math.random = seededRandom(n)` + restore di `finally`.
+
+## E2E (Playwright)
+
+- **E2E audio di Playwright**: Chromium headless menjalankan AudioContext (bisu). `addInitScript` yang men-subclass `window.AudioContext` merekam instance untuk membaca `state`; interupsi device disimulasikan dengan `ctx.suspend()` + override `ctx.resume` yang reject (browser yang minta gesture), lalu `Reflect.deleteProperty(ctx, "resume")` memulihkan method prototype. Service worker di-block agar cache PWA tidak bocor antar-test.
+
+## Database (pgTAP & stack lokal)
+
+- **Membuktikan migration backfill terhadap data lama**: `npx supabase db reset --local --version 0013` membangun database sampai migration sebelumnya, lalu isi baris lama lewat `docker exec -i supabase_db_swarasanti psql -U postgres` dan jalankan `npx supabase migration up --local` untuk menerapkan migration baru di atasnya. pgTAP tidak bisa menguji backfill karena migration sudah berjalan di database kosong sebelum test. Tutup dengan `npx supabase db reset --local` agar data seed tidak mengganggu suite.
+- **`supabase test db` berjalan di database yang sudah ada**: setelah mengedit migration yang belum di-commit, jalankan `npx supabase db reset --local` dulu; test baru bisa lolos terhadap versi fungsi lama dan menyembunyikan kegagalan test lain.
+- **Mengganti `password_login_email()` harus lolos fixture pgTAP lama**: beberapa test memberi akun ber-Username email login `label@swarasanti.test` (bukan internal). Guard "hanya email login internal" memecahkan 4 test; guard "contact email ≠ email login" menangkap keadaan setengah jalan tanpa mengubah jawaban lama.
+- **pgTAP setelah menghapus User fixture**: `tests.user_id(label)` raise untuk User yang sudah dihapus. Simpan id-nya dulu di tabel `tests.deleted` (dibuat di dalam transaksi test) dan baca dari situ setelah `reset role`; baca sebagai `service_role` atau User lain butuh `grant select` tambahan.
+
+## Smoke di browser
+
+- **`serenade.role.override` hanya untuk mode standalone**: saat `.env.local` berisi VITE_SUPABASE_*, override diabaikan (server profile menang) — dev env repo ini SUDAH configured, jadi menguji override butuh menjalankan tanpa env tersebut.
+- **Smoke lokal dengan magic link**: `redirect_to` jatuh ke `site_url` (`127.0.0.1:3000`) karena dev server di 5173 tidak ada di `additional_redirect_urls`. Ambil link dari Mailpit (`:54324/api/v1/messages`), `fetch(link, { redirect: "manual" })`, lalu buka app dengan hash dari `Location` — navigasi yang hanya mengganti hash tidak me-reload app. Data seed smoke (plays, Link tambahan) membuat test pgTAP yang membaca seluruh tabel gagal: `npx supabase db reset` sebelum menjalankan suite dan sebelum `supabase stop`.
+- **Smoke dengan dua peran di satu browser**: sesi Supabase disimpan per origin (`localStorage["sb-127-auth-token"]` untuk stack lokal), jadi semua tab `localhost:5173` berbagi satu sesi. Masuk tanpa magic link: `POST /auth/v1/token?grant_type=password` untuk User buatan Admin API (`/auth/v1/admin/users` dengan `email_confirm: true`), tulis sesinya ke key itu, lalu reload. Pindah peran = tulis sesi lain lalu reload tab.
+- **Smoke webhook Midtrans di stack lokal**: isi `app_config` (`midtrans_server_key`) di database lokal, tandatangani payload dengan `sha512(order_id + status_code + gross_amount + key)`, lalu POST ke `/functions/v1/midtrans-webhook` (verify_jwt false). Kunci idempotensi `order:status_code:transaction_status`, jadi settlement lalu `expire` dengan order yang sama adalah dua event berbeda.
+- **`window.confirm` di smoke browser headless**: confirm yang terbuka memblokir `tab.evaluate` sampai timeout dan tab bisa mati. Buka tab dengan `dialogs: "accept"` dan klik tombol lewat `setTimeout(() => button.click(), 0)` agar evaluate selesai sebelum dialog muncul.
+- **Smoke drawer Admin: dua tombol berawalan nama yang sama**: di baris Patient, kolom Clinician juga tombol ("Show only X's patients") yang teksnya nama Clinician. Klik baris lewat teks nama + email/@username, bukan nama saja, atau filter Clinician yang ikut terpasang.
