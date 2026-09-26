@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/images/swarasanti-banner.svg" alt="SwaraSanti — an audio instrument for quiet moments, with layered mint and lavender waveforms" width="100%" />
+  <img src="docs/images/swarasanti-banner.svg" alt="SwaraSanti — an imagined dawn over still water" width="100%" />
 </p>
 
 <p align="center">
@@ -31,7 +31,7 @@ The everyday experience starts with eight presets. An advanced Studio adds layer
 ## A look inside
 
 <p align="center">
-  <img src="docs/images/swarasanti-home.jpg" alt="Actual SwaraSanti home screen with a dark interface, mint accents, and Start a Free Session button" width="100%" />
+  <img src="docs/images/swarasanti-home.jpg" alt="SwaraSanti landing with an imagined quiet horizon and Start a Free Session button" width="100%" />
 </p>
 
 <details>
@@ -48,6 +48,8 @@ Choose a duration, headphones or speakers, and a synthesized ambient layer befor
 </details>
 
 *Screenshots show the current local app in standalone mode. See [image notes](docs/images/README.md) for capture details.*
+
+The landing, eight goal cards, recommendations, player, and completion view show ten painted places created with GPT Image (`public/scenes/`, WebP at 768 and 1536 pixels). Live layers are pinned to each painting: a pulsing glow on the moon or sun, glints and ripples on the reflecting water, light shafts, drifting mist, stars, a meteor, aurora, falling snow, and floating motes, pollen, or sand. Pointer-driven depth parallax, card tilt, and glare add interaction; during a session, the scene deepens or warms as the beat moves toward its target. The session starts over a night lake and completes at sunrise over the same lake. With reduced motion, only gentle opacity changes remain. The scenes are imagined places, not recordings or measured brain activity.
 
 ## What you can do
 
