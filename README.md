@@ -26,7 +26,7 @@ Serenade is a browser-based audio application for relaxation, meditation, sleep 
 
 The everyday experience starts with eight presets. An advanced Studio adds layered sound design, while an optional backend supports accounts, a clinician audio library, and payment integration.
 
-> Serenade is an audio and relaxation tool, not a medical device. Session names describe listening intentions; they are not promises of clinical benefit.
+> Audio brainwave entrainment may help promote relaxation, reduce anxiety, and modulate brainwave activity. Individual responses vary, and its clinical benefits are still being studied. A QEEG assessment may be considered to help guide and monitor its use. Please consult your physician before starting audio therapy, especially if you have a neurological condition or are receiving treatment.
 
 ## A look inside
 
@@ -118,7 +118,7 @@ The illustration follows the current scheduler for a 30-minute **Meditating** se
 | **Binaural** | Two tones are routed separately to the left and right channels. Their frequency difference defines the beat setting; headphones preserve the separation. |
 | **Isochronic** | A tone is rhythmically amplitude-modulated, producing audible pulses. |
 | **Monaural** | Two tones are mixed before output, creating a physical beat pattern. Available in Studio. |
-| **Pure tone / solfeggio** | A single oscillator adds a chosen pitch or carrier. These are sound-design choices, not validated treatment frequencies. |
+| **Pure tone / solfeggio** | A single oscillator adds a chosen pitch or carrier, such as the 528 Hz solfeggio tone. |
 | **Ambience** | Noise synthesis and filtering create rain, ocean, wind, and brown-noise textures without streaming recordings. |
 
 Gain ramps reduce abrupt clicks. The engines include a compressor/limiter, but device volume still determines listening loudness. Long MP3 exports render audio in memory and can be demanding on mobile devices.
@@ -267,8 +267,6 @@ Do not run the suite on a stack started after `npx supabase link`. Linking pins 
 ## Science and scope
 
 Serenade exposes how its sound is constructed and includes a [Science page](src/ui/Science.tsx) with supporting and conflicting research. Evidence for a reliable binaural-beat brainwave entrainment effect remains inconsistent; a systematic review of 14 EEG studies reported mixed findings and substantial methodological differences. [Ingendoh, Posny & Heine, PLOS ONE (2023)](https://doi.org/10.1371/journal.pone.0286023).
-
-Specific solfeggio pitches and session names should be understood as listening preferences and design labels. This repository does not establish that those frequencies diagnose, treat, or prevent a health condition.
 
 ---
 

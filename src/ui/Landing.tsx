@@ -36,7 +36,7 @@ const FEATURES = [
   },
   {
     title: "Scientifically honest",
-    body: "We separate strong evidence, early research, and tradition — complete with real study citations on the Science page.",
+    body: "Real study citations for every kind of sound we play — including the mixed results — on the Science page.",
   },
 ];
 

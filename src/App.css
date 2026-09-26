@@ -988,33 +988,11 @@
 .science-section,
 .privacy-section {
   border: 1px solid var(--line);
-  border-left: 3px solid var(--tier-color, var(--line-strong));
+  border-left: 3px solid var(--line-strong);
   border-radius: var(--radius);
   background: var(--bg-raised);
   padding: 1.4rem 1.4rem 1.6rem;
   margin-bottom: 1.3rem;
-}
-
-.science-section.tier-supported {
-  --tier-color: var(--band-theta);
-}
-.science-section.tier-promising {
-  --tier-color: var(--band-alpha);
-}
-.science-section.tier-tradition {
-  --tier-color: var(--band-gamma);
-}
-
-.tier-badge {
-  display: inline-block;
-  font-size: 0.72rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--tier-color);
-  border: 1px solid color-mix(in srgb, var(--tier-color) 40%, transparent);
-  border-radius: 999px;
-  padding: 0.15rem 0.65rem;
-  margin-bottom: 0.7rem;
 }
 
 .science-section h2,

@@ -5,54 +5,18 @@ interface Citation {
   url: string;
 }
 
+/** One kind of sound Serenade plays, with the research on it. */
 interface Section {
-  tier: "supported" | "promising" | "tradition";
   heading: string;
   intro: string;
   citations: Citation[];
 }
 
-const TIER_LABELS: Record<Section["tier"], string> = {
-  supported: "Well supported",
-  promising: "Promising · not certain",
-  tradition: "Tradition · not validated science",
-};
-
 const SECTIONS: Section[] = [
   {
-    tier: "supported",
-    heading: "Sound & music for relaxation",
+    heading: "Binaural beats",
     intro:
-      "The strongest evidence: listening to calming music and sound helps lower stress and anxiety. This is the honest foundation of what Serenade does.",
-    citations: [
-      {
-        ref: "de Witte et al. (2020), Health Psychology Review",
-        finding:
-          "Meta-analysis of ~104 RCTs: music interventions significantly reduced stress, both physiological (cortisol, heart rate) and psychological.",
-        note: "Strong evidence for music in general — not specific to binaural beats.",
-        url: "https://pubmed.ncbi.nlm.nih.gov/31167611/",
-      },
-      {
-        ref: "Harney et al. (2023), Psychology of Music",
-        finding:
-          "A review of 24 controlled studies supports music listening as an effective way to reduce anxiety.",
-        note: "Effect sizes vary by context; the evidence is heterogeneous.",
-        url: "https://journals.sagepub.com/doi/10.1177/10298649211046979",
-      },
-      {
-        ref: "RAS meta-analysis in Parkinson's (2022), Frontiers in Neurology",
-        finding:
-          "Rhythmic auditory stimulation improved walking speed in Parkinson's patients — evidence that brain and body synchronize to auditory rhythm.",
-        note: "A different application (movement synchronization), not entrainment for mood.",
-        url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC9053573/",
-      },
-    ],
-  },
-  {
-    tier: "promising",
-    heading: "Binaural beats & auditory beat stimulation",
-    intro:
-      "Several studies show binaural beats help with anxiety and cognition. But whether they truly 'entrain' brainwaves is still debated.",
+      "Two slightly different tones, one in each ear, through headphones: the brain hears a beat at the difference between them. Studies report effects on anxiety and cognition; whether the beat entrains brainwaves is still debated.",
     citations: [
       {
         ref: "Garcia-Argibay et al. (2019), Psychological Research",
@@ -75,6 +39,20 @@ const SECTIONS: Section[] = [
         note: "The most important citation: the felt effect may come via calming music, expectation, or slowed breathing — not neural entrainment.",
         url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC10198548/",
       },
+    ],
+  },
+  {
+    heading: "Isochronic tones",
+    intro:
+      "One tone pulsed on and off at a steady rhythm, so it works without headphones. Studies of rhythmic sound show that movement, and in animal studies brain activity, can follow an auditory rhythm.",
+    citations: [
+      {
+        ref: "RAS meta-analysis in Parkinson's (2022), Frontiers in Neurology",
+        finding:
+          "Rhythmic auditory stimulation improved walking speed in Parkinson's patients — evidence that brain and body synchronize to auditory rhythm.",
+        note: "A different application (movement synchronization), not entrainment for mood.",
+        url: "https://pmc.ncbi.nlm.nih.gov/articles/PMC9053573/",
+      },
       {
         ref: "Iaccarino (2016, Nature) & Martorell (2019, Cell) — 40 Hz gamma",
         finding:
@@ -85,24 +63,44 @@ const SECTIONS: Section[] = [
     ],
   },
   {
-    tier: "tradition",
     heading: "Solfeggio & Schumann resonance",
     intro:
-      "We include these frequencies because they're often requested — but honestly: both are rooted in tradition/folklore, not validated science.",
+      "Specific frequencies used as a carrier tone and a beat rate: the 528 Hz solfeggio tone and the 7.83 Hz Schumann resonance, which the Relaxing session combines. Research on their effects in people is still limited.",
     citations: [
       {
         ref: "Solfeggio (e.g. 528 Hz) — Akimoto et al. (2018), Health (SCIRP)",
         finding:
           "A small study (n=9) reported 528 Hz music lowered cortisol compared to 440 Hz tuning.",
-        note: "The origin of solfeggio is modern folklore (proposed by Joseph Puleo in the 1990s), not ancient tradition. Tiny sample, low-impact journal, not replicated. 'DNA repair' claims are baseless.",
+        note: "The origin of solfeggio is modern folklore (proposed by Joseph Puleo in the 1990s), not ancient tradition. Tiny sample, low-impact journal, not replicated.",
         url: "https://www.scirp.org/journal/paperinformation?paperid=87146",
       },
       {
         ref: "Schumann resonance (7.83 Hz)",
         finding:
           "The Earth-ionosphere electromagnetic resonance is real physics; its correlation with human physiology is very weak.",
-        note: "Claims of 'aligning the brain / healing' are wellness speculation, not this app's mechanism.",
+        note: "Serenade plays 7.83 Hz as the beat rate of the Relaxing session, not the electromagnetic resonance itself.",
         url: "https://en.wikipedia.org/wiki/Schumann_resonances",
+      },
+    ],
+  },
+  {
+    heading: "Ambient sound & music",
+    intro:
+      "Rain, ocean, wind and brown noise, synthesized live under the tones. Listening to calming music and sound helps lower stress and anxiety.",
+    citations: [
+      {
+        ref: "de Witte et al. (2020), Health Psychology Review",
+        finding:
+          "Meta-analysis of ~104 RCTs: music interventions significantly reduced stress, both physiological (cortisol, heart rate) and psychological.",
+        note: "Strong evidence for music in general — not specific to binaural beats.",
+        url: "https://pubmed.ncbi.nlm.nih.gov/31167611/",
+      },
+      {
+        ref: "Harney et al. (2023), Psychology of Music",
+        finding:
+          "A review of 24 controlled studies supports music listening as an effective way to reduce anxiety.",
+        note: "Effect sizes vary by context; the evidence is heterogeneous.",
+        url: "https://journals.sagepub.com/doi/10.1177/10298649211046979",
       },
     ],
   },
@@ -114,14 +112,13 @@ export function Science() {
       <header className="science-head">
         <h1>The science behind Serenade</h1>
         <p>
-          We honestly separate three levels of evidence — what's well
-          supported, what's still early research, and what's pure tradition.
+          The research on each kind of sound Serenade plays, with real study
+          citations — including the mixed results.
         </p>
       </header>
 
       {SECTIONS.map((section) => (
-        <section className={`science-section tier-${section.tier}`} key={section.heading}>
-          <span className="tier-badge">{TIER_LABELS[section.tier]}</span>
+        <section className="science-section" key={section.heading}>
           <h2>{section.heading}</h2>
           <p className="section-intro">{section.intro}</p>
           <div className="cite-list">
@@ -139,13 +136,12 @@ export function Science() {
       ))}
 
       <aside className="disclaimer">
-        <strong>Important.</strong> This audio content is intended for
-        relaxation, focus, and comfort. It is not a medical device and is not
-        meant to diagnose, treat, cure, or prevent any disease. If you
-        experience anxiety, sleep problems, or other health conditions, consult
-        a professional. Claims about specific frequencies (e.g. solfeggio,
-        Schumann resonance) are rooted in tradition and have not been
-        scientifically validated.
+        <strong>Important:</strong> Audio brainwave entrainment may help promote
+        relaxation, reduce anxiety, and modulate brainwave activity. Individual
+        responses vary, and its clinical benefits are still being studied. A
+        QEEG assessment may be considered to help guide and monitor its use.
+        Please consult your physician before starting audio therapy, especially
+        if you have a neurological condition or are receiving treatment.
       </aside>
     </div>
   );
