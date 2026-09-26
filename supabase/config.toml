@@ -398,7 +398,9 @@ verify_jwt = false
 # URL page (#6). The password functions (#8, ADR-015) need a signed-in User;
 # they read the PASSWORD_COPY_KEY secret (locally from supabase/functions/.env).
 # Disconnecting a Patient and switching their Premium grant (#9, ADR-014) need
-# a signed-in Clinician or Admin.
+# a signed-in Clinician or Admin. Creating a Clinician, promoting a User to
+# Clinician and setting a Clinician's Patient limit (#14) need the signed-in
+# Admin; create-clinician also reads PASSWORD_COPY_KEY.
 [functions.create-patient]
 verify_jwt = true
 
@@ -430,6 +432,15 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.set-premium-grant]
+verify_jwt = true
+
+[functions.create-clinician]
+verify_jwt = true
+
+[functions.promote-clinician]
+verify_jwt = true
+
+[functions.set-patient-limit]
 verify_jwt = true
 
 [analytics]

@@ -48,6 +48,9 @@ export function stringField(body: Record<string, unknown>, key: string): string 
   return typeof value === "string" ? value : "";
 }
 
+/** An account id; the database rejects any other id before a lookup. */
+export const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /** The service-role client: bypasses row-level security, server only. */
 export function serviceClient(): SupabaseClient {
   return createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {

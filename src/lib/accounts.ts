@@ -1,6 +1,7 @@
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
 import type {
+  NewClinicianInput,
   NewPatientInput,
   PersonalUrlError,
 } from "../../supabase/functions/_shared/accountRules.ts";
@@ -165,4 +166,30 @@ export async function setPremiumGrant(patientId: string, premium: boolean): Prom
  */
 export async function disconnectPatient(patientId: string): Promise<void> {
   await invoke("disconnect-patient", { patientId });
+}
+
+/**
+ * The Admin creates a Clinician account (#14): they sign in from the homepage
+ * with that email and password, and the Admin may reveal or reset the
+ * password. Refusals arrive as AccountError with a CreateClinicianError code.
+ */
+export function createClinician(input: NewClinicianInput): Promise<{ clinicianId: string }> {
+  return invoke("create-clinician", { ...input });
+}
+
+/**
+ * The Admin gives a User the Clinician role, granted by the Admin, which
+ * payments never take away. Refusals arrive as AccountError with a
+ * PromoteToClinicianError code.
+ */
+export async function promoteToClinician(accountId: string): Promise<void> {
+  await invoke("promote-clinician", { accountId });
+}
+
+/**
+ * The Admin sets how many Patients a Clinician may have. Refusals arrive as
+ * AccountError with a SetPatientLimitError code.
+ */
+export async function setPatientLimit(accountId: string, limit: number): Promise<void> {
+  await invoke("set-patient-limit", { accountId, limit });
 }

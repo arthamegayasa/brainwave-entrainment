@@ -4,13 +4,16 @@
 //
 //   Username or contact email of a password account
 //     → { method: "password", loginEmail }   (the internal login email)
+//   login email of an account with a password copy (a Clinician the Admin
+//   created, 0014)
+//     → { method: "password", loginEmail }   (the email just typed)
 //   any other email → { method: "magic_link" }
 //   unknown Username → 404 { error: "unknown_username" }
 //
 // The browser then calls Supabase's own password sign-in with loginEmail, so
 // Auth's per-IP rate limits apply to every attempt. The answer never contains
-// a real email: an account with a Username or contact email always signs in
-// with an internal login email.
+// a real email that was not typed: an account with a Username or contact
+// email always signs in with an internal login email.
 
 import { parseLoginIdentifier } from "../_shared/accountRules.ts";
 import type { ResolveLoginError } from "../_shared/accountRules.ts";

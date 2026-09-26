@@ -10,11 +10,11 @@
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { keepsPasswordCopy } from "../_shared/accountRules.ts";
 import type { AccountRole, ClinicianOrigin, PasswordAccount } from "../_shared/accountRules.ts";
+import { UUID_PATTERN } from "./endpoint.ts";
 
 const KEY_SECRET = "PASSWORD_COPY_KEY";
 const KEY_BYTES = 32;
 const NONCE_BYTES = 12;
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** The copy key from the function secret; throws when it is missing or malformed. */
 async function copyKey(): Promise<CryptoKey> {

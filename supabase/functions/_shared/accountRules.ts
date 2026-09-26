@@ -346,11 +346,138 @@ export type SetPremiumGrantError = LinkRefusal | "invalid_premium";
 /** Where a Clinician's role came from (ADR-014): a subscription, or granted by the Admin. */
 export type ClinicianOrigin = "subscription" | "admin";
 
-/** An account whose password is revealed, reset or changed, as the server reads it. */
-export interface PasswordAccount {
+/** A profile's stored role and where its Clinician role came from. */
+export interface ProfileRole {
   role: AccountRole;
-  /** Where its Clinician role came from; null when none is recorded. */
+  /** Where the Clinician role came from; null without the role or when none is recorded. */
   clinicianOrigin: ClinicianOrigin | null;
+}
+
+/** A payment the webhook settled: paid, or the failure of the order on file. */
+export interface SettledPayment {
+  plan: "premium" | "clinician";
+  outcome: "paid" | "failed";
+}
+
+/**
+ * What a settled payment does to the payer's Clinician role (ADR-014); null
+ * leaves the profile as it is. Payments only promote to or demote from a
+ * subscription Clinician: a paid clinician plan makes a User one, a paid
+ * Premium plan (the cheaper choice) or a failed clinician order takes the role
+ * away again, and the origin with it. A Clinician granted by the Admin (or
+ * without a recorded origin) and the Admin are never touched.
+ */
+export function clinicianRoleAfterPayment(account: ProfileRole, payment: SettledPayment): ProfileRole | null {
+  const { plan, outcome } = payment;
+  if (account.role === "user") {
+    return plan === "clinician" && outcome === "paid" ? { role: "clinician", clinicianOrigin: "subscription" } : null;
+  }
+  if (account.role !== "clinician" || account.clinicianOrigin !== "subscription") return null;
+  const leaves = plan === "premium" ? outcome === "paid" : outcome === "failed";
+  return leaves ? { role: "user", clinicianOrigin: null } : null;
+}
+
+/** Refusals of the Admin's Clinician management: anyone but the Admin asking. */
+export type AdminOnlyRefusal = "not_allowed";
+
+/** The "+ Create clinician" fields as typed. */
+export interface NewClinicianInput {
+  name: string;
+  email: string;
+  password: string;
+}
+
+export interface NewClinician {
+  name: string;
+  /** Their real email, lowercase: a Clinician the Admin creates signs in with it (ADR-018). */
+  email: string;
+  password: string;
+}
+
+export type NewClinicianProblem = "name_required" | "invalid_email" | "password_too_short";
+
+/** Checks and normalizes the "+ Create clinician" fields, in the app and on the server. */
+export function checkNewClinician(input: NewClinicianInput):
+  | { ok: true; clinician: NewClinician }
+  | { ok: false; error: NewClinicianProblem } {
+  const name = input.name.trim();
+  const email = input.email.trim().toLowerCase();
+  if (name.length === 0) return { ok: false, error: "name_required" };
+  if (!EMAIL_PATTERN.test(email)) return { ok: false, error: "invalid_email" };
+  if (input.password.length < PASSWORD_MIN_LENGTH) return { ok: false, error: "password_too_short" };
+  return { ok: true, clinician: { name, email, password: input.password } };
+}
+
+export type CreateClinicianRefusal = AdminOnlyRefusal | "email_registered";
+
+/**
+ * Only the Admin creates a Clinician (ADR-014), and never with an email that
+ * already belongs to an account as its login email or contact email: the
+ * Admin promotes that User instead.
+ */
+export function mayCreateClinician(request: {
+  actor: { role: AccountRole };
+  emailRegistered: boolean;
+}): { ok: true } | { ok: false; reason: CreateClinicianRefusal } {
+  if (request.actor.role !== "admin") return { ok: false, reason: "not_allowed" };
+  if (request.emailRegistered) return { ok: false, reason: "email_registered" };
+  return { ok: true };
+}
+
+/** Every refusal the create-clinician function answers with (as `{ error }`). */
+export type CreateClinicianError = NewClinicianProblem | CreateClinicianRefusal;
+
+export type PromoteToClinicianRefusal = AdminOnlyRefusal | "already_clinician";
+
+/**
+ * Only the Admin promotes a User to Clinician, granting the role (origin
+ * "admin", which payments never touch). Any User without the role qualifies:
+ * a Regular, a Patient (roles overlap) or an Inactive Clinician. The Admin
+ * account never becomes a Clinician.
+ */
+export function mayPromoteToClinician(request: {
+  actor: { role: AccountRole };
+  account: { role: AccountRole };
+}): { ok: true } | { ok: false; reason: PromoteToClinicianRefusal } {
+  const { actor, account } = request;
+  if (actor.role !== "admin" || account.role === "admin") return { ok: false, reason: "not_allowed" };
+  if (account.role === "clinician") return { ok: false, reason: "already_clinician" };
+  return { ok: true };
+}
+
+/** Every refusal the promote-clinician function answers with (as `{ error }`). */
+export type PromoteToClinicianError = PromoteToClinicianRefusal;
+
+/** The highest Patient limit the Admin may set for one Clinician. */
+export const PATIENT_LIMIT_MAX = 1000;
+
+export type SetPatientLimitRefusal = AdminOnlyRefusal | "not_clinician" | "invalid_limit";
+
+/**
+ * Only the Admin sets a Clinician's Patient limit, and only for someone who
+ * holds the Clinician role (the Admin has no limit). The limit is a whole
+ * number from the Patients they already have up to PATIENT_LIMIT_MAX, so a
+ * typo can be undone but the limit never falls below their Patients.
+ */
+export function maySetPatientLimit(request: {
+  actor: { role: AccountRole };
+  account: { role: AccountRole; patientCount: number };
+  limit: number;
+}): { ok: true } | { ok: false; reason: SetPatientLimitRefusal } {
+  const { actor, account, limit } = request;
+  if (actor.role !== "admin") return { ok: false, reason: "not_allowed" };
+  if (account.role !== "clinician") return { ok: false, reason: "not_clinician" };
+  if (!Number.isInteger(limit) || limit < account.patientCount || limit > PATIENT_LIMIT_MAX) {
+    return { ok: false, reason: "invalid_limit" };
+  }
+  return { ok: true };
+}
+
+/** Every refusal the set-patient-limit function answers with (as `{ error }`). */
+export type SetPatientLimitError = SetPatientLimitRefusal;
+
+/** An account whose password is revealed, reset or changed, as the server reads it. */
+export interface PasswordAccount extends ProfileRole {
   /** The Clinician of its Link; null without a Link. */
   clinicianId: string | null;
 }

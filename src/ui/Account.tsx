@@ -211,8 +211,9 @@ const SIGN_IN_ERRORS: Partial<Record<string, string>> = {
 /**
  * Email-or-Username sign-in. The resolve-login endpoint says how the account
  * signs in: password accounts (Patients with a Username, even when they type
- * their contact email) get a password step and Supabase's own password
- * sign-in; everyone else gets a magic link, as before.
+ * their contact email, and Clinicians the Admin created, with their own email)
+ * get a password step and Supabase's own password sign-in; everyone else gets
+ * a magic link, as before.
  */
 function SignInForm({ onOpenPrivacy }: { onOpenPrivacy: () => void }) {
   const [identifier, setIdentifier] = useState("");
@@ -277,8 +278,8 @@ function SignInForm({ onOpenPrivacy }: { onOpenPrivacy: () => void }) {
     <form className="account-section" onSubmit={(e) => void submit(e)}>
       <p className="account-copy">
         Sign in to sync your plan and receive sessions from your clinician.
-        Most accounts get a sign-in link by email; if your clinician gave you a
-        username, you'll use your password.
+        Most accounts get a sign-in link by email; if you were given a username
+        or a password, you'll use your password.
       </p>
       <div className="save-row">
         <input

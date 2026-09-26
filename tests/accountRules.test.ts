@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  checkNewClinician,
   checkNewPatient,
   checkoutCustomer,
+  clinicianRoleAfterPayment,
   firstName,
   generatePassword,
   internalLoginEmail,
@@ -10,10 +12,13 @@ import {
   keepsPasswordCopy,
   mayChangeUsername,
   mayClaimUsername,
+  mayCreateClinician,
   mayCreatePatient,
   mayManageLink,
+  mayPromoteToClinician,
   mayReadPasswordAccessLog,
   mayRevealOrResetPassword,
+  maySetPatientLimit,
   normalizeUsername,
   parseLoginIdentifier,
   parsePersonalUrlPath,
@@ -666,5 +671,178 @@ describe("Inactive Clinician", () => {
     expect(isInactiveClinician({ role: "clinician", patientCount: 5 })).toBe(false);
     expect(isInactiveClinician({ role: "admin", patientCount: 5 })).toBe(false);
     expect(isInactiveClinician({ role: "user", patientCount: 0 })).toBe(false);
+  });
+});
+
+describe("the Clinician role after a payment", () => {
+  const granted = { role: "clinician", clinicianOrigin: "admin" } as const;
+  const subscriber = { role: "clinician", clinicianOrigin: "subscription" } as const;
+  const regular = { role: "user", clinicianOrigin: null } as const;
+  const theAdmin = { role: "admin", clinicianOrigin: null } as const;
+
+  it("never demotes a Clinician granted by the Admin when their clinician order fails", () => {
+    expect(clinicianRoleAfterPayment(granted, { plan: "clinician", outcome: "failed" })).toBeNull();
+  });
+
+  it("never demotes a Clinician granted by the Admin when they buy Premium", () => {
+    expect(clinicianRoleAfterPayment(granted, { plan: "premium", outcome: "paid" })).toBeNull();
+  });
+
+  it("keeps a granted Clinician granted when they also pay for the clinician plan", () => {
+    expect(clinicianRoleAfterPayment(granted, { plan: "clinician", outcome: "paid" })).toBeNull();
+  });
+
+  it("makes a Regular who pays for the clinician plan a subscription Clinician", () => {
+    expect(clinicianRoleAfterPayment(regular, { plan: "clinician", outcome: "paid" })).toEqual(subscriber);
+  });
+
+  it("takes the role from a subscription Clinician whose clinician order fails", () => {
+    expect(clinicianRoleAfterPayment(subscriber, { plan: "clinician", outcome: "failed" })).toEqual(regular);
+  });
+
+  it("takes the role from a subscription Clinician who buys Premium instead", () => {
+    expect(clinicianRoleAfterPayment(subscriber, { plan: "premium", outcome: "paid" })).toEqual(regular);
+  });
+
+  it("leaves a subscription Clinician who pays again, and a failed Premium order, alone", () => {
+    expect(clinicianRoleAfterPayment(subscriber, { plan: "clinician", outcome: "paid" })).toBeNull();
+    expect(clinicianRoleAfterPayment(subscriber, { plan: "premium", outcome: "failed" })).toBeNull();
+    expect(clinicianRoleAfterPayment(regular, { plan: "premium", outcome: "paid" })).toBeNull();
+    expect(clinicianRoleAfterPayment(regular, { plan: "clinician", outcome: "failed" })).toBeNull();
+  });
+
+  it("never touches the Admin", () => {
+    for (const plan of ["premium", "clinician"] as const) {
+      for (const outcome of ["paid", "failed"] as const) {
+        expect(clinicianRoleAfterPayment(theAdmin, { plan, outcome }), `${plan} ${outcome}`).toBeNull();
+      }
+    }
+  });
+
+  it("leaves a Clinician without a recorded origin to the Admin", () => {
+    const unrecorded = { role: "clinician", clinicianOrigin: null } as const;
+    expect(clinicianRoleAfterPayment(unrecorded, { plan: "premium", outcome: "paid" })).toBeNull();
+    expect(clinicianRoleAfterPayment(unrecorded, { plan: "clinician", outcome: "failed" })).toBeNull();
+  });
+});
+
+describe("the + Create clinician fields", () => {
+  const valid = { name: " Sari Dewi ", email: " Sari@Clinic.Test ", password: "hujan-biru-42" };
+
+  it("keeps the name trimmed, the email trimmed and lowercase, and the password as typed", () => {
+    expect(checkNewClinician(valid)).toEqual({
+      ok: true,
+      clinician: { name: "Sari Dewi", email: "sari@clinic.test", password: "hujan-biru-42" },
+    });
+  });
+
+  it("needs a name, a real email and a password of at least 6 characters", () => {
+    expect(checkNewClinician({ ...valid, name: "  " })).toEqual({ ok: false, error: "name_required" });
+    expect(checkNewClinician({ ...valid, email: "" })).toEqual({ ok: false, error: "invalid_email" });
+    expect(checkNewClinician({ ...valid, email: "sari@clinic" })).toEqual({ ok: false, error: "invalid_email" });
+    expect(checkNewClinician({ ...valid, password: "12345" })).toEqual({ ok: false, error: "password_too_short" });
+    expect(checkNewClinician({ ...valid, password: "123456" }).ok).toBe(true);
+  });
+});
+
+describe("may create a Clinician", () => {
+  it("lets only the Admin create a Clinician", () => {
+    expect(mayCreateClinician({ actor: { role: "admin" }, emailRegistered: false })).toEqual({ ok: true });
+    for (const role of ["clinician", "user"] as const) {
+      expect(mayCreateClinician({ actor: { role }, emailRegistered: false }), role).toEqual({
+        ok: false,
+        reason: "not_allowed",
+      });
+    }
+  });
+
+  it("refuses an email that already belongs to an account: the Admin promotes that User instead", () => {
+    expect(mayCreateClinician({ actor: { role: "admin" }, emailRegistered: true })).toEqual({
+      ok: false,
+      reason: "email_registered",
+    });
+  });
+
+  it("refuses anyone but the Admin before saying whether the email is registered", () => {
+    expect(mayCreateClinician({ actor: { role: "clinician" }, emailRegistered: true })).toEqual({
+      ok: false,
+      reason: "not_allowed",
+    });
+  });
+});
+
+describe("may promote a User to Clinician", () => {
+  const admin = { role: "admin" } as const;
+
+  it("lets the Admin promote any User without the Clinician role: a Regular, a Patient, an Inactive Clinician", () => {
+    expect(mayPromoteToClinician({ actor: admin, account: { role: "user" } })).toEqual({ ok: true });
+  });
+
+  it("refuses a Clinician and a Regular who try it", () => {
+    for (const role of ["clinician", "user"] as const) {
+      expect(mayPromoteToClinician({ actor: { role }, account: { role: "user" } }), role).toEqual({
+        ok: false,
+        reason: "not_allowed",
+      });
+    }
+  });
+
+  it("tells the Admin when the User already holds the Clinician role", () => {
+    expect(mayPromoteToClinician({ actor: admin, account: { role: "clinician" } })).toEqual({
+      ok: false,
+      reason: "already_clinician",
+    });
+  });
+
+  it("never turns the Admin account into a Clinician", () => {
+    expect(mayPromoteToClinician({ actor: admin, account: { role: "admin" } })).toEqual({
+      ok: false,
+      reason: "not_allowed",
+    });
+  });
+});
+
+describe("may set a Clinician's Patient limit", () => {
+  const admin = { role: "admin" } as const;
+  /** A Clinician with 28 Patients. */
+  const busy = { role: "clinician", patientCount: 28 } as const;
+
+  it("lets the Admin raise a Clinician's limit above the default 30", () => {
+    expect(maySetPatientLimit({ actor: admin, account: busy, limit: 45 })).toEqual({ ok: true });
+  });
+
+  it("refuses the Clinician themselves and everyone else but the Admin", () => {
+    for (const role of ["clinician", "user"] as const) {
+      expect(maySetPatientLimit({ actor: { role }, account: busy, limit: 45 }), role).toEqual({
+        ok: false,
+        reason: "not_allowed",
+      });
+    }
+  });
+
+  it("sets a limit only for someone who holds the Clinician role: the Admin has none", () => {
+    for (const role of ["admin", "user"] as const) {
+      expect(maySetPatientLimit({ actor: admin, account: { role, patientCount: 2 }, limit: 45 }), role).toEqual({
+        ok: false,
+        reason: "not_clinician",
+      });
+    }
+  });
+
+  it("takes a whole number from their current Patient count up to 1000", () => {
+    expect(maySetPatientLimit({ actor: admin, account: busy, limit: 28 })).toEqual({ ok: true });
+    expect(maySetPatientLimit({ actor: admin, account: busy, limit: 1000 })).toEqual({ ok: true });
+    for (const limit of [27, 1001, 30.5, Number.NaN]) {
+      expect(maySetPatientLimit({ actor: admin, account: busy, limit }), `${limit}`).toEqual({
+        ok: false,
+        reason: "invalid_limit",
+      });
+    }
+  });
+
+  it("lets the Admin lower a limit again, as long as it covers the Patients they have", () => {
+    expect(maySetPatientLimit({ actor: admin, account: { role: "clinician", patientCount: 0 }, limit: 0 })).toEqual({
+      ok: true,
+    });
   });
 });

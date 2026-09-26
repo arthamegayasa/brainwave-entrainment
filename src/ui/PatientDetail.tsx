@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useState } from "react";
+import type { ReactNode } from "react";
 import { PRESETS } from "../audio/presets";
 import {
   assignToPatient,
@@ -15,7 +16,7 @@ import { setPremiumGrant } from "../lib/accounts";
 import { StatusPill } from "./PatientStatusPill";
 import type { StatusReading } from "./PatientStatusPill";
 import { ChangeUsernameForm } from "./ChangeUsernameForm";
-import { PatientPassword } from "./PatientPassword";
+import { AccountPassword } from "./AccountPassword";
 import { ListeningReport } from "./ListeningReport";
 import { RoleBadges } from "./roster";
 import { personalUrlPath } from "../../supabase/functions/_shared/accountRules.ts";
@@ -86,6 +87,7 @@ export function PatientDetail({
   flash,
   onChange,
   onDisconnect,
+  clinicianRole,
 }: {
   patient: PatientLink;
   /** Every role the Patient holds, for the badges in the header. */
@@ -99,6 +101,8 @@ export function PatientDetail({
   /** Something shown in the table changed (assignments, Username, Premium). */
   onChange: () => Promise<void>;
   onDisconnect: () => void;
+  /** The Admin's management of their Clinician role, under the header. */
+  clinicianRole?: ReactNode;
 }) {
   const [hidden, setHidden] = useState<string[]>([]);
   const [assigned, setAssigned] = useState<PatientAssignment[]>([]);
@@ -212,6 +216,8 @@ export function PatientDetail({
         </p>
       </header>
 
+      {clinicianRole}
+
       {patient.username !== null && (
         <>
           <PersonalUrlBlock
@@ -220,7 +226,7 @@ export function PatientDetail({
             flash={flash}
             onUsernameChange={() => void onChange()}
           />
-          <PatientPassword patientId={patient.patientId} flash={flash} />
+          <AccountPassword accountId={patient.patientId} owner="patient" flash={flash} />
         </>
       )}
 

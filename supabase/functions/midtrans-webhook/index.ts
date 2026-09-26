@@ -2,7 +2,9 @@
 // for entitlement activation. verify_jwt = false: Midtrans has no user JWT; the
 // endpoint authenticates the payload itself via the SHA-512 signature.
 
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
+import { clinicianRoleAfterPayment } from "../_shared/accountRules.ts";
+import type { AccountRole, ClinicianOrigin, SettledPayment } from "../_shared/accountRules.ts";
 
 async function sha512Hex(input: string): Promise<string> {
   const bytes = new TextEncoder().encode(input);
@@ -16,6 +18,47 @@ function periodEnd(from: Date, period: string | null): string {
   if (period === "annual") d.setUTCFullYear(d.getUTCFullYear() + 1);
   else d.setUTCMonth(d.getUTCMonth() + 1); // default monthly
   return d.toISOString();
+}
+
+/**
+ * Applies what a settled payment does to the payer's Clinician role. The
+ * decision is the Account rules' (clinicianRoleAfterPayment): only subscription
+ * Clinicians are promoted or demoted, never a Clinician granted by the Admin
+ * nor the Admin. The update only lands on the role it decided from, so a grant
+ * by the Admin in the meantime is left alone. Role changes are service-role
+ * only (0004).
+ */
+async function settleClinicianRole(
+  admin: SupabaseClient,
+  userId: string,
+  payment: SettledPayment,
+): Promise<void> {
+  const { data: profile, error: readError } = await admin
+    .from("profiles")
+    .select("role, clinician_origin")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (readError || !profile) {
+    if (readError) console.error("midtrans-webhook: could not read the role of", userId, readError);
+    return;
+  }
+  // profiles_role_check and profiles_clinician_origin_check admit exactly these values.
+  const current = {
+    role: profile.role as AccountRole,
+    clinicianOrigin: profile.clinician_origin as ClinicianOrigin | null,
+  };
+  const next = clinicianRoleAfterPayment(current, payment);
+  if (next === null) return;
+
+  const update = admin
+    .from("profiles")
+    .update({ role: next.role, clinician_origin: next.clinicianOrigin })
+    .eq("user_id", userId)
+    .eq("role", current.role);
+  const { error } = await (current.clinicianOrigin === null
+    ? update.is("clinician_origin", null)
+    : update.eq("clinician_origin", current.clinicianOrigin));
+  if (error) console.error("midtrans-webhook: could not change the role of", userId, error);
 }
 
 Deno.serve(async (req: Request) => {
@@ -105,23 +148,7 @@ Deno.serve(async (req: Request) => {
       },
       { onConflict: "user_id" },
     );
-    // Role tracks the plan actually paid for. Never touch admins (role='user'
-    // / role='clinician' filters); role changes are service-role only (0004).
-    if (plan === "clinician") {
-      await admin
-        .from("profiles")
-        .update({ role: "clinician" })
-        .eq("user_id", userId)
-        .eq("role", "user");
-    } else {
-      // A paid premium (or legacy) order supersedes the clinician tier: the
-      // user chose the cheaper plan, so drop the professional role.
-      await admin
-        .from("profiles")
-        .update({ role: "user" })
-        .eq("user_id", userId)
-        .eq("role", "clinician");
-    }
+    await settleClinicianRole(admin, userId, { plan, outcome: "paid" });
   } else if (isPending) {
     // Don't push an active sub back to pending for an unrelated new checkout.
     if (!current || current.status !== "active" || current.provider_ref === orderId) {
@@ -138,13 +165,7 @@ Deno.serve(async (req: Request) => {
       .from("entitlements")
       .update({ tier: "free", status: "inactive", updated_at: new Date().toISOString() })
       .eq("user_id", userId);
-    if (plan === "clinician") {
-      await admin
-        .from("profiles")
-        .update({ role: "user" })
-        .eq("user_id", userId)
-        .eq("role", "clinician");
-    }
+    await settleClinicianRole(admin, userId, { plan, outcome: "failed" });
   }
 
   return new Response("ok", { status: 200 });

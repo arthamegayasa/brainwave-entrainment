@@ -12,24 +12,36 @@ import type {
 import { PASSWORD_REFUSALS } from "./passwordMessages";
 
 /**
- * "Password ••••••" in the patient detail (#8, ADR-015): reveals the
- * Patient's current password, including one they chose in Account, and
- * offers a reset. The server decides who may do either and logs every reveal.
+ * "Password ••••••" in a person's detail (#8, #14, ADR-015): reveals the
+ * current password of a Patient (including one they chose in Account) or of a
+ * Clinician the Admin created, and offers a reset. The server decides who may
+ * do either and logs every reveal.
  */
+
+/** Whose password it is: a Patient, or a Clinician the Admin created. */
+export type PasswordOwner = "patient" | "clinician";
+
+/** How the block refers to the owner, for their viewer. */
+const OWNER_NAMES: Record<PasswordOwner, string> = {
+  patient: "your patient",
+  clinician: "the clinician",
+};
 
 // Every refusal must have a message (satisfies); lookups take any server code.
 const ERRORS: Partial<Record<string, string>> = {
-  not_allowed: "Only the Admin can see or reset this patient's password.",
+  not_allowed: "Only the Admin can see or reset this password.",
   no_password_copy: "No password on file yet — reset it to set one.",
   ...PASSWORD_REFUSALS,
 } satisfies Record<RevealPasswordError | ResetPasswordError, string>;
 const UNEXPECTED_ERROR = "Could not reach the password — try again later.";
 
-export function PatientPassword({
-  patientId,
+export function AccountPassword({
+  accountId,
+  owner,
   flash,
 }: {
-  patientId: string;
+  accountId: string;
+  owner: PasswordOwner;
   flash: (msg: string) => void;
 }) {
   // The password on screen: revealed, or just set by a reset; null hides it.
@@ -42,7 +54,7 @@ export function PatientPassword({
     setBusy(true);
     setError(null);
     try {
-      setShown(await revealPassword(patientId));
+      setShown(await revealPassword(accountId));
     } catch (err) {
       const code = err instanceof AccountError ? err.code : "";
       setError(ERRORS[code] ?? UNEXPECTED_ERROR);
@@ -55,7 +67,7 @@ export function PatientPassword({
     setResetting(false);
     setError(null);
     setShown(password);
-    flash("Password reset ✓ Share the new one with your patient.");
+    flash(`Password reset ✓ Share the new one with ${OWNER_NAMES[owner]}.`);
   };
 
   return (
@@ -92,7 +104,8 @@ export function PatientPassword({
       )}
       {resetting && (
         <ResetPasswordForm
-          patientId={patientId}
+          accountId={accountId}
+          ownerName={OWNER_NAMES[owner]}
           onReset={afterReset}
           onClose={() => setResetting(false)}
         />
@@ -102,11 +115,14 @@ export function PatientPassword({
 }
 
 function ResetPasswordForm({
-  patientId,
+  accountId,
+  ownerName,
   onReset,
   onClose,
 }: {
-  patientId: string;
+  accountId: string;
+  /** "your patient" or "the clinician". */
+  ownerName: string;
   onReset: (password: string) => void;
   onClose: () => void;
 }) {
@@ -123,7 +139,7 @@ function ResetPasswordForm({
     setBusy(true);
     setError(null);
     try {
-      await resetPassword(patientId, password);
+      await resetPassword(accountId, password);
       onReset(password);
     } catch (err) {
       const code = err instanceof AccountError ? err.code : "";
@@ -154,7 +170,7 @@ function ResetPasswordForm({
           </button>
         </span>
         <span className="field-hint">
-          The old password stops working right away, and your patient is signed out.
+          The old password stops working right away, and {ownerName} is signed out.
         </span>
       </label>
       {error && (

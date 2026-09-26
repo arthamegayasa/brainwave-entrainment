@@ -15,8 +15,11 @@ import {
   rolesOf,
 } from "../../supabase/functions/_shared/accountRules.ts";
 import type { ShownRole } from "../../supabase/functions/_shared/accountRules.ts";
+import { ClinicianRole, ORIGIN_NAMES } from "./ClinicianRole";
+import type { ClinicianRoleAccount } from "./ClinicianRole";
 import { ListeningReport } from "./ListeningReport";
 import { formatMinutes } from "./listeningFormat";
+import { NewClinicianForm } from "./NewClinicianForm";
 import { PasswordViews } from "./PasswordViews";
 import { PatientDetail } from "./PatientDetail";
 import { STATUS_NAMES, StatusPill, readStatus } from "./PatientStatusPill";
@@ -46,8 +49,10 @@ import type { Dir, StatusFilter } from "./roster";
  * and removable filter chips. A Clinician row shows their caseload and whether
  * they are an Inactive Clinician; their drawer drills into their Patients and
  * back. Any Patient's drawer lets the Admin act exactly as that Patient's
- * Clinician would. Everything comes from one aggregate read (user_overview,
- * 0013); roles follow from it through the Account rules.
+ * Clinician would. The Admin creates Clinicians here, and in the drawer
+ * promotes Users, raises Patient limits and handles the passwords of
+ * Clinicians they created (#14). Everything comes from one aggregate read
+ * (user_overview, 0013); roles follow from it through the Account rules.
  */
 
 type RoleTab = "all" | "clinicians" | "patients" | "regulars";
@@ -136,8 +141,6 @@ const SORT_KEYS: readonly SortKey[] = [
   "premium",
   "assigned",
 ];
-
-const ORIGIN_NAMES = { subscription: "Subscription", admin: "Granted by Admin" } as const;
 
 /** Everyone, with roles, Patient Status, Clinicians and caseloads derived from the aggregate read. */
 function toPeople(users: UserOverview[], now: number): Person[] {
@@ -264,6 +267,19 @@ function patientLinkOf(user: UserOverview, link: NonNullable<UserOverview["link"
   };
 }
 
+/** Someone's Clinician role as the drawer's ClinicianRole block reads it. */
+function clinicianRoleAccountOf(person: Person): ClinicianRoleAccount {
+  const { user } = person;
+  return {
+    userId: user.userId,
+    name: person.name,
+    role: user.role,
+    clinicianOrigin: user.clinicianOrigin,
+    patientLimit: user.patientLimit,
+    patientCount: person.caseload?.patients ?? 0,
+  };
+}
+
 export function PeopleTab({ flash }: { flash: (msg: string) => void }) {
   const { loaded, failed, refresh } = useReloadingLoad(loadPeople);
   const error = failed ? "Could not load everyone — try again later." : null;
@@ -276,6 +292,7 @@ export function PeopleTab({ flash }: { flash: (msg: string) => void }) {
   const [sort, setSort] = useState<{ key: SortKey; dir: Dir }>({ key: "attention", dir: 1 });
   /** A Clinician to turn to and focus once the list shows them again ("‹ All clinicians"). */
   const [returnTo, setReturnTo] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
 
   const scopeRef = useRef<HTMLHeadingElement>(null);
 
@@ -458,7 +475,20 @@ export function PeopleTab({ flash }: { flash: (msg: string) => void }) {
             </p>
           )}
         </div>
+        {!creating && (
+          <div className="roster-head-side">
+            <button className="chip small roster-primary" onClick={() => setCreating(true)}>
+              + Create clinician
+            </button>
+          </div>
+        )}
       </div>
+
+      {creating && (
+        <div className="library-section roster-create">
+          <NewClinicianForm onCreated={() => void refresh()} onClose={() => setCreating(false)} />
+        </div>
+      )}
 
       {error && <p className="library-note">{error}</p>}
       {!error && !loaded && <p className="library-note">Loading everyone…</p>}
@@ -661,9 +691,29 @@ export function PeopleTab({ flash }: { flash: (msg: string) => void }) {
               onDisconnect={() => {
                 void disconnect(openRow.person);
               }}
+              clinicianRole={
+                <ClinicianRole
+                  account={clinicianRoleAccountOf(openRow.person)}
+                  passwordShownAsPatient={openRow.person.user.username !== null}
+                  flash={flash}
+                  onChange={refresh}
+                />
+              }
             />
           ) : (
-            <PersonDetail key={openRow.person.user.userId} person={openRow.person} now={now} />
+            <PersonDetail
+              key={openRow.person.user.userId}
+              person={openRow.person}
+              now={now}
+              clinicianRole={
+                <ClinicianRole
+                  account={clinicianRoleAccountOf(openRow.person)}
+                  passwordShownAsPatient={false}
+                  flash={flash}
+                  onChange={refresh}
+                />
+              }
+            />
           )}
         </Drawer>
       )}
@@ -734,8 +784,8 @@ function PersonCallouts({
   return <>{callouts}</>;
 }
 
-/** Someone who is not a Patient: who they are, and their Listening History. */
-function PersonDetail({ person, now }: { person: Person; now: number }) {
+/** Someone who is not a Patient: who they are, their Clinician role, and their Listening History. */
+function PersonDetail({ person, now, clinicianRole }: { person: Person; now: number; clinicianRole: ReactNode }) {
   const { user } = person;
   return (
     <div className="patient-detail">
@@ -745,16 +795,12 @@ function PersonDetail({ person, now }: { person: Person; now: number }) {
           <RoleBadges roles={person.roles} />
         </div>
         <p className="patient-detail-meta">
-          {[
-            user.username && `@${user.username}`,
-            user.email,
-            user.clinicianOrigin && `Clinician role: ${ORIGIN_NAMES[user.clinicianOrigin].toLowerCase()}`,
-            `times in ${timeZoneLabel(person.timeZone, now)}`,
-          ]
+          {[user.username && `@${user.username}`, user.email, `times in ${timeZoneLabel(person.timeZone, now)}`]
             .filter(Boolean)
             .join(" · ")}
         </p>
       </header>
+      {clinicianRole}
       <div className="detail-block">
         <h4>Listening history</h4>
         <ListeningReport
