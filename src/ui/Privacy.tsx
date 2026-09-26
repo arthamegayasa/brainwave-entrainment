@@ -1,19 +1,15 @@
 import { useLayoutEffect, useState } from "react";
 
 /**
- * Privacy policy (#18): Indonesian + English drafts of what ADR-014..017
+ * Privacy policy (#18): Indonesian + English versions of what ADR-014..022
  * mean for a User's data. Monitoring is explained here only — no consent
  * screens or pop-ups (ADR-017).
  */
 
 type Lang = "id" | "en";
 
-/**
- * OWNER: fill in the data controller's contact for data requests (name,
- * email and address) before release. While this is null, both language
- * versions show a highlighted placeholder instead.
- */
-const DATA_CONTROLLER_CONTACT: string | null = null;
+/** Who answers personal-data questions and requests (UU PDP). */
+const DATA_CONTROLLER = { name: "Serenade", email: "arthamail@gmail.com" };
 
 interface Point {
   term: string;
@@ -30,12 +26,11 @@ interface PolicySection {
 interface PolicyCopy {
   title: string;
   intro: string;
-  draftLabel: string;
-  draft: string;
+  effective: string;
   sections: PolicySection[];
   contactHeading: string;
   contactIntro: string;
-  contactPlaceholder: string;
+  contactNote: string;
   governing: string;
 }
 
@@ -49,9 +44,7 @@ const POLICY: Record<Lang, PolicyCopy> = {
     title: "Kebijakan privasi",
     intro:
       "Apa yang Serenade catat tentang Anda, siapa yang bisa melihatnya, berapa lama disimpan, dan apa yang bisa Anda minta — dengan bahasa yang sederhana.",
-    draftLabel: "Draf — menunggu tinjauan hukum.",
-    draft:
-      "Kebijakan ini masih menunggu tinjauan hukum oleh pemilik Serenade dan bisa berubah sebelum rilis.",
+    effective: "Berlaku sejak 26 September 2026.",
     sections: [
       {
         heading: "Istilah yang kami pakai",
@@ -70,7 +63,7 @@ const POLICY: Record<Lang, PolicyCopy> = {
           { term: "Link:", text: "hubungan antara seorang Patient dan Clinician-nya." },
           {
             term: "Play:",
-            text: "satu kali pemutaran sesi bawaan (Preset) atau Custom Audio.",
+            text: "satu kali pemutaran sesi bawaan (Preset), Custom Audio, atau sesi yang Anda simpan di perangkat lalu putar dari Library.",
           },
           {
             term: "Download:",
@@ -108,7 +101,7 @@ const POLICY: Record<Lang, PolicyCopy> = {
           },
           {
             term: "Di perangkat ini:",
-            text: "progres (journey, streak), preferensi, dan sesi Studio yang Anda simpan di perangkat tetap berada di penyimpanan browser ini dan tidak dikirim ke kami. Progres dan preferensi bisa Anda reset di Account.",
+            text: "progres (journey, streak), preferensi, dan sesi Studio yang Anda simpan di perangkat tetap berada di penyimpanan browser ini dan tidak dikirim ke kami. Bila Anda memutar sesi tersimpan itu dari Library saat login, pemutarannya dicatat sebagai Play beserta nama sesinya. Progres dan preferensi bisa Anda reset di Account.",
           },
         ],
         note: "Data akun dan Listening History disimpan di penyedia cloud kami, Supabase.",
@@ -194,7 +187,7 @@ const POLICY: Record<Lang, PolicyCopy> = {
           },
           {
             term: "Siapa yang bisa melihat atau me-reset-nya:",
-            text: "Clinician dari Patient itu dan Admin. Bila Patient itu juga seorang Clinician, hanya Admin. Admin juga bisa melihat dan me-reset password Clinician yang akunnya ia buat.",
+            text: "Clinician dari Patient itu dan Admin. Bila Patient itu juga seorang Clinician — atau pernah menjadi Clinician dan masih punya Patient — hanya Admin. Admin juga bisa melihat dan me-reset password Clinician yang akunnya ia buat.",
           },
           {
             term: "Setiap kali dilihat, tercatat:",
@@ -228,6 +221,10 @@ const POLICY: Record<Lang, PolicyCopy> = {
             text: "Listening History, Link ke Clinician Anda, dan salinan password Anda ikut dihapus. Catatan password yang dilihat tetap menyimpan kapan password Anda dilihat, tetapi tidak lagi menyebut milik siapa. Hanya Admin yang bisa menghapus akun; lihat hak Anda di bawah.",
           },
           {
+            term: "Bila Anda Clinician dan akun Anda dihapus,",
+            text: "Custom Audio Anda yang masih dipakai User lain (di-assign atau dipublikasikan sebagai Template) berpindah ke Admin agar Library mereka tetap utuh; Custom Audio lainnya ikut dihapus.",
+          },
+          {
             term: "Catatan pembayaran",
             text: "disimpan terpisah dari akun Anda dan tidak ikut terhapus saat akun dihapus.",
           },
@@ -256,9 +253,9 @@ const POLICY: Record<Lang, PolicyCopy> = {
     ],
     contactHeading: "Pengendali data",
     contactIntro:
-      "Pengendali data Serenade menjawab pertanyaan dan permintaan tentang data pribadi Anda:",
-    contactPlaceholder:
-      "[Diisi pemilik sebelum rilis: nama, email, dan alamat pengendali data]",
+      "Pertanyaan dan permintaan tentang data pribadi Anda — termasuk permintaan akses, perbaikan, dan penghapusan — dijawab oleh pengelola Serenade:",
+    contactNote:
+      "Sebutkan nama akun, Username, atau email Anda agar kami bisa menemukan data Anda. Kami menanggapi setiap permintaan dalam batas waktu yang ditetapkan UU PDP.",
     governing:
       "Kebijakan ini tersedia dalam bahasa Indonesia dan bahasa Inggris. Untuk keperluan UU PDP, teks bahasa Indonesia yang berlaku.",
   },
@@ -266,9 +263,7 @@ const POLICY: Record<Lang, PolicyCopy> = {
     title: "Privacy policy",
     intro:
       "What Serenade records about you, who can see it, how long we keep it, and what you can ask us to do — in plain words.",
-    draftLabel: "Draft — awaiting legal review.",
-    draft:
-      "This policy is still waiting for legal review by Serenade's owner and may change before release.",
+    effective: "Effective from 26 September 2026.",
     sections: [
       {
         heading: "Words we use",
@@ -287,7 +282,7 @@ const POLICY: Record<Lang, PolicyCopy> = {
           { term: "Link:", text: "the connection between a Patient and their Clinician." },
           {
             term: "Play:",
-            text: "one playback of a built-in session (Preset) or of Custom Audio.",
+            text: "one playback of a built-in session (Preset), of Custom Audio, or of a session you saved on your device and played from the Library.",
           },
           {
             term: "Download:",
@@ -325,7 +320,7 @@ const POLICY: Record<Lang, PolicyCopy> = {
           },
           {
             term: "On this device:",
-            text: "progress (journey, streaks), preferences and Studio sessions you save on the device stay in this browser's storage and aren't sent to us. You can reset progress and preferences in Account.",
+            text: "progress (journey, streaks), preferences and Studio sessions you save on the device stay in this browser's storage and aren't sent to us. If you play one of those saved sessions from the Library while signed in, that playback is recorded as a Play, with the session's name. You can reset progress and preferences in Account.",
           },
         ],
         note: "Account data and Listening History are stored with our cloud provider, Supabase.",
@@ -411,7 +406,7 @@ const POLICY: Record<Lang, PolicyCopy> = {
           },
           {
             term: "Who can view or reset it:",
-            text: "the Patient's Clinician and the Admin. If the Patient is also a Clinician, only the Admin. The Admin can also view and reset the password of Clinicians whose account the Admin created.",
+            text: "the Patient's Clinician and the Admin. If the Patient is also a Clinician — or used to be one and still has Patients — only the Admin. The Admin can also view and reset the password of Clinicians whose account the Admin created.",
           },
           {
             term: "Every view is logged:",
@@ -445,6 +440,10 @@ const POLICY: Record<Lang, PolicyCopy> = {
             text: "your Listening History, your Link to your Clinician and the stored copy of your password are deleted with it. The log of password views keeps when your password was viewed, but no longer says whose it was. Only the Admin can delete an account; see your rights below.",
           },
           {
+            term: "If you're a Clinician and your account is deleted,",
+            text: "your Custom Audio that other Users still use (assigned to them or published as a Template) moves to the Admin so their Library stays whole; the rest of your Custom Audio is deleted.",
+          },
+          {
             term: "Payment records",
             text: "are kept separately from your account and aren't deleted with it.",
           },
@@ -473,9 +472,9 @@ const POLICY: Record<Lang, PolicyCopy> = {
     ],
     contactHeading: "Data controller",
     contactIntro:
-      "Serenade's data controller answers questions and requests about your personal data:",
-    contactPlaceholder:
-      "[To be filled in by the owner before release: the data controller's name, email and address]",
+      "Questions and requests about your personal data — including requests for access, correction and deletion — are answered by Serenade's operator:",
+    contactNote:
+      "Include your account name, Username or email so we can find your data. We respond to every request within the time limits set by UU PDP.",
     governing:
       "This policy is available in Indonesian and English. For the purposes of UU PDP, the Indonesian text governs.",
   },
@@ -513,11 +512,8 @@ export function Privacy() {
       <header className="privacy-head">
         <h1>{copy.title}</h1>
         <p>{copy.intro}</p>
+        <p className="privacy-effective">{copy.effective}</p>
       </header>
-
-      <aside className="privacy-draft">
-        <strong>{copy.draftLabel}</strong> {copy.draft}
-      </aside>
 
       {copy.sections.map((section) => (
         <section className="privacy-section" key={section.heading}>
@@ -540,10 +536,10 @@ export function Privacy() {
         <h2>{copy.contactHeading}</h2>
         <p className="section-intro">{copy.contactIntro}</p>
         <p className="privacy-contact">
-          {DATA_CONTROLLER_CONTACT ?? (
-            <mark className="privacy-placeholder">{copy.contactPlaceholder}</mark>
-          )}
+          {DATA_CONTROLLER.name} ·{" "}
+          <a href={`mailto:${DATA_CONTROLLER.email}`}>{DATA_CONTROLLER.email}</a>
         </p>
+        <p className="privacy-note">{copy.contactNote}</p>
       </section>
 
       <p className="privacy-governing">{copy.governing}</p>

@@ -1094,19 +1094,10 @@
   flex: none;
 }
 
-.privacy-draft {
-  display: block;
-  border: 1px dashed color-mix(in srgb, var(--band-beta) 55%, transparent);
-  border-radius: var(--radius);
-  background: color-mix(in srgb, var(--band-beta) 8%, transparent);
-  padding: 1rem 1.2rem;
-  margin-bottom: 1.3rem;
-  font-size: 0.87rem;
-  color: var(--ink-dim);
-}
-
-.privacy-draft strong {
-  color: var(--band-beta);
+.privacy-effective {
+  margin: 0.5rem 0 0;
+  font-size: 0.8rem;
+  color: var(--ink-faint);
 }
 
 .privacy-points {
@@ -1133,14 +1124,8 @@
   margin: 0;
 }
 
-.privacy-placeholder {
-  color: var(--band-alpha);
-  background: color-mix(in srgb, var(--band-alpha) 14%, transparent);
-  border: 1px dashed color-mix(in srgb, var(--band-alpha) 60%, transparent);
-  border-radius: 6px;
-  padding: 0.1rem 0.4rem;
-  -webkit-box-decoration-break: clone;
-  box-decoration-break: clone;
+.privacy-contact a {
+  color: var(--accent);
 }
 
 .privacy-governing {
