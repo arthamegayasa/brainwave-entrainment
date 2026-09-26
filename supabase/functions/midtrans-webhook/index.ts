@@ -1,4 +1,4 @@
-// Serenade — Midtrans HTTP notification (webhook). This is the SOURCE OF TRUTH
+// SwaraSanti — Midtrans HTTP notification (webhook). This is the SOURCE OF TRUTH
 // for entitlement activation. verify_jwt = false: Midtrans has no user JWT; the
 // endpoint authenticates the payload itself via the SHA-512 signature.
 

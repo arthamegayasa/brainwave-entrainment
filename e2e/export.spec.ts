@@ -14,7 +14,7 @@ test("a preset downloads as a full-length 320 kbps MP3", async ({ page }) => {
   await expect(page.getByRole("button", { name: /Rendering|Encoding/ })).toBeDisabled();
 
   const file = await download;
-  expect(file.suggestedFilename()).toBe("Serenade-Meditating-15-min-headphones.mp3");
+  expect(file.suggestedFilename()).toBe("SwaraSanti-Meditating-15-min-headphones.mp3");
   const bytes = statSync(await file.path()).size;
   const expected = (15 * 60 * 320_000) / 8; // CBR: duration × bitrate
   expect(Math.abs(bytes - expected) / expected).toBeLessThan(0.01);

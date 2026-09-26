@@ -126,7 +126,7 @@
 
 ## Implementation Learnings (#14 Admin manages Clinicians, 2026-09-26)
 
-- **Membuktikan migration backfill terhadap data lama**: `npx supabase db reset --local --version 0013` membangun database sampai migration sebelumnya, lalu isi baris lama lewat `docker exec -i supabase_db_serenade psql -U postgres` dan jalankan `npx supabase migration up --local` untuk menerapkan migration baru di atasnya. pgTAP tidak bisa menguji backfill karena migration sudah berjalan di database kosong sebelum test. Tutup dengan `npx supabase db reset --local` agar data seed tidak mengganggu suite.
+- **Membuktikan migration backfill terhadap data lama**: `npx supabase db reset --local --version 0013` membangun database sampai migration sebelumnya, lalu isi baris lama lewat `docker exec -i supabase_db_swarasanti psql -U postgres` dan jalankan `npx supabase migration up --local` untuk menerapkan migration baru di atasnya. pgTAP tidak bisa menguji backfill karena migration sudah berjalan di database kosong sebelum test. Tutup dengan `npx supabase db reset --local` agar data seed tidak mengganggu suite.
 - **Smoke webhook Midtrans di stack lokal**: isi `app_config` (`midtrans_server_key`) di database lokal, tandatangani payload dengan `sha512(order_id + status_code + gross_amount + key)`, lalu POST ke `/functions/v1/midtrans-webhook` (verify_jwt false). Kunci idempotensi `order:status_code:transaction_status`, jadi settlement lalu `expire` dengan order yang sama adalah dua event berbeda.
 - **Compare-and-set di PostgREST dengan kolom nullable**: nilai NULL dicocokkan dengan operator `is` PostgREST (`.is("clinician_origin", null)`), bukan `.eq`, karena di SQL `= NULL` tidak pernah benar. Webhook hanya menulis role bila role dan asal yang dibacanya masih sama, sehingga promosi Admin di antaranya tidak tertimpa.
 - **GoTrue menolak email ganda di admin `createUser`** dengan 422 `error_code: "email_exists"` (auth-js: `AuthApiError.code`). `create-clinician` menerjemahkannya menjadi `email_registered` untuk balapan antara cek `is_email_registered` dan pembuatan akun.
@@ -140,7 +140,7 @@
 ## Implementation Learnings (#16 Link existing User, 2026-09-26)
 
 - **GoTrue admin `updateUserById({ email, password, email_confirm: true })` memindah email tanpa alur konfirmasi**: `auth.users.email` dan `identity_data.email` identity `email` ikut berubah, dan sesi lama langsung mati (`GET /auth/v1/user` dengan token lama → 403). Password > 72 karakter ditolak Auth (500 dari function), jalur itu dipakai untuk membuktikan put-back `moveToUsernameLogin`.
-- **Mengganti `password_login_email()` harus lolos fixture pgTAP lama**: beberapa test memberi akun ber-Username email login `label@serenade.test` (bukan internal). Guard "hanya email login internal" memecahkan 4 test; guard "contact email ≠ email login" menangkap keadaan setengah jalan tanpa mengubah jawaban lama.
+- **Mengganti `password_login_email()` harus lolos fixture pgTAP lama**: beberapa test memberi akun ber-Username email login `label@swarasanti.test` (bukan internal). Guard "hanya email login internal" memecahkan 4 test; guard "contact email ≠ email login" menangkap keadaan setengah jalan tanpa mengubah jawaban lama.
 - **`supabase test db` berjalan di database yang sudah ada**: setelah mengedit migration yang belum di-commit, jalankan `npx supabase db reset --local` dulu; test baru bisa lolos terhadap versi fungsi lama dan menyembunyikan kegagalan test lain.
 
 ## Implementation Learnings (#17 Admin deletes an account, 2026-09-26)

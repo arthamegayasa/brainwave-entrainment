@@ -1,4 +1,4 @@
-// Serenade — create a Midtrans Snap transaction for a signed-in user.
+// SwaraSanti — create a Midtrans Snap transaction for a signed-in user.
 // verify_jwt = true: the Supabase gateway requires a valid user JWT before this
 // runs, so checkout is always tied to an authenticated account.
 //
@@ -16,12 +16,12 @@ const MIDTRANS_SNAP_URL = "https://app.sandbox.midtrans.com/snap/v1/transactions
 // tampered client can't change what it's charged.
 const PLANS = {
   premium: {
-    monthly: { amount: 49000, label: "Serenade Premium — Monthly" },
-    annual: { amount: 249000, label: "Serenade Premium — Annual" },
+    monthly: { amount: 49000, label: "SwaraSanti Premium — Monthly" },
+    annual: { amount: 249000, label: "SwaraSanti Premium — Annual" },
   },
   clinician: {
-    monthly: { amount: 249000, label: "Serenade Clinician — Monthly" },
-    annual: { amount: 1990000, label: "Serenade Clinician — Annual" },
+    monthly: { amount: 249000, label: "SwaraSanti Clinician — Monthly" },
+    annual: { amount: 1990000, label: "SwaraSanti Clinician — Annual" },
   },
 } as const;
 

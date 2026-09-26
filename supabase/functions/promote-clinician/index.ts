@@ -1,4 +1,4 @@
-// Serenade — the Admin promotes a User to Clinician (#14; ADR-014).
+// SwaraSanti — the Admin promotes a User to Clinician (#14; ADR-014).
 // verify_jwt = true.
 //
 // 1. mayPromoteToClinician: only the Admin, for a User without the Clinician

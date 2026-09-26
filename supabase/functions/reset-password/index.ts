@@ -1,4 +1,4 @@
-// Serenade — a Clinician or the Admin resets an account's password (#8,
+// SwaraSanti — a Clinician or the Admin resets an account's password (#8,
 // ADR-015). verify_jwt = true.
 //
 // 1. The new password has at least PASSWORD_MIN_LENGTH characters.

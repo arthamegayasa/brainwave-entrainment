@@ -1,4 +1,4 @@
-# Serenade
+# SwaraSanti
 
 PWA brainwave entrainment goal-first: user memilih tujuan, bukan frekuensi. Clinician memakai platform yang sama untuk membimbing pendengaran Patient-nya.
 
@@ -7,7 +7,7 @@ PWA brainwave entrainment goal-first: user memilih tujuan, bukan frekuensi. Clin
 ### Orang & peran
 
 **User**:
-Siapa pun yang punya akun Serenade, apa pun perannya.
+Siapa pun yang punya akun SwaraSanti, apa pun perannya.
 _Avoid_: member, akun
 
 **Regular**:

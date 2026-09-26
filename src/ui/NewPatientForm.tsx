@@ -29,7 +29,7 @@ const ERRORS: Partial<Record<string, string>> = {
   name_required: "Enter the patient's name.",
   invalid_email: "That email doesn't look right — or leave it empty.",
   email_registered:
-    "That email already belongs to a Serenade account. Leave it empty, or use another email.",
+    "That email already belongs to a SwaraSanti account. Leave it empty, or use another email.",
   not_clinician: "Only clinicians can add patients.",
   patient_limit_reached: "You've reached your patient limit — contact us to expand it.",
 } satisfies Record<CreatePatientError, string>;
@@ -125,7 +125,7 @@ export function NewPatientForm({
         {created.kind === "created" ? (
           <>
             <p>
-              <strong>{created.name}</strong> can now sign in on the Serenade homepage with:
+              <strong>{created.name}</strong> can now sign in on the SwaraSanti homepage with:
             </p>
             <dl>
               <dt>Username</dt>

@@ -58,7 +58,7 @@ export function Upgrade({
       <header className="upgrade-head">
         <h1>Unlock your full potential</h1>
         <p>
-          Serenade Premium unlocks the Studio, frequency finder, custom curves,
+          SwaraSanti Premium unlocks the Studio, frequency finder, custom curves,
           and unlimited duration.
         </p>
       </header>

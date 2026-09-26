@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/images/serenade-banner.svg" alt="Serenade — an audio instrument for quiet moments, with layered mint and lavender waveforms" width="100%" />
+  <img src="docs/images/swarasanti-banner.svg" alt="SwaraSanti — an audio instrument for quiet moments, with layered mint and lavender waveforms" width="100%" />
 </p>
 
 <p align="center">
@@ -18,11 +18,11 @@
   <a href="#science-and-scope">Science & scope</a>
 </p>
 
-# Serenade · Brainwave Entrainment
+# SwaraSanti · Brainwave Entrainment
 
 **Choose a listening goal. Shape the sound. Make room for a quieter moment.**
 
-Serenade is a browser-based audio application for relaxation, meditation, sleep routines, and focused listening. It synthesizes its sound in real time: binaural beats, isochronic and monaural beats, pure tones, and nature-inspired ambience. A session can change gradually along a frequency curve instead of repeating a static tone.
+SwaraSanti is a browser-based audio application for relaxation, meditation, sleep routines, and focused listening. It synthesizes its sound in real time: binaural beats, isochronic and monaural beats, pure tones, and nature-inspired ambience. A session can change gradually along a frequency curve instead of repeating a static tone.
 
 The everyday experience starts with eight presets. An advanced Studio adds layered sound design, while an optional backend supports accounts, a clinician audio library, and payment integration.
 
@@ -31,7 +31,7 @@ The everyday experience starts with eight presets. An advanced Studio adds layer
 ## A look inside
 
 <p align="center">
-  <img src="docs/images/serenade-home.jpg" alt="Actual Serenade home screen with a dark interface, mint accents, and Start a Free Session button" width="100%" />
+  <img src="docs/images/swarasanti-home.jpg" alt="Actual SwaraSanti home screen with a dark interface, mint accents, and Start a Free Session button" width="100%" />
 </p>
 
 <details>
@@ -39,11 +39,11 @@ The everyday experience starts with eight presets. An advanced Studio adds layer
 
 Eight goals provide a starting point, from Sleeping and Meditating to Focus & Concentration and Creative Flow.
 
-![Actual Serenade session library showing all eight goal cards and the listening journey](docs/images/serenade-sessions.jpg)
+![Actual SwaraSanti session library showing all eight goal cards and the listening journey](docs/images/swarasanti-sessions.jpg)
 
 Choose a duration, headphones or speakers, and a synthesized ambient layer before starting.
 
-![Actual Meditating setup dialog with duration, headphone or speaker mode, and ambient choices](docs/images/serenade-session-setup.jpg)
+![Actual Meditating setup dialog with duration, headphone or speaker mode, and ambient choices](docs/images/swarasanti-session-setup.jpg)
 
 </details>
 
@@ -182,7 +182,7 @@ The app reads that history back as a report: "Your listening" in Account for eve
 
 The Dashboard's Patients tab lists a Clinician's Patients in a table that searches, filters by Patient Status, sorts by any column (Patients who Need attention first by default) and pages 20, 50 or all at a time; a row opens the Patient's detail in a drawer that steps through the same list. Its listening columns come from one read, `patient_activity()` (migration 0012), which returns per Patient of the caller only the aggregates: the latest Play, Plays, stopped Plays and minutes of the last 7 days, the minutes of each of those days in the Patient's time zone, and when the account was created. The Listening core ([`src/state/patientStatus.ts`](src/state/patientStatus.ts)) derives each Patient Status (New, Not started, Quiet, Stops early or On track) from them, so the table never downloads every Play.
 
-The Admin's Dashboard adds a **Clinicians & Patients** tab: everyone on Serenade in the same table and drawer, with role tabs and counts (All, Clinicians, Patients, Regulars), Role and Clinician columns, a Clinician filter and removable filter chips. A Clinician's row shows their caseload ("28 / 30 · 5 need attention") and their Patients' week of listening; an Inactive Clinician (still the Clinician of Links, no longer holding the role) is flagged on their own row and on their Patients'. A Clinician's drawer offers **View their N patients**, and **‹ All clinicians** leads back. The Admin opens anyone's drawer, a Regular's Listening History included, and acts on any Patient as that Patient's Clinician would, assigning audio from any Audio Bank; Presets the Admin hides are kept under the Patient's own Clinician, so that Clinician sees them. The tab reads everyone through `user_overview()` (migration 0013), which returns no rows to anyone but the Admin, and both tables count their 7 days through the same `listening_week()`. A **Password views** list shows who revealed whose password, and when, through the Admin-only `password-access-log` function.
+The Admin's Dashboard adds a **Clinicians & Patients** tab: everyone on SwaraSanti in the same table and drawer, with role tabs and counts (All, Clinicians, Patients, Regulars), Role and Clinician columns, a Clinician filter and removable filter chips. A Clinician's row shows their caseload ("28 / 30 · 5 need attention") and their Patients' week of listening; an Inactive Clinician (still the Clinician of Links, no longer holding the role) is flagged on their own row and on their Patients'. A Clinician's drawer offers **View their N patients**, and **‹ All clinicians** leads back. The Admin opens anyone's drawer, a Regular's Listening History included, and acts on any Patient as that Patient's Clinician would, assigning audio from any Audio Bank; Presets the Admin hides are kept under the Patient's own Clinician, so that Clinician sees them. The tab reads everyone through `user_overview()` (migration 0013), which returns no rows to anyone but the Admin, and both tables count their 7 days through the same `listening_week()`. A **Password views** list shows who revealed whose password, and when, through the Admin-only `password-access-log` function.
 
 The Admin also manages Clinicians in that tab ([ADR-014](DECISIONS.md), [ADR-019](DECISIONS.md)). **+ Create clinician** makes a Clinician account with a name, the Clinician's own email and a password (`create-clinician`, which also uses the [password copy key](#password-copy-key)); the new Clinician signs in from the homepage with that email and password, and the Admin can reveal or reset the password in their drawer. In any drawer, **Make clinician** promotes a User who does not hold the role (`promote-clinician`), and **Raise patient limit** sets a Clinician's Patient limit to a whole number from the Patients they already have up to 1000 (`set-patient-limit`); `create-patient` enforces the new limit from their next Patient on. Every Clinician's role records where it came from: a subscription, or granted by the Admin. The payment webhook only promotes or demotes subscription Clinicians, so buying Premium or a failed clinician order never takes away a role the Admin granted (the decision is `clinicianRoleAfterPayment` in the Account rules). Migration 0014 gives existing Clinicians an origin: those with an active clinician subscription become subscription Clinicians, everyone else granted by the Admin. An email signs in with a password once its account keeps a password copy, so a User the Admin promoted keeps the magic link until the Admin sets their password.
 
@@ -228,7 +228,7 @@ For contributions, keep audio logic in `src/audio`, keep preset constants centra
 - Playback begins from a user gesture because browsers restrict autoplay.
 - Preset sessions and custom audio share one `AudioContext` ([`src/ui/audioContext.ts`](src/ui/audioContext.ts)). On Safari 16.4+ it declares a `playback` audio session, so iPhone audio still plays when the ring/silent switch is on; starting a session then pauses other apps' music, as native audio apps do.
 - Ambient noise is synthesized with sample-rate-independent constants, so the same ambience has the same level and tone at 22.05, 44.1, 48, 96, or 192 kHz.
-- If the device pauses audio mid-session (call, alarm, another app), the session holds its place on the audio clock. Serenade retries automatically and shows **Resume audio** when the browser requires a tap.
+- If the device pauses audio mid-session (call, alarm, another app), the session holds its place on the audio clock. SwaraSanti retries automatically and shows **Resume audio** when the browser requires a tap.
 - PWA installation and offline caching should be checked using the production build served over HTTPS or localhost. Backend operations remain online features.
 - Personal URLs (`/p/<username>`) are the app's only path-based entry; every other view is in-app state. The host must serve `index.html` for `/p/*` (the rewrite in [`vercel.json`](vercel.json) does this on Vercel), and the service worker answers every navigation with the app shell, so an installed PWA opens them too.
 - Mobile operating systems may suspend browser audio in the background. Media Session controls improve integration but do not guarantee uninterrupted playback on iOS.
@@ -266,7 +266,7 @@ Do not run the suite on a stack started after `npx supabase link`. Linking pins 
 
 ## Science and scope
 
-Serenade exposes how its sound is constructed and includes a [Science page](src/ui/Science.tsx) with supporting and conflicting research. Evidence for a reliable binaural-beat brainwave entrainment effect remains inconsistent; a systematic review of 14 EEG studies reported mixed findings and substantial methodological differences. [Ingendoh, Posny & Heine, PLOS ONE (2023)](https://doi.org/10.1371/journal.pone.0286023).
+SwaraSanti exposes how its sound is constructed and includes a [Science page](src/ui/Science.tsx) with supporting and conflicting research. Evidence for a reliable binaural-beat brainwave entrainment effect remains inconsistent; a systematic review of 14 EEG studies reported mixed findings and substantial methodological differences. [Ingendoh, Posny & Heine, PLOS ONE (2023)](https://doi.org/10.1371/journal.pone.0286023).
 
 ---
 

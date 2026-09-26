@@ -323,7 +323,7 @@ function SetupSheet({ preset, onClose, onStart }: SetupSheetProps) {
     try {
       await runMp3Export(
         exportId,
-        `Serenade ${preset.name} ${length} min ${earLabel}`,
+        `SwaraSanti ${preset.name} ${length} min ${earLabel}`,
         { audio: presetSnapshot(preset), lengthMin: length },
         async (onPhase) => {
           // Dynamic on purpose: code-splits the MP3 encoder out of startup.

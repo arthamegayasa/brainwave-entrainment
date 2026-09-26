@@ -22,7 +22,7 @@ import { PeopleTab } from "./PeopleTab";
  * Patients with their Patient Status, each opening in a drawer with their
  * detail) and Audio Bank tab (filterable card grid of the clinician's
  * published sessions). The Admin also gets the Clinicians & Patients tab:
- * everyone on Serenade in the same table + drawer (#13). The App renders this
+ * everyone on SwaraSanti in the same table + drawer (#13). The App renders this
  * only for clinicians/admins; RLS enforces every rule server-side regardless.
  */
 

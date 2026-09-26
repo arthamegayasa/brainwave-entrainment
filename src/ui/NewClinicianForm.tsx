@@ -23,7 +23,7 @@ const ERRORS: Partial<Record<string, string>> = {
   name_required: "Enter the clinician's name.",
   invalid_email: "Enter the clinician's email — they sign in with it.",
   email_registered:
-    "That email already belongs to a Serenade account. Open that person in the table and use Make clinician instead.",
+    "That email already belongs to a SwaraSanti account. Open that person in the table and use Make clinician instead.",
   not_allowed: "Only the Admin can create clinicians.",
 } satisfies Record<CreateClinicianError, string>;
 const UNEXPECTED_ERROR = "Could not create the clinician — try again later.";
@@ -82,7 +82,7 @@ export function NewClinicianForm({
     return (
       <div className="new-patient-done" role="status">
         <p>
-          <strong>{created.name}</strong> can now sign in on the Serenade homepage with:
+          <strong>{created.name}</strong> can now sign in on the SwaraSanti homepage with:
         </p>
         <dl>
           <dt>Email</dt>

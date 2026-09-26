@@ -24,7 +24,7 @@ import { libraryPlayStarted } from "./playAdapters";
 
 /**
  * Library (D-04): the user-facing home for custom audio — cloud sessions
- * crafted by the Serenade team ("Made for you" + templates) and locally saved
+ * crafted by the SwaraSanti team ("Made for you" + templates) and locally saved
  * Studio sessions with JSON import/export. Playback goes through the SAME
  * shared BuilderEngine the Studio uses, so one custom session plays at a time.
  * Fully standalone without Supabase: the cloud section hides entirely.
@@ -127,7 +127,7 @@ export function Library({ onSignIn, onBeforePlay }: LibraryProps) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${session.name.replace(/[^a-zA-Z0-9]+/g, "-") || "session"}.serenade.json`;
+    a.download = `${session.name.replace(/[^a-zA-Z0-9]+/g, "-") || "session"}.swarasanti.json`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -198,7 +198,7 @@ export function Library({ onSignIn, onBeforePlay }: LibraryProps) {
         <div className="library-section">
           <h2>Made for you</h2>
           <p className="library-note">
-            Sessions crafted for you by the Serenade team.
+            Sessions crafted for you by the SwaraSanti team.
           </p>
           {ent.loading && <p className="library-note">Loading your sessions…</p>}
           {!ent.loading && !signedIn && (
@@ -272,7 +272,7 @@ export function Library({ onSignIn, onBeforePlay }: LibraryProps) {
         {saved.length === 0 ? (
           <p className="library-note">
             No saved sessions yet — design one in the Studio or import a
-            .serenade.json file.
+            .swarasanti.json file.
           </p>
         ) : (
           <div className="library-list">

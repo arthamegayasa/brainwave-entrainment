@@ -169,7 +169,7 @@ select throws_ok(
 select tests.act_as_service_role();
 
 select ok(
-  public.is_email_registered('CLINICIAN_A@serenade.test')
+  public.is_email_registered('CLINICIAN_A@swarasanti.test')
     and public.is_email_registered('Ivan@Mail.test')
     and not public.is_email_registered('nobody@mail.test'),
   'an email is registered when it is any login email or contact email, in any case'
@@ -188,7 +188,7 @@ select is(
 );
 
 select ok(
-  public.password_login_email('regular@serenade.test') is null
+  public.password_login_email('regular@swarasanti.test') is null
     and public.password_login_email('nobody') is null,
   'a magic-link account''s email and an unknown Username resolve to nothing'
 );

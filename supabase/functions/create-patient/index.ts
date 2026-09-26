@@ -1,4 +1,4 @@
-// Serenade — a Clinician or the Admin creates a Patient account (ADR-014,
+// SwaraSanti — a Clinician or the Admin creates a Patient account (ADR-014,
 // ADR-015, ADR-016, ADR-018). verify_jwt = true.
 //
 // 1. Check the form, "may create Patient" (role, Patient limit, email not

@@ -23,7 +23,7 @@ returns text
 language sql
 immutable
 as $$
-  select p_label || '@serenade.test';
+  select p_label || '@swarasanti.test';
 $$;
 
 -- The User's id; raises for an unknown label so a typo cannot turn a

@@ -1,10 +1,10 @@
-# Payments Architecture — Serenade
+# Payments Architecture — SwaraSanti
 
 > **Status:** Design blueprint (not yet built). Execution-ready once the user provides
 > Midtrans **Sandbox** credentials and greenlights creating a Supabase project.
 > Decisions: [ADR-008 (pricing)](../../DECISIONS.md), [ADR-009 (payments)](../../DECISIONS.md).
 
-This document specifies how Serenade goes from a backendless, fully-unlocked PWA
+This document specifies how SwaraSanti goes from a backendless, fully-unlocked PWA
 (`ALL_UNLOCKED = true`) to a real subscription product, **Indonesia-first via
 Midtrans (IDR)**, designed so a **global gateway (Stripe / Merchant-of-Record)**
 slots in later without reworking the frontend.

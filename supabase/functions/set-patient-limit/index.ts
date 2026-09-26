@@ -1,4 +1,4 @@
-// Serenade — the Admin sets a Clinician's Patient limit (#14; ADR-014).
+// SwaraSanti — the Admin sets a Clinician's Patient limit (#14; ADR-014).
 // verify_jwt = true.
 //
 // 1. maySetPatientLimit: only the Admin, for someone who holds the Clinician

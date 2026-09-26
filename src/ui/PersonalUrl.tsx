@@ -25,7 +25,7 @@ interface PersonalUrlProps {
   username: string | null;
   /** Opens the Library: the owner of this Personal URL is signed in here. */
   onEnter: () => void;
-  /** Leaves the page for the Serenade homepage. */
+  /** Leaves the page for the SwaraSanti homepage. */
   onLeave: () => void;
 }
 
@@ -77,7 +77,7 @@ export function PersonalUrl({ username, onEnter, onLeave }: PersonalUrlProps) {
       <Notice
         title="Sign-in isn't available here"
         text="Signing in needs the cloud backend — this build runs fully offline."
-        action="Go to Serenade"
+        action="Go to SwaraSanti"
         onAction={onLeave}
       />
     );
@@ -85,8 +85,8 @@ export function PersonalUrl({ username, onEnter, onLeave }: PersonalUrlProps) {
     content = (
       <Notice
         title="Link not found"
-        text="This address doesn't open a Serenade account. Check it with the person who sent it."
-        action="Go to Serenade"
+        text="This address doesn't open a SwaraSanti account. Check it with the person who sent it."
+        action="Go to SwaraSanti"
         onAction={onLeave}
       />
     );
@@ -99,7 +99,7 @@ export function PersonalUrl({ username, onEnter, onLeave }: PersonalUrlProps) {
   } else if (lookup.state === "unavailable") {
     content = (
       <Notice
-        title="Can't reach Serenade right now"
+        title="Can't reach SwaraSanti right now"
         text="Check your connection and try again."
         action="Try again"
         onAction={retry}

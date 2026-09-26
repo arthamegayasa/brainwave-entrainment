@@ -124,7 +124,7 @@ select is(
 -- ── Signing in ──────────────────────────────────────────────────────────────
 
 select is(
-  public.password_login_email('New_Clinician@Serenade.test'),
+  public.password_login_email('New_Clinician@SwaraSanti.test'),
   tests.email('new_clinician'),
   'a Clinician the Admin created signs in with their own email and a password'
 );
@@ -151,7 +151,7 @@ select ok(
 );
 
 select ok(
-  public.password_login_email('someone-else@serenade.test') is null,
+  public.password_login_email('someone-else@swarasanti.test') is null,
   'an email nobody signs in with resolves to nothing'
 );
 
