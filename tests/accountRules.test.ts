@@ -17,6 +17,7 @@ import {
   mayCreateClinician,
   mayCreatePatient,
   mayAddUsernameLogin,
+  mayDeleteAccount,
   mayLinkExistingAccount,
   mayManageLink,
   mayPromoteToClinician,
@@ -1200,5 +1201,47 @@ describe("the Username and password fields", () => {
       ok: true,
       login: { username: "nadia", password: "hujan-biru-42" },
     });
+  });
+});
+
+describe("may delete an account", () => {
+  const admin = { role: "admin" } as const;
+
+  it("lets the Admin delete a Patient's or a Regular's account", () => {
+    expect(mayDeleteAccount({ actor: admin, account: { role: "user", patientCount: 0 } })).toEqual({ ok: true });
+  });
+
+  it("refuses everyone but the Admin, before saying anything about the account", () => {
+    for (const role of ["clinician", "user"] as const) {
+      for (const account of [
+        { role: "user", patientCount: 0 },
+        { role: "clinician", patientCount: 2 },
+        { role: "admin", patientCount: 0 },
+      ] as const) {
+        expect(mayDeleteAccount({ actor: { role }, account }), `${role} → ${account.role}`).toEqual({
+          ok: false,
+          reason: "not_allowed",
+        });
+      }
+    }
+  });
+
+  it("refuses a Clinician who still has Patients, active or Inactive, until they are Transferred", () => {
+    for (const account of [
+      { role: "clinician", patientCount: 1 },
+      { role: "user", patientCount: 3 },
+    ] as const) {
+      expect(mayDeleteAccount({ actor: admin, account }), account.role).toEqual({ ok: false, reason: "has_patients" });
+    }
+    expect(mayDeleteAccount({ actor: admin, account: { role: "clinician", patientCount: 0 } })).toEqual({ ok: true });
+  });
+
+  it("never deletes the Admin account, with or without Patients", () => {
+    for (const patientCount of [0, 4]) {
+      expect(mayDeleteAccount({ actor: admin, account: { role: "admin", patientCount } }), `${patientCount}`).toEqual({
+        ok: false,
+        reason: "account_is_admin",
+      });
+    }
   });
 });

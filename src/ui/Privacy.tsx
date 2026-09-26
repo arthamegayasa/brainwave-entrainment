@@ -225,7 +225,7 @@ const POLICY: Record<Lang, PolicyCopy> = {
           },
           {
             term: "Saat akun Anda dihapus,",
-            text: "Listening History Anda ikut dihapus. Hanya Admin yang bisa menghapus akun; lihat hak Anda di bawah.",
+            text: "Listening History, Link ke Clinician Anda, dan salinan password Anda ikut dihapus. Catatan password yang dilihat tetap menyimpan kapan password Anda dilihat, tetapi tidak lagi menyebut milik siapa. Hanya Admin yang bisa menghapus akun; lihat hak Anda di bawah.",
           },
           {
             term: "Catatan pembayaran",
@@ -442,7 +442,7 @@ const POLICY: Record<Lang, PolicyCopy> = {
           },
           {
             term: "When your account is deleted,",
-            text: "your Listening History is deleted with it. Only the Admin can delete an account; see your rights below.",
+            text: "your Listening History, your Link to your Clinician and the stored copy of your password are deleted with it. The log of password views keeps when your password was viewed, but no longer says whose it was. Only the Admin can delete an account; see your rights below.",
           },
           {
             term: "Payment records",

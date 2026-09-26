@@ -404,7 +404,7 @@ verify_jwt = false
 # and removing the Clinician role (#15) need the signed-in Admin too. Linking
 # an existing User as a Patient (#16) needs the signed-in Admin; giving a
 # Patient a Username and password needs their Clinician or the Admin. Both
-# read PASSWORD_COPY_KEY.
+# read PASSWORD_COPY_KEY. Deleting an account (#17) needs the signed-in Admin.
 [functions.create-patient]
 verify_jwt = true
 
@@ -457,6 +457,9 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.add-username-login]
+verify_jwt = true
+
+[functions.delete-account]
 verify_jwt = true
 
 [analytics]

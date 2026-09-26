@@ -18,6 +18,7 @@ import {
 import type { ShownRole } from "../../supabase/functions/_shared/accountRules.ts";
 import { ClinicianRole, ORIGIN_NAMES } from "./ClinicianRole";
 import type { ClinicianRoleAccount } from "./ClinicianRole";
+import { DeleteAccount } from "./DeleteAccount";
 import { ListeningReport } from "./ListeningReport";
 import { formatMinutes } from "./listeningFormat";
 import { LinkExistingUser, LinkToClinician } from "./LinkPatientForm";
@@ -58,8 +59,9 @@ import type { Dir, StatusFilter } from "./roster";
  * promotes Users, raises Patient limits and handles the passwords of
  * Clinicians they created (#14). The Admin links anyone who is nobody's
  * Patient to a Clinician, from their drawer or from a Clinician's Patients
- * (#16). Everything comes from one aggregate read (user_overview, 0013);
- * roles follow from it through the Account rules.
+ * (#16), and deletes anyone's account but their own (#17). Everything comes
+ * from one aggregate read (user_overview, 0013); roles follow from it
+ * through the Account rules.
  */
 
 type RoleTab = "all" | "clinicians" | "patients" | "regulars";
@@ -501,6 +503,28 @@ export function PeopleTab({ flash }: { flash: (msg: string) => void }) {
     }
   };
 
+  /**
+   * "Delete account" at the end of the open drawer. Once the account is gone,
+   * the table reloads and the drawer closes, focus back on the list.
+   */
+  const accountDeletion = openRow && (
+    <DeleteAccount
+      account={{
+        userId: openRow.person.user.userId,
+        name: openRow.person.name,
+        role: openRow.person.user.role,
+        username: openRow.person.user.username,
+        clinicianName: openRow.person.clinician?.name ?? null,
+        patientCount: openRow.person.caseload?.patients ?? 0,
+      }}
+      onDeleted={async () => {
+        await refresh();
+        nav.closeDrawer();
+        flash(`${openRow.person.name}'s account deleted`);
+      }}
+    />
+  );
+
   const chips: Array<{ label: string; clear: () => void }> = [];
   if (q) chips.push({ label: `Search: “${query.trim()}”`, clear: () => setQuery("") });
   if (scopeClinician) chips.push({ label: `Clinician: ${scopeClinician.name}`, clear: () => filterByClinician("") });
@@ -770,6 +794,7 @@ export function PeopleTab({ flash }: { flash: (msg: string) => void }) {
                 />
               }
               transferTargets={transferTargets}
+              accountDeletion={accountDeletion}
             />
           ) : (
             <PersonDetail
@@ -793,6 +818,7 @@ export function PeopleTab({ flash }: { flash: (msg: string) => void }) {
                   onChange={refresh}
                 />
               }
+              accountDeletion={accountDeletion}
             />
           )}
         </Drawer>
@@ -873,12 +899,15 @@ function PersonDetail({
   now,
   clinicianRole,
   patientLink,
+  accountDeletion,
 }: {
   person: Person;
   now: number;
   clinicianRole: ReactNode;
   /** "Link to clinician…"; nothing for the Admin, who is never a Patient. */
   patientLink: ReactNode;
+  /** "Delete account"; nothing for the Admin account. */
+  accountDeletion: ReactNode;
 }) {
   const { user } = person;
   return (
@@ -904,6 +933,7 @@ function PersonDetail({
           headingLevel={5}
         />
       </div>
+      {accountDeletion}
     </div>
   );
 }

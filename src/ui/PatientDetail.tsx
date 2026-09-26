@@ -29,11 +29,11 @@ import type { ShownRole } from "../../supabase/functions/_shared/accountRules.ts
  * One Patient in full, in the drawer of a people table (#12, #13): their
  * roles and Patient Status, every action on the Patient (Premium grant,
  * Personal URL and Username, password, disconnect, and the Admin's Transfer,
- * #15), their Listening History report, and the curation of Built-in
- * sessions and Assigned audio. The Admin acts exactly as the Patient's
- * Clinician would, and assigns audio from any Audio Bank. A Patient without
- * a Username gets one with a password here (#16). The password of a Patient
- * who is also a Clinician is the Admin's alone (ADR-015).
+ * #15, and deletion, #17), their Listening History report, and the curation
+ * of Built-in sessions and Assigned audio. The Admin acts exactly as the
+ * Patient's Clinician would, and assigns audio from any Audio Bank. A Patient
+ * without a Username gets one with a password here (#16). The password of a
+ * Patient who is also a Clinician is the Admin's alone (ADR-015).
  */
 
 /** Who looks at the Patient: their own Clinician, or the Admin. */
@@ -107,6 +107,7 @@ export function PatientDetail({
   onDisconnect,
   clinicianRole,
   transferTargets,
+  accountDeletion,
 }: {
   patient: PatientLink;
   /** Every role the Patient holds, for the badges in the header. */
@@ -129,6 +130,8 @@ export function PatientDetail({
   clinicianRole?: ReactNode;
   /** Whom the Admin may Transfer the Patient to; without it, no Transfer. */
   transferTargets?: readonly TransferCandidate[];
+  /** The Admin's deletion of the account, at the end; without it, no deletion. */
+  accountDeletion?: ReactNode;
 }) {
   const [transferring, setTransferring] = useState(false);
   /** A password the viewer just set with a new Username, shown once in the Password block. */
@@ -401,6 +404,8 @@ export function PatientDetail({
         )}
         {copy.bankNote && <p className="library-note">{copy.bankNote}</p>}
       </div>
+
+      {accountDeletion}
     </div>
   );
 }

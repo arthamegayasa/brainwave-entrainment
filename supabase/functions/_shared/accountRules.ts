@@ -757,6 +757,29 @@ export type LinkPatientError = LinkExistingAccountRefusal | UsernameLoginRefusal
 /** Every refusal the add-username-login function answers with (as `{ error }`). */
 export type AddUsernameLoginError = AddUsernameLoginRefusal | UsernameLoginRefusal;
 
+export type DeleteAccountRefusal = AdminOnlyRefusal | "account_is_admin" | "has_patients";
+
+/**
+ * Only the Admin deletes an account (ADR-014): a Patient's, a Regular's, or a
+ * Clinician's once they have no Patients left, never the Admin account. While
+ * Patients are still Linked to them, whether they hold the role or are an
+ * Inactive Clinician, the Admin first Transfers those Patients, so no Patient
+ * loses their Link.
+ */
+export function mayDeleteAccount(request: {
+  actor: { role: AccountRole };
+  account: { role: AccountRole; patientCount: number };
+}): { ok: true } | { ok: false; reason: DeleteAccountRefusal } {
+  const { actor, account } = request;
+  if (actor.role !== "admin") return { ok: false, reason: "not_allowed" };
+  if (account.role === "admin") return { ok: false, reason: "account_is_admin" };
+  if (account.patientCount > 0) return { ok: false, reason: "has_patients" };
+  return { ok: true };
+}
+
+/** Every refusal the delete-account function answers with (as `{ error }`). */
+export type DeleteAccountError = DeleteAccountRefusal;
+
 /** Checks and normalizes the "+ New patient" fields, in the app and on the server. */
 export function checkNewPatient(input: NewPatientInput):
   | { ok: true; patient: NewPatient }

@@ -242,3 +242,12 @@ export function linkPatient(
 export function addUsernameLogin(accountId: string, login: UsernameLoginInput): Promise<{ username: string }> {
   return invoke("add-username-login", { accountId, ...login });
 }
+
+/**
+ * The Admin deletes an account for good (#17; ADR-022): its Listening History,
+ * Link and password copy go with it, and its Username stays locked for 30
+ * days. Refusals arrive as AccountError with a DeleteAccountError code.
+ */
+export async function deleteAccount(accountId: string): Promise<void> {
+  await invoke("delete-account", { accountId });
+}

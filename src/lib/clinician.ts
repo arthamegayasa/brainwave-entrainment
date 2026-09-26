@@ -316,6 +316,19 @@ export async function listBank(): Promise<BankAudio[]> {
   return ((data ?? []) as BankRow[]).map(toBankAudio).filter((audio) => audio !== null);
 }
 
+/**
+ * Admin: how many Custom Audio a User created, their Audio Bank's size. A
+ * former Clinician keeps theirs (#15). RLS lets only the Admin count anyone's.
+ */
+export async function audioBankSize(userId: string): Promise<number> {
+  const { count, error } = await client()
+    .from("custom_audios")
+    .select("id", { count: "exact", head: true })
+    .eq("created_by", userId);
+  if (error) throw error;
+  return count ?? 0;
+}
+
 /** One Clinician's Audio Bank, named after them. */
 export interface AudioBank {
   ownerId: string;
