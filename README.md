@@ -262,6 +262,8 @@ Each test file runs in one transaction that ends in `rollback`, so files are ind
 
 Keep new test files in `supabase/tests/database`, next to the fixture.
 
+Do not run the suite on a stack started after `npx supabase link`. Linking pins the local image to the hosted Postgres version (17.6.1.104 at the time of writing), and that image crashes the database with a segmentation fault when a `postgres` session switches to `anon` or `authenticated` and calls a function whose EXECUTE was revoked. That is exactly what the "cannot call this function" tests do ([supabase/postgres#2377](https://github.com/supabase/postgres/issues/2377)). Delete `supabase/.temp` and restart the stack to go back to the CLI's default image. Requests through the API (PostgREST) are not affected: a revoked function returns a clean `permission denied` there.
+
 ## Science and scope
 
 Serenade exposes how its sound is constructed and includes a [Science page](src/ui/Science.tsx) with supporting and conflicting research. Evidence for a reliable binaural-beat brainwave entrainment effect remains inconsistent; a systematic review of 14 EEG studies reported mixed findings and substantial methodological differences. [Ingendoh, Posny & Heine, PLOS ONE (2023)](https://doi.org/10.1371/journal.pone.0286023).
