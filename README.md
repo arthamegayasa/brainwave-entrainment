@@ -214,15 +214,18 @@ npx supabase stop       # stop the stack (add --no-backup to discard its data)
 
 Pass a file to run just that test, for example `npx supabase test db supabase/tests/database/anon_access.test.sql`. After changing a migration, `npx supabase db reset` rebuilds the local database from scratch. CI runs the same start and test steps in its own `database` job, which fails on any failing test. CI pins the CLI version with `SUPABASE_CLI` in [`checks.yml`](.github/workflows/checks.yml); run `npx` with that same package spec, for example `npx supabase@2.118.0 test db`, to reproduce a CI result exactly.
 
-Each test file runs in one transaction that ends in `rollback`, so files are independent. A file starts with `begin;` and `\ir fixtures.psql`, which adds these helpers for that transaction. Users are referred to by a label that is unique within the file (a fixture label only, not a Username):
+Each test file runs in one transaction that ends in `rollback`, so files are independent. A file starts with `begin;` and `\ir fixtures.psql`, which adds these helpers for that transaction. Users and Custom Audio are referred to by a label that is unique within the file (a fixture label only, not a Username):
 
 | Helper | Purpose |
 | --- | --- |
 | `tests.create_user(label, role)` | Create a User (`auth.users` row and profile). Role `user` (default), `clinician`, or `admin`. |
 | `tests.link(clinician, patient)` | Create the Link between a Clinician and a Patient. |
+| `tests.create_custom_audio(label, owner, is_template)` | Create Custom Audio created by the User `owner`; `is_template` `true` makes it a Template (default `false`). |
+| `tests.assign(audio, user)` | Create the Assignment of that Custom Audio to that User. |
 | `tests.act_as(label)` | Continue as that signed-in User: the `authenticated` role with their JWT claims. |
 | `tests.act_as_anon()` | Continue as a signed-out visitor (`anon`). `reset role` returns to the database owner. |
 | `tests.user_id(label)` | The User's id, for expected results. An unknown label raises an error. |
+| `tests.custom_audio_id(label)` | The Custom Audio's id, for expected results. An unknown label raises an error. |
 
 Keep new test files in `supabase/tests/database`, next to the fixture.
 

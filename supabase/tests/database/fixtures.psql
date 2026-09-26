@@ -4,11 +4,13 @@
 -- `supabase test db <file>` mounts only the file's own folder. The `.psql`
 -- extension keeps `supabase test db` from running this file as a test.
 --
--- Tests refer to Users by a label that is unique within one test file (a
--- fixture label only, not a Username):
+-- Tests refer to Users and Custom Audio by a label that is unique within one
+-- test file (a fixture label only, not a Username):
 --   select tests.create_user('clinician_a', 'clinician');
 --   select tests.create_user('patient_a');
 --   select tests.link('clinician_a', 'patient_a');
+--   select tests.create_custom_audio('bank_a', 'clinician_a');
+--   select tests.assign('bank_a', 'patient_a');
 --   select tests.act_as('clinician_a');   -- or tests.act_as_anon()
 --   reset role;                           -- back to the fixture owner
 
@@ -73,6 +75,50 @@ language sql
 as $$
   insert into public.patient_links (clinician_id, patient_id)
   values (tests.user_id(p_clinician), tests.user_id(p_patient));
+$$;
+
+-- Creates Custom Audio named by its label, created by the User p_owner;
+-- p_is_template publishes it as a Template. Returns its id.
+create function tests.create_custom_audio(
+  p_label text,
+  p_owner text,
+  p_is_template boolean default false
+)
+returns uuid
+language sql
+as $$
+  insert into public.custom_audios (created_by, name, spec, is_template)
+  values (tests.user_id(p_owner), p_label, '{}'::jsonb, p_is_template)
+  returning id;
+$$;
+
+-- The Custom Audio's id; raises for an unknown label, like tests.user_id.
+-- security definer: the acting User may not be able to read that row.
+create function tests.custom_audio_id(p_label text)
+returns uuid
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_id uuid;
+begin
+  select id into v_id from public.custom_audios where name = p_label;
+  if not found then
+    raise exception 'tests.custom_audio_id: no Custom Audio labelled %', p_label;
+  end if;
+  return v_id;
+end;
+$$;
+
+-- Creates the Assignment of a Custom Audio to a User.
+create function tests.assign(p_audio text, p_user text)
+returns void
+language sql
+as $$
+  insert into public.audio_assignments (audio_id, user_id)
+  values (tests.custom_audio_id(p_audio), tests.user_id(p_user));
 $$;
 
 -- Acts as a signed-in User for the rest of the transaction: the authenticated
