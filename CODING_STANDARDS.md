@@ -5,7 +5,7 @@ Aturan yang dicek saat review (`/code-review`). Alasan dan gotcha per area ada d
 ## Umum
 
 - Bahasa kode/komentar/commit: English. UI: English (diubah dari Indonesia atas permintaan user, 2026-07-03).
-- **Framing produk**: relaxation & meditation tool. Jangan pakai klaim medis/penyembuhan.
+- **Framing produk**: SwaraSanti adalah *non-invasive brainwave audio entrainment*: sesi audio yang dirancang untuk menuntun brainwave menuju band tertentu, hanya lewat suara. Copy menonjolkan metode ini; istilah *neuromodulasi non-invasif* boleh dipakai untuk menyebut kategori metodenya. Tujuan yang disebut tetap non-medis (tidur, fokus, relaksasi, meditasi, energi). Jangan klaim diagnosis, pengobatan, penyembuhan, atau pencegahan penyakit maupun kondisi (mis. "mengobati insomnia", "memperbaiki otak"), dan jangan klaim efek yang pasti: bukti ilmiah entrainment masih campuran (halaman Science).
 - Setiap perubahan perilaku disertai test yang terfokus (lihat `docs/knowledge/testing.md`).
 
 ## Audio
