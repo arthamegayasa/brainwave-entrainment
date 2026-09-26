@@ -8,7 +8,7 @@ interface SessionVizProps {
 }
 
 /**
- * Live session visualization (PWA-04): the beat-frequency curve with a moving
+ * Live session visualization: the beat-frequency curve with a moving
  * "you are here" marker. Pure SVG — cheap to repaint each tick.
  */
 export function SessionViz({ schedule, elapsedSec, durationSec }: SessionVizProps) {

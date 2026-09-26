@@ -93,7 +93,7 @@ const BUILDERS: Record<AmbientKind, (ctx: BaseAudioContext) => Sources> = {
   rain: buildRain,
 };
 
-/** Synthesized ambient layer (ENG-05): rain, ocean, wind, brown noise. */
+/** Synthesized ambient layer: rain, ocean, wind, brown noise. */
 export function createAmbientLayer(
   ctx: BaseAudioContext,
   kind: AmbientKind,

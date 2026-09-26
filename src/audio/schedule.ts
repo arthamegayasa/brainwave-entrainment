@@ -13,11 +13,11 @@ export interface SessionSchedule {
 }
 
 /**
- * Build the beat-frequency schedule for a preset and duration (SCH-01).
+ * Build the beat-frequency schedule for a preset and duration.
  *
  * Shape: startHz → (rampIn) → targetHz → hold → (rampOut) → endHz.
  * - rampIn is capped at 40% of the session, rampOut at 20%.
- * - endHz === null → no closing ramp (SCH-02, sleep stays low).
+ * - endHz === null → no closing ramp (sleep stays low).
  * - durationSec === null → infinite: ramp in, then hold until stopped.
  */
 export function buildSchedule(

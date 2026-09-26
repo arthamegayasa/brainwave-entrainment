@@ -1,5 +1,5 @@
 /**
- * Behavioral progress state (quick-260707-a47, D-05): journey steps (goal
+ * Behavioral progress state: journey steps (goal
  * gradient), time-of-day recommendations (smart defaults), chosen goals
  * (IKEA-effect personalization), weekly streaks (loss aversion), and the
  * reciprocity card threshold. Pure TypeScript — NO React imports — persisted
@@ -126,7 +126,7 @@ export function recordSessionCompleted(ref: string, now: Date = new Date()): voi
   write(state);
 }
 
-/** The four goal-gradient journey steps (D-05), in order. */
+/** The four goal-gradient journey steps, in order. */
 export function journeySteps(): Array<{ label: string; done: boolean }> {
   const state = loadProgress();
   const sessions = state.completedSessions.length;
@@ -146,7 +146,7 @@ export function journeyPercent(): number {
 }
 
 /**
- * Time-of-day smart default (D-05). Returns a preset ID — the UI resolves
+ * Time-of-day smart default. Returns a preset ID — the UI resolves
  * names via getPreset. Windows (local time):
  *   05:00-10:59 focus · 11:00-14:59 power-nap · 15:00-17:59 energy ·
  *   18:00-20:59 healing-relaxation · 21:00-04:59 deep-sleep
@@ -234,7 +234,7 @@ export function currentStreakDays(now: Date = new Date()): number {
   return streak;
 }
 
-/** Reciprocity card (D-05): show after the 2nd completion until dismissed. */
+/** Reciprocity card: show after the 2nd completion until dismissed. */
 export function shouldShowReciprocity(): boolean {
   const state = loadProgress();
   return state.completedSessions.length >= 2 && !state.reciprocityDismissed;
@@ -251,7 +251,7 @@ export function totalSessions(): number {
 }
 
 /**
- * Clear all persisted progress (quick-260714-dc3). The next loadProgress()
+ * Clear all persisted progress. The next loadProgress()
  * re-initializes discovery, so the journey restarts from step 1. Never throws.
  */
 export function resetProgress(): void {

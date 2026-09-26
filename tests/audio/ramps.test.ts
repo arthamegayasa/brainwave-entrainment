@@ -3,7 +3,7 @@ import { OfflineAudioContext } from "node-web-audio-api";
 import { fadeIn, fadeOut } from "../../src/audio/ramps";
 import { maxDelta } from "./helpers";
 
-describe("ramps discipline (ENG-06)", () => {
+describe("ramps discipline", () => {
   it("fadeIn + fadeOut renders click-free and ends silent", async () => {
     const ctx = new OfflineAudioContext(1, 44100, 44100);
     const osc = ctx.createOscillator();

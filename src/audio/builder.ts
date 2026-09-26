@@ -13,7 +13,7 @@ import type { Preset } from "./presets";
 export type EntrainmentLayerType = "binaural" | "isochronic" | "monaural";
 export type BuilderLayerType = EntrainmentLayerType | "pure" | AmbientKind;
 
-/** One layer in a custom session (BLD-01). */
+/** One layer in a custom session. */
 export interface BuilderLayerSpec {
   id: string;
   type: BuilderLayerType;
@@ -26,7 +26,7 @@ export interface BuilderLayerSpec {
   gain: number;
 }
 
-/** The custom session ramp curve (BLD-03) — same model as presets. */
+/** The custom session ramp curve — same model as presets. */
 export interface BuilderCurve {
   startHz: number;
   targetHz: number;
@@ -36,7 +36,7 @@ export interface BuilderCurve {
   rampOutMin: number;
 }
 
-/** A saved custom session (BLD-04). */
+/** A saved custom session. */
 export interface CustomSession {
   version: 1;
   id: string;

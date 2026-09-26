@@ -3,7 +3,7 @@ import { FADE_SEC } from "../constants";
 import { fadeIn, fadeOut } from "../ramps";
 
 /**
- * Monaural beats (ENG-03): two tones summed BEFORE reaching the ear — the beat
+ * Monaural beats: two tones summed BEFORE reaching the ear — the beat
  * exists physically in the air, so it works on speakers. Pre-gain 0.5 per
  * oscillator (set at construction, before audio runs) guarantees the sum
  * never clips.

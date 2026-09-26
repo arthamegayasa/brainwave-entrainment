@@ -21,17 +21,17 @@ import {
 import { presetPlays } from "./playAdapters";
 
 // Module-level singleton on the shared AudioContext; the engine itself never
-// creates a context (ENG-07).
+// creates a context.
 let engine: SessionEngine | null = null;
 
-/** Call inside the user gesture that starts playback (UI-08). */
+/** Call inside the user gesture that starts playback. */
 function ensureEngine(): SessionEngine {
   const ctx = acquireAudio("session");
   engine ??= new SessionEngine(ctx, loadPrefs().volumes);
   return engine;
 }
 
-/** Best-effort Media Session wiring (PWA-02): lockscreen metadata + controls. */
+/** Best-effort Media Session wiring: lockscreen metadata + controls. */
 function updateMediaSession(cfg: SessionConfig | null, handlers?: { stop: () => void }) {
   if (!("mediaSession" in navigator)) return;
   try {
@@ -107,7 +107,7 @@ export function useSession(onEnded?: (endedAt: Date) => void): SessionApi {
   }, [active, paused]);
 
   // Poll progress for the UI only — audio timing itself lives on the audio
-  // clock inside SessionEngine (SCH-03); this interval merely repaints.
+  // clock inside SessionEngine; this interval merely repaints.
   useEffect(() => {
     if (!active) return;
     const id = window.setInterval(() => {

@@ -18,7 +18,7 @@ import { PatientsTab } from "./PatientsTab";
 import { PeopleTab } from "./PeopleTab";
 
 /**
- * Clinician Dashboard (D-06): Patients tab (the table of the Clinician's
+ * Clinician Dashboard: Patients tab (the table of the Clinician's
  * Patients with their Patient Status, each opening in a drawer with their
  * detail) and Audio Bank tab (filterable card grid of the clinician's
  * published sessions). The Admin also gets the Clinicians & Patients tab:

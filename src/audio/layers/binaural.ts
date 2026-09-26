@@ -3,7 +3,7 @@ import { FADE_SEC } from "../constants";
 import { fadeIn, fadeOut } from "../ramps";
 
 /**
- * Binaural beats (ENG-01): carrier on the LEFT ear, carrier+beat on the RIGHT.
+ * Binaural beats: carrier on the LEFT ear, carrier+beat on the RIGHT.
  * The brain perceives the difference as a beat — requires headphones.
  */
 export function createBinauralLayer(
@@ -44,7 +44,7 @@ export function createBinauralLayer(
 }
 
 /**
- * Session variant: the beat is rampable (SCH-01). Beat lives entirely on the
+ * Session variant: the beat is rampable. Beat lives entirely on the
  * RIGHT oscillator — oscR.frequency = carrier + beat(t); L stays at carrier.
  */
 export function createBinauralSessionLayer(

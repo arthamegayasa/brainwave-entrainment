@@ -30,7 +30,7 @@ interface SessionCompleteProps {
 }
 
 /**
- * Post-session completion card (D-05 goal gradient + loss aversion): weekly
+ * Post-session completion card (goal gradient + loss aversion): weekly
  * session count, Mon-Sun streak dots, and the come-back-tomorrow nudge.
  */
 export function SessionComplete({ presetName, onDone }: SessionCompleteProps) {

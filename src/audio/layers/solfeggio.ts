@@ -2,7 +2,7 @@ import type { SoundLayer } from "../types";
 import { FADE_SEC } from "../constants";
 import { fadeIn, fadeOut } from "../ramps";
 
-/** Solfeggio pure tone (ENG-04): a single sine oscillator at the given Hz. */
+/** Solfeggio pure tone: a single sine oscillator at the given Hz. */
 export function createSolfeggioLayer(
   ctx: BaseAudioContext,
   toneHz: number,

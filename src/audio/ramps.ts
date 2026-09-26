@@ -1,7 +1,7 @@
 import { FADE_SEC } from "./constants";
 
 /**
- * Gain-ramp discipline (ENG-06): every audible gain change goes through these
+ * Gain-ramp discipline: every audible gain change goes through these
  * helpers. Direct `gain.value =` assignment while audio runs causes clicks;
  * an exponential ramp targeting exactly zero throws RangeError — both banned.
  */

@@ -1,5 +1,5 @@
 /**
- * Monetization scaffold (MON-01). The gating architecture is live but this
+ * Monetization scaffold. The gating architecture is live but this
  * build ships with everything unlocked (ALL_UNLOCKED) — wiring a payment
  * provider later only requires flipping the flag and setting tiers from a
  * backend/receipt instead of localStorage.
@@ -37,7 +37,7 @@ export const PRICING = {
      */
     anchorAnnual: { amount: 588000, price: "Rp588,000" },
     /**
-     * Clinician plan (quick-260714-a8a): professional tier for therapists and
+     * Clinician plan: professional tier for therapists and
      * clinics — access is ROLE-gated (profiles.role), NOT wired into
      * TierFeatures. The anchor is 12 × clinician monthly (249,000 × 12 =
      * 2,988,000) — contrast-only, never charged.

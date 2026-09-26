@@ -23,7 +23,7 @@ import {
 import { libraryPlayStarted } from "./playAdapters";
 
 /**
- * Library (D-04): the user-facing home for custom audio — cloud sessions
+ * Library: the user-facing home for custom audio — cloud sessions
  * crafted by the SwaraSanti team ("Made for you" + templates) and locally saved
  * Studio sessions with JSON import/export. Playback goes through the SAME
  * shared BuilderEngine the Studio uses, so one custom session plays at a time.
@@ -31,7 +31,7 @@ import { libraryPlayStarted } from "./playAdapters";
  */
 
 interface LibraryProps {
-  /** Opens the Account sheet (quick-260714-dc3) — sign-in lives there now. */
+  /** Opens the Account sheet — sign-in lives there now. */
   onSignIn: () => void;
   /** Called before custom audio starts — the App stops any preset session. */
   onBeforePlay: () => void;

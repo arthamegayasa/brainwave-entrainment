@@ -4,7 +4,7 @@ import { createBinauralLayer } from "../../src/audio/layers/binaural";
 import { AudioEngine } from "../../src/audio/engine";
 import { countZeroCrossings } from "./helpers";
 
-describe("BinauralLayer (ENG-01)", () => {
+describe("BinauralLayer", () => {
   it("plays carrier on L and carrier+beat on R", async () => {
     const ctx = new OfflineAudioContext(2, 44100, 44100);
     const layer = createBinauralLayer(

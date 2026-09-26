@@ -4,7 +4,7 @@ import { SOLFEGGIO } from "./constants";
 export type Band = "delta" | "theta" | "alpha" | "beta" | "gamma";
 
 /**
- * A goal-first session preset (PRE-02): every number that shapes a session
+ * A goal-first session preset: every number that shapes a session
  * lives here and nowhere else.
  *
  * Ramp model (ADR-006): beat starts near waking frequency (startHz), descends
@@ -20,14 +20,14 @@ export interface Preset {
   band: Band;
   targetHz: number;
   startHz: number;
-  /** null = end at target (fade out only, no closing ramp) — SCH-02. */
+  /** null = end at target (fade out only, no closing ramp). */
   endHz: number | null;
   rampInMin: number;
   rampOutMin: number;
   /** Carrier tone (solfeggio) used by both binaural and isochronic modes. */
   carrierHz: number;
   defaultAmbient: AmbientKind | null;
-  /** Monetization scaffold (MON-01): gating UI reads this; all unlocked in this build. */
+  /** Monetization scaffold: gating UI reads this; all unlocked in this build. */
   premium: boolean;
 }
 

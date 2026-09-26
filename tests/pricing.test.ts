@@ -15,7 +15,7 @@ function installLocalStorage() {
   };
 }
 
-describe("clinician pricing invariants (quick-260714-a8a)", () => {
+describe("clinician pricing invariants", () => {
   const clinician = PRICING.IDR.clinician;
 
   it("charges Rp249k monthly and Rp1.99M annually", () => {
@@ -42,7 +42,7 @@ describe("clinician pricing invariants (quick-260714-a8a)", () => {
   });
 });
 
-describe("premium pricing untouched (D-07 regression guard)", () => {
+describe("premium pricing untouched (regression guard)", () => {
   it("keeps every premium number byte-identical", () => {
     expect(PRICING.IDR.monthly.amount).toBe(49000);
     expect(PRICING.IDR.annual.amount).toBe(249000);
@@ -51,7 +51,7 @@ describe("premium pricing untouched (D-07 regression guard)", () => {
   });
 });
 
-describe("clinician access is role-gated, not TierFeatures-gated (D-04)", () => {
+describe("clinician access is role-gated, not TierFeatures-gated", () => {
   beforeEach(installLocalStorage);
 
   it("ALL_UNLOCKED still true and the studio feature still unlocked", () => {

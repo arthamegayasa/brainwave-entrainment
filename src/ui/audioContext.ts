@@ -3,7 +3,7 @@
  *
  * Preset sessions (SessionEngine) and custom audio (BuilderEngine) share one
  * context: one pair of ears, one hardware audio session. Engines never create
- * a context (ENG-07); everything device-specific lives here:
+ * a context; everything device-specific lives here:
  *
  * - iOS runs Web Audio in the "ambient" session, which the ring/silent switch
  *   mutes. Declaring a "playback" session (Safari 16.4+) makes it behave like
@@ -82,7 +82,7 @@ function createContext(): AudioContext {
 
 /**
  * The shared context, created and resumed for `owner`. Call synchronously
- * inside the user gesture that starts playback (autoplay policy, UI-08).
+ * inside the user gesture that starts playback (autoplay policy).
  * Nothing here awaits: a resume() that never settles (seen on iOS) cannot
  * block the start — engines schedule on the paused clock and play once the
  * context runs.

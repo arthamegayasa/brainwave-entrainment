@@ -2,7 +2,7 @@ import type { SessionVolumes } from "../audio/session";
 import type { AmbientKind } from "../audio/types";
 import type { ListeningMode } from "../audio/session";
 
-/** User preferences persisted across reloads (PWA-03). */
+/** User preferences persisted across reloads. */
 export interface Prefs {
   volumes: Partial<SessionVolumes>;
   lastPresetId: string | null;
@@ -52,7 +52,7 @@ export function savePrefs(patch: Partial<Prefs>): void {
 }
 
 /**
- * Clear all persisted preferences (quick-260714-dc3) — loadPrefs() returns
+ * Clear all persisted preferences — loadPrefs() returns
  * DEFAULTS afterwards. Never throws.
  */
 export function resetPrefs(): void {

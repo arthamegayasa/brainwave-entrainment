@@ -17,7 +17,7 @@ function installLocalStorage() {
   };
 }
 
-describe("prefs persistence (PWA-03)", () => {
+describe("prefs persistence", () => {
   beforeEach(installLocalStorage);
 
   it("returns defaults when empty", () => {
@@ -41,7 +41,7 @@ describe("prefs persistence (PWA-03)", () => {
   });
 });
 
-describe("tier scaffold (MON-01)", () => {
+describe("tier scaffold", () => {
   beforeEach(installLocalStorage);
 
   it("ships fully unlocked in this build", () => {
@@ -62,7 +62,7 @@ describe("tier scaffold (MON-01)", () => {
   });
 });
 
-describe("pricing (MON-01)", () => {
+describe("pricing", () => {
   it("annual is cheaper per year than 12 months and advertises the right saving", () => {
     const { monthly, annual } = PRICING.IDR;
     expect(annual.amount).toBeLessThan(monthly.amount * 12);
@@ -76,7 +76,7 @@ describe("pricing (MON-01)", () => {
   });
 });
 
-describe("goal-first preset names (quick-260707-a47)", () => {
+describe("goal-first preset names", () => {
   it("renames presets while keeping ids unchanged", () => {
     expect(getPreset("deep-sleep").name).toBe("Sleeping");
     expect(getPreset("deep-meditation").name).toBe("Meditating");

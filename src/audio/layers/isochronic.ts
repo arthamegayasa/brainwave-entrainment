@@ -18,7 +18,7 @@ export function buildPulseCurve(n: number = 2048): Float32Array<ArrayBuffer> {
 }
 
 /**
- * Isochronic tones (ENG-02): a carrier pulsed on/off at beat Hz with a smooth
+ * Isochronic tones: a carrier pulsed on/off at beat Hz with a smooth
  * envelope. LFO → WaveShaper → envGain.gain keeps the beat rate a single
  * AudioParam (lfo.frequency) so Phase 2 can ramp it continuously (ADR-006).
  */
@@ -65,7 +65,7 @@ export function createIsochronicLayer(
 }
 
 /**
- * Session variant: pulse rate is rampable (SCH-01) — the beat is a single
+ * Session variant: pulse rate is rampable — the beat is a single
  * AudioParam (lfo.frequency), which is exactly why the LFO architecture won.
  */
 export function createIsochronicSessionLayer(

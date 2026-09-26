@@ -3,7 +3,7 @@ import { bandForHz } from "../src/ui/bands";
 import { PRESETS } from "../src/audio/presets";
 
 // bandForHz is pure — no localStorage shim needed.
-describe("bandForHz (quick-260714-a8a)", () => {
+describe("bandForHz", () => {
   it("maps frequencies below 4 Hz to delta", () => {
     expect(bandForHz(0.5)).toBe("delta");
     expect(bandForHz(3.9)).toBe("delta");

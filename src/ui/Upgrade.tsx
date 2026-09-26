@@ -14,7 +14,7 @@ const FREE = [
   "15–60 minute durations",
 ];
 
-// Loss-aversion framing (D-05): protect/keep wording, not gain wording.
+// Loss-aversion framing: protect/keep wording, not gain wording.
 const PREMIUM = [
   "Everything in Free",
   "Keep unlimited session length (∞)",
@@ -24,7 +24,7 @@ const PREMIUM = [
   "Keep the harmonic frequency finder",
 ];
 
-// Professional gain framing (D-06): what the practice gains, patients free.
+// Professional gain framing: what the practice gains, patients free.
 const CLINICIAN = [
   "Everything in Premium",
   "Patient dashboard — up to 30 patients",
@@ -258,7 +258,7 @@ function LocalActivate() {
  * Real Midtrans checkout for a paid plan: sign-in via the Account sheet →
  * Snap payment → entitlement (+ clinician role promotion via the webhook for
  * plan 'clinician'). Identity actions (sign-in/sign-out) live in the Account
- * sheet (quick-260714-dc3) — this card is purely a checkout surface.
+ * sheet — this card is purely a checkout surface.
  */
 function PlanCheckout({
   plan,

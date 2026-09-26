@@ -1,7 +1,7 @@
 import type { BuilderLayerSpec, CustomSession } from "../audio/builder";
 
 /**
- * Custom preset persistence (BLD-04): localStorage + JSON export/import.
+ * Custom preset persistence: localStorage + JSON export/import.
  * All imported numbers are clamped to safe ranges — imports are untrusted.
  */
 
