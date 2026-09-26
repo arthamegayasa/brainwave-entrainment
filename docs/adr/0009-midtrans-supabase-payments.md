@@ -1,0 +1,6 @@
+# ADR-009: Payments — Midtrans-first via Supabase backend, multi-gateway (2026-07-03)
+
+**Context:** User memilih Midtrans sebagai gateway (ideal untuk Indonesia: QRIS/VA/GoPay/ShopeePay/kartu + Subscription API). Midtrans IDR-only (regulasi Bank Indonesia), bukan Merchant-of-Record, dan — seperti gateway mana pun — wajib backend (Server Key rahasia + webhook verifikasi + entitlement server-verified).
+**Decision:** Integrasi payment memakai backend **Supabase** (Auth + tabel `entitlements` + RLS + edge functions `create-transaction` Snap & `midtrans-webhook` verifikasi SHA512). Abstraksi `PaymentProvider` agar **Stripe/Merchant-of-Record** bisa ditambah untuk fase global tanpa mengubah frontend. Desain lengkap: `docs/payments/PAYMENTS-ARCHITECTURE.md`. Build ini hanya UI harga + scaffold; go-live menunggu Midtrans sandbox keys + project Supabase.
+**Consequences:** **Men-supersede ADR-003 ("no backend")** khusus untuk permukaan monetisasi — backend diperkenalkan untuk payment + entitlement terverifikasi server. Audio engine & sintesis tetap 100% client-side. Recurring hands-off hanya untuk kartu; QRIS/VA/e-wallet perlu renewal via expiry + reminder.
+**Status:** Accepted (design). Eksekusi backend = pass berikutnya saat kredensial tersedia.

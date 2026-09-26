@@ -5,9 +5,9 @@ How the engineering skills should consume this repo's domain documentation when 
 ## Before exploring, read these
 
 - **`CONTEXT.md`** at the repo root: the domain glossary.
-- **`DECISIONS.md`** at the repo root: the append-only ADR log (`## ADR-NNN: Title (date)` with **Context / Decision / Consequences / Status** lines). Read the ADRs that touch the area you're about to work in.
+- **`docs/adr/`**: read ADRs that touch the area you're about to work in.
 
-If either file doesn't exist, **proceed silently**. Don't flag its absence; don't suggest creating it upfront. The `/domain-modeling` skill (reached via `/grill-with-docs` and `/improve-codebase-architecture`) creates or extends them when terms or decisions actually get resolved.
+If any of these files don't exist, **proceed silently**. Don't flag their absence; don't suggest creating them upfront. The `/domain-modeling` skill (reached via `/grill-with-docs` and `/improve-codebase-architecture`) creates them lazily when terms or decisions actually get resolved.
 
 ## File structure
 
@@ -15,12 +15,16 @@ Single-context repo:
 
 ```
 /
-├── CONTEXT.md      ← glossary
-├── DECISIONS.md    ← ADR log (ADR-001 …), append-only
+├── CONTEXT.md
+├── docs/adr/
+│   ├── 0001-platform-web-pwa.md
+│   └── 0023-swarasanti-brand.md
 └── src/
 ```
 
-This repo does **not** use `docs/adr/`. New ADRs are appended to `DECISIONS.md` with the next number, in the same format as the existing entries.
+## ADR citations
+
+Code, migrations, and ADRs cite decisions as `ADR-NNN` with three digits: `ADR-014` is `docs/adr/0014-*.md`. Keep that citation style in new code and ADRs; applied migrations already use it and are never edited.
 
 ## Use the glossary's vocabulary
 

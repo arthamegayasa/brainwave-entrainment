@@ -1,16 +1,18 @@
-## Project
+# SwaraSanti
 
-**Healing Audio PWA**
+PWA brainwave entrainment **goal-first**: User memilih tujuan (mis. Sleeping), bukan angka Hz, lalu satu tombol memulai sesi yang menuntun bertahap lewat session ramp. Semua audio disintesis real-time dengan Web Audio API, tanpa file audio. Clinician memakai platform yang sama untuk membimbing Patient-nya.
 
-Aplikasi web (PWA) brainwave entrainment untuk healing, relaksasi, meditasi, tidur, dan fokus — terinspirasi EquiSync Element (EOC Institute), tetapi dengan pendekatan **goal-first, bukan frequency-first**: user memilih tujuan (mis. "Deep Sleep"), bukan angka Hz. Semua audio disintesis real-time via Web Audio API — tanpa file audio sama sekali.
+## Docs
 
-**Core Value:** User bisa menekan satu tombol dan mendapatkan sesi audio entrainment berkualitas (binaural / isochronic / solfeggio / ambient) yang benar-benar menuntun otak secara bertahap (session ramp), tanpa perlu paham frekuensi.
+Gotcha per area: baca sebelum mengubah area itu.
 
-### Constraints
+- **Audio** (`src/audio/`, `src/ui/audioContext.ts`, engine, ekspor MP3): `docs/knowledge/web-audio.md`
+- **Entrainment** (preset, frekuensi, copy Science): `docs/knowledge/entrainment.md`
+- **Supabase** (migration, RLS, edge function, Auth, payment): `docs/knowledge/supabase.md`; checkout juga `docs/payments/PAYMENTS-ARCHITECTURE.md`
+- **Frontend** (React state, CSS, PWA): `docs/knowledge/frontend.md`
+- **Testing** (Vitest, Playwright, pgTAP, smoke di stack lokal): `docs/knowledge/testing.md`
 
-- **Audio engine murni TypeScript tanpa dependency React** — testable, reusable untuk M003 builder.
-- iOS background audio terbatas — mitigasi via Media Session API (M002) + guidance ke user.
-- Semua konstanta frekuensi preset terpusat di satu file (`presets.ts`).
+Aturan kode yang dicek saat review: `CODING_STANDARDS.md`.
 
 ## Agent skills
 
@@ -24,4 +26,4 @@ Default vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-
 
 ### Domain docs
 
-Single-context: `CONTEXT.md` glossary at the root; ADRs live in `DECISIONS.md` (not `docs/adr/`). See `docs/agents/domain.md`.
+Single-context: `CONTEXT.md` glossary + ADRs in `docs/adr/`. See `docs/agents/domain.md`.

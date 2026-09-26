@@ -2,7 +2,7 @@
 
 > **Status:** Design blueprint (not yet built). Execution-ready once the user provides
 > Midtrans **Sandbox** credentials and greenlights creating a Supabase project.
-> Decisions: [ADR-008 (pricing)](../../DECISIONS.md), [ADR-009 (payments)](../../DECISIONS.md).
+> Decisions: [ADR-008 (pricing)](../adr/0008-idr-subscription-pricing.md), [ADR-009 (payments)](../adr/0009-midtrans-supabase-payments.md).
 
 This document specifies how SwaraSanti goes from a backendless, fully-unlocked PWA
 (`ALL_UNLOCKED = true`) to a real subscription product, **Indonesia-first via
