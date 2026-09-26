@@ -9,6 +9,7 @@ import { resetPrefs } from "../state/prefs";
 import { parseLoginIdentifier } from "../../supabase/functions/_shared/accountRules.ts";
 import type { ResolveLoginError } from "../../supabase/functions/_shared/accountRules.ts";
 import { passwordRefusal, SIGN_IN_UNAVAILABLE } from "./signInMessages";
+import { ChangePasswordForm } from "./ChangePasswordForm";
 
 /**
  * AccountSheet (quick-260714-dc3): the single identity surface, opened from
@@ -233,6 +234,9 @@ export function AccountSheet({
                 )}
               </div>
             )}
+
+            {/* Patients who sign in with a password (ADR-015, ADR-018). */}
+            {clinician && ent.username !== null && <ChangePasswordForm />}
 
             {settingsSection}
 

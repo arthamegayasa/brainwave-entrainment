@@ -5,9 +5,12 @@ import {
   generatePassword,
   internalLoginEmail,
   isValidUsername,
+  keepsPasswordCopy,
   mayChangeUsername,
   mayClaimUsername,
   mayCreatePatient,
+  mayReadPasswordAccessLog,
+  mayRevealOrResetPassword,
   normalizeUsername,
   parseLoginIdentifier,
   parsePersonalUrlPath,
@@ -19,7 +22,11 @@ import {
   takenOrLockedUsernames,
   usernameStem,
 } from "../supabase/functions/_shared/accountRules.ts";
-import type { PatientCreator, UsernameState } from "../supabase/functions/_shared/accountRules.ts";
+import type {
+  PasswordAccount,
+  PatientCreator,
+  UsernameState,
+} from "../supabase/functions/_shared/accountRules.ts";
 
 describe("Username normalization", () => {
   it("lowercases, trims and drops a leading @", () => {
@@ -447,5 +454,110 @@ describe("may change a Username", () => {
     expect(
       mayChangeUsername({ actor, account: { clinicianId: "clinician-a", username: null } }),
     ).toEqual({ ok: false, reason: "not_allowed" });
+  });
+});
+
+describe("may reveal or reset a password", () => {
+  /** Ivan, a Patient of Clinician A. */
+  const ivan: PasswordAccount = { role: "user", clinicianOrigin: null, clinicianId: "clinician-a" };
+
+  it("lets the owning Clinician reveal and reset their Patient's password", () => {
+    const actor = { id: "clinician-a", role: "clinician" } as const;
+    expect(mayRevealOrResetPassword({ actor, account: ivan })).toEqual({ ok: true });
+  });
+
+  it("refuses another Clinician, the Patient themselves and a Clinician who lost the role", () => {
+    const actors = [
+      { id: "clinician-b", role: "clinician" },
+      { id: "ivan-id", role: "user" },
+      { id: "clinician-a", role: "user" },
+    ] as const;
+    for (const actor of actors) {
+      expect(mayRevealOrResetPassword({ actor, account: ivan }), actor.id).toEqual({
+        ok: false,
+        reason: "not_allowed",
+      });
+    }
+  });
+
+  it("lets the Admin reveal and reset any Patient's password", () => {
+    const actor = { id: "admin", role: "admin" } as const;
+    expect(mayRevealOrResetPassword({ actor, account: ivan })).toEqual({ ok: true });
+  });
+
+  it("leaves a Patient who also holds the Clinician role to the Admin alone", () => {
+    const clinicianPatient: PasswordAccount = {
+      role: "clinician",
+      clinicianOrigin: "subscription",
+      clinicianId: "clinician-a",
+    };
+    expect(
+      mayRevealOrResetPassword({ actor: { id: "clinician-a", role: "clinician" }, account: clinicianPatient }),
+    ).toEqual({ ok: false, reason: "not_allowed" });
+    expect(
+      mayRevealOrResetPassword({ actor: { id: "admin", role: "admin" }, account: clinicianPatient }),
+    ).toEqual({ ok: true });
+  });
+
+  it("lets only the Admin handle a Clinician the Admin created", () => {
+    const granted: PasswordAccount = { role: "clinician", clinicianOrigin: "admin", clinicianId: null };
+    expect(mayRevealOrResetPassword({ actor: { id: "admin", role: "admin" }, account: granted })).toEqual({
+      ok: true,
+    });
+    expect(
+      mayRevealOrResetPassword({ actor: { id: "clinician-a", role: "clinician" }, account: granted }),
+    ).toEqual({ ok: false, reason: "not_allowed" });
+  });
+
+  it("refuses everyone for a subscription Clinician, a Regular and the Admin account", () => {
+    const accounts: PasswordAccount[] = [
+      { role: "clinician", clinicianOrigin: "subscription", clinicianId: null },
+      { role: "clinician", clinicianOrigin: null, clinicianId: null },
+      { role: "user", clinicianOrigin: null, clinicianId: null },
+      { role: "admin", clinicianOrigin: null, clinicianId: null },
+    ];
+    for (const account of accounts) {
+      for (const actor of [
+        { id: "admin", role: "admin" },
+        { id: "clinician-a", role: "clinician" },
+      ] as const) {
+        expect(mayRevealOrResetPassword({ actor, account }), `${actor.id} → ${account.role}`).toEqual({
+          ok: false,
+          reason: "not_allowed",
+        });
+      }
+    }
+  });
+});
+
+describe("password copy", () => {
+  it("is kept for a Patient, including one who also holds the Clinician role", () => {
+    expect(keepsPasswordCopy({ role: "user", clinicianOrigin: null, clinicianId: "clinician-a" })).toBe(
+      true,
+    );
+    expect(
+      keepsPasswordCopy({ role: "clinician", clinicianOrigin: "subscription", clinicianId: "clinician-a" }),
+    ).toBe(true);
+  });
+
+  it("is kept for a Clinician the Admin created", () => {
+    expect(keepsPasswordCopy({ role: "clinician", clinicianOrigin: "admin", clinicianId: null })).toBe(true);
+  });
+
+  it("is not kept for a Regular, a subscription Clinician or the Admin", () => {
+    const accounts: PasswordAccount[] = [
+      { role: "user", clinicianOrigin: null, clinicianId: null },
+      { role: "clinician", clinicianOrigin: "subscription", clinicianId: null },
+      { role: "admin", clinicianOrigin: null, clinicianId: null },
+    ];
+    for (const account of accounts) expect(keepsPasswordCopy(account), account.role).toBe(false);
+  });
+});
+
+describe("may read the password access log", () => {
+  it("lets only the Admin read it", () => {
+    expect(mayReadPasswordAccessLog("admin")).toBe(true);
+    expect(mayReadPasswordAccessLog("clinician")).toBe(false);
+    expect(mayReadPasswordAccessLog("user")).toBe(false);
   });
 });

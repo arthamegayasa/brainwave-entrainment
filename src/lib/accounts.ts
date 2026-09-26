@@ -94,3 +94,32 @@ export function createPatient(
 export function changeUsername(accountId: string, username: string): Promise<{ username: string }> {
   return invoke("change-username", { accountId, username });
 }
+
+/**
+ * An account's current password, decrypted from its password copy on the
+ * server, which logs every reveal (ADR-015). Refusals arrive as AccountError
+ * with a RevealPasswordError code.
+ */
+export async function revealPassword(accountId: string): Promise<string> {
+  const { password } = await invoke<{ password: string }>("reveal-password", { accountId });
+  return password;
+}
+
+/**
+ * Gives an account a new password, and its password copy with it; Auth signs
+ * the account out everywhere. Refusals arrive as AccountError with a
+ * ResetPasswordError code.
+ */
+export async function resetPassword(accountId: string, password: string): Promise<void> {
+  await invoke("reset-password", { accountId, password });
+}
+
+/**
+ * Changes the signed-in User's own password through the server, never the
+ * client's own Auth update, so a Patient's password copy changes with it.
+ * This device stays signed in; the account's other sessions end. Refusals
+ * arrive as AccountError with a ChangePasswordError code.
+ */
+export async function changeOwnPassword(password: string): Promise<void> {
+  await invoke("change-password", { password });
+}

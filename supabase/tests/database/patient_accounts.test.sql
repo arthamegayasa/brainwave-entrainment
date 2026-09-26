@@ -151,7 +151,7 @@ select throws_ok(
 
 select throws_ok(
   $$ select public.link_new_patient(tests.user_id('clinician_a'), tests.user_id('patient_a'),
-                                    'x', 'xyz', null, null) $$,
+                                    'x', 'xyz', null, null, 'cipher') $$,
   '42501', 'permission denied for function link_new_patient',
   'a User cannot call link_new_patient()'
 );
@@ -195,7 +195,7 @@ select ok(
 
 select public.link_new_patient(
   tests.user_id('clinician_b'), tests.user_id('new_patient'),
-  'Made Wirawan', 'made', 'made@mail.test', 30
+  'Made Wirawan', 'made', 'made@mail.test', 30, 'cipher'
 );
 
 select results_eq(
@@ -209,14 +209,14 @@ select results_eq(
 
 select throws_ok(
   $$ select public.link_new_patient(tests.user_id('clinician_b'), tests.user_id('one_too_many'),
-                                    'Ketut', 'ketut', null, 1) $$,
+                                    'Ketut', 'ketut', null, 1, 'cipher') $$,
   'P0001', 'patient_limit_reached',
   'link_new_patient() refuses a Clinician at their Patient limit'
 );
 
 select lives_ok(
   $$ select public.link_new_patient(tests.user_id('clinician_b'), tests.user_id('one_too_many'),
-                                    'Ketut', 'ketut', null, null) $$,
+                                    'Ketut', 'ketut', null, null, 'cipher') $$,
   'link_new_patient() applies no limit when given none (the Admin)'
 );
 

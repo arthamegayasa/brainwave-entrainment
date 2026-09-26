@@ -62,9 +62,14 @@ export interface Caller {
   patientLimit: number;
 }
 
+/** The session token the request was sent with; "" without one. */
+export function sessionTokenOf(req: Request): string {
+  return (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
+}
+
 /** The signed-in User who sent the request, or null without a valid session. */
 export async function callerOf(req: Request, admin: SupabaseClient): Promise<Caller | null> {
-  const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
+  const token = sessionTokenOf(req);
   if (token.length === 0) return null;
   const { data: userData, error: userError } = await admin.auth.getUser(token);
   if (userError || !userData.user) return null;

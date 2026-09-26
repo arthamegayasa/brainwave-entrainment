@@ -174,9 +174,22 @@ cp .env.example .env.local
 
 Frontend `VITE_*` values are included in the browser bundle. Server credentials belong in the backend, never in these variables or in Git.
 
-The connected system also needs the schemas in [`supabase/migrations`](supabase/migrations), appropriate roles and access policies, Auth redirect settings, and the Edge Functions in [`supabase/functions`](supabase/functions): checkout and the payment webhook, plus `create-patient`, `suggest-username`, `change-username`, `resolve-login` and `personal-url` for Clinician-created Patient accounts that sign in with a Username and password, from the homepage or their Personal URL `/p/<username>` ([ADR-016](DECISIONS.md), [ADR-018](DECISIONS.md)). After a Username change the old Personal URL redirects to the new one until another Patient claims the old Username, which nobody else can do for 30 days. Environment variables alone do not provision these services. Locally, `npx supabase functions serve` runs them against the local stack.
+The connected system also needs the schemas in [`supabase/migrations`](supabase/migrations), appropriate roles and access policies, Auth redirect settings, and the Edge Functions in [`supabase/functions`](supabase/functions): checkout and the payment webhook, plus `create-patient`, `suggest-username`, `change-username`, `resolve-login` and `personal-url` for Clinician-created Patient accounts that sign in with a Username and password, from the homepage or their Personal URL `/p/<username>` ([ADR-016](DECISIONS.md), [ADR-018](DECISIONS.md)). After a Username change the old Personal URL redirects to the new one until another Patient claims the old Username, which nobody else can do for 30 days. Every Patient password is also kept as an encrypted copy that their Clinician and the Admin can reveal, with every reveal logged ([ADR-015](DECISIONS.md)): `reveal-password`, `reset-password` and `change-password` (the Patient's own change in Account) use the [password copy key](#password-copy-key), and `password-access-log` lets the Admin read the log. Environment variables alone do not provision these services. Locally, `npx supabase functions serve` runs them against the local stack.
 
 Read the [payment architecture](docs/payments/PAYMENTS-ARCHITECTURE.md) before changing checkout. The [sandbox notes](docs/payments/SANDBOX-SETUP.md) describe an earlier configured environment; substitute your own project and verify its current settings. They are not evidence of a working payment deployment for a fresh clone. Preset feature gating still needs integration with server entitlements before it can be treated as a production paywall.
+
+### Password copy key
+
+Password copies are encrypted with AES-256-GCM under `PASSWORD_COPY_KEY`, a function secret: 32 random bytes, base64-encoded. It lives only in the Edge Functions' environment. Never put it in a `VITE_*` variable, the database or Git. Without it, creating a Patient and revealing, resetting or changing a password fail.
+
+Locally, `npx supabase functions serve` reads `supabase/functions/.env`, which is git-ignored. Create it once with a fresh key:
+
+```bash
+node -e "require('fs').writeFileSync('supabase/functions/.env', 'PASSWORD_COPY_KEY=' + require('crypto').randomBytes(32).toString('base64') + '\n')"
+npx supabase functions serve
+```
+
+In production, use a separate key. Generate one with `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`, keep it in your password manager, and set it as a project secret, either with `npx supabase secrets set PASSWORD_COPY_KEY=<key>` or in the Supabase dashboard under Edge Functions → Secrets, before deploying the functions. Copies made under one key cannot be read under another: if the key is lost or replaced, reveals fail until each password is reset.
 
 ## Development
 

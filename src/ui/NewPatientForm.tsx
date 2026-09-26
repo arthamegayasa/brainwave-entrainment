@@ -7,6 +7,7 @@ import {
   PASSWORD_MIN_LENGTH,
 } from "../../supabase/functions/_shared/accountRules.ts";
 import type { CreatePatientError } from "../../supabase/functions/_shared/accountRules.ts";
+import { PASSWORD_REFUSALS } from "./passwordMessages";
 import { USERNAME_REFUSALS } from "./usernameMessages";
 
 /**
@@ -19,9 +20,9 @@ import { USERNAME_REFUSALS } from "./usernameMessages";
 // Every refusal must have a message (satisfies); lookups take any server code.
 const ERRORS: Partial<Record<string, string>> = {
   ...USERNAME_REFUSALS,
+  ...PASSWORD_REFUSALS,
   name_required: "Enter the patient's name.",
   invalid_email: "That email doesn't look right — or leave it empty.",
-  password_too_short: `Passwords need at least ${PASSWORD_MIN_LENGTH} characters.`,
   email_registered:
     "That email already belongs to a Serenade account. Leave it empty, or use another email.",
   not_clinician: "Only clinicians can add patients.",

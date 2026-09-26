@@ -1,13 +1,15 @@
 // Serenade — a Clinician or the Admin creates a Patient account (ADR-014,
-// ADR-016, ADR-018). verify_jwt = true.
+// ADR-015, ADR-016, ADR-018). verify_jwt = true.
 //
 // 1. Check the form, "may create Patient" (role, Patient limit, email not
 //    already registered) and "may claim Username" (not held, not released by
 //    another account less than 30 days ago) with the Account rules module.
-// 2. Create the Auth user with an internal login email and the password.
-// 3. link_new_patient() sets the name, Username and contact email and creates
-//    the Link in one transaction, re-checking the limit under a lock. If it
-//    fails, the Auth user is deleted again.
+// 2. Encrypt the password copy, so a missing key fails before any account
+//    exists.
+// 3. Create the Auth user with an internal login email and the password.
+// 4. link_new_patient() sets the name, Username and contact email, creates
+//    the Link and stores the password copy in one transaction, re-checking the
+//    limit under a lock. If it fails, the Auth user is deleted again.
 
 import {
   checkNewPatient,
@@ -25,6 +27,7 @@ import {
   serviceClient,
   stringField,
 } from "../_server/endpoint.ts";
+import { encryptPassword } from "../_server/passwordCopies.ts";
 import { usernameStateOf } from "../_server/usernames.ts";
 
 /** Refusals link_new_patient() raises, by Postgres error. */
@@ -72,6 +75,7 @@ serve(async (req) => {
   const claim = mayClaimUsername({ state: usernameState, claimant: null, now: new Date() });
   if (!claim.ok) return json({ error: claim.reason }, 409);
 
+  const passwordCopy = await encryptPassword(patient.password);
   const { data: created, error: createError } = await admin.auth.admin.createUser({
     email: internalLoginEmail(crypto.randomUUID()),
     password: patient.password,
@@ -86,6 +90,7 @@ serve(async (req) => {
     p_username: patient.username,
     p_contact_email: patient.email,
     p_patient_limit: patientLimitOf(creator),
+    p_password_copy: passwordCopy,
   });
   if (linkError) {
     const { error: deleteError } = await admin.auth.admin.deleteUser(created.user.id);

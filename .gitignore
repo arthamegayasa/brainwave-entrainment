@@ -20,6 +20,8 @@ playwright-report/
 supabase/.branches
 supabase/.temp
 supabase/.env.keys
+# Local function secrets (PASSWORD_COPY_KEY); production uses `supabase secrets set`
+supabase/functions/.env
 
 # Editor directories and files
 .vscode/*

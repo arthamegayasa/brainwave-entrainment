@@ -1,8 +1,9 @@
 /**
- * Account rules (ADR-014, ADR-016, ADR-018): the one place that decides what a
- * valid Username is and who may do what to an account. Pure TypeScript with no
- * Deno, React or Supabase imports, so the app and the server functions share
- * it; the server functions are the authority, the app only mirrors them.
+ * Account rules (ADR-014, ADR-015, ADR-016, ADR-018): the one place that
+ * decides what a valid Username is and who may do what to an account. Pure
+ * TypeScript with no Deno, React or Supabase imports, so the app and the
+ * server functions share it; the server functions are the authority, the app
+ * only mirrors them.
  */
 
 const USERNAME_PATTERN = /^[a-z0-9-]{3,30}$/;
@@ -247,6 +248,71 @@ export function mayChangeUsername(request: {
 
 /** Every refusal the change-username function answers with (as `{ error }`). */
 export type ChangeUsernameError = UsernameRefusal | ChangeUsernameRefusal;
+
+/** Where a Clinician's role came from (ADR-014): a subscription, or granted by the Admin. */
+export type ClinicianOrigin = "subscription" | "admin";
+
+/** An account whose password is revealed, reset or changed, as the server reads it. */
+export interface PasswordAccount {
+  role: AccountRole;
+  /** Where its Clinician role came from; null when none is recorded. */
+  clinicianOrigin: ClinicianOrigin | null;
+  /** The Clinician of its Link; null without a Link. */
+  clinicianId: string | null;
+}
+
+/**
+ * Whether setting this account's password keeps an encrypted copy of it
+ * (ADR-015): a Patient's, for their Clinician and the Admin, and a Clinician
+ * the Admin created, for the Admin. Nobody can reveal anyone else's password,
+ * so no copy of it is kept.
+ */
+export function keepsPasswordCopy(account: PasswordAccount): boolean {
+  const isPatient = account.clinicianId !== null;
+  const adminCreatedClinician = account.role === "clinician" && account.clinicianOrigin === "admin";
+  return isPatient || adminCreatedClinician;
+}
+
+export type PasswordRefusal = "not_allowed";
+
+/**
+ * Who may reveal or reset an account's password (ADR-015): the Admin, for
+ * every account that keeps a password copy; a Patient's own Clinician, while
+ * they hold the role, unless that Patient also holds the Clinician role.
+ */
+export function mayRevealOrResetPassword(request: {
+  actor: { id: string; role: AccountRole };
+  account: PasswordAccount;
+}): { ok: true } | { ok: false; reason: PasswordRefusal } {
+  const { actor, account } = request;
+  if (actor.role === "admin") {
+    return keepsPasswordCopy(account) ? { ok: true } : { ok: false, reason: "not_allowed" };
+  }
+  const ownClinician = actor.role === "clinician" && account.clinicianId === actor.id;
+  // One Clinician must never sign in as another (and see their Patients).
+  if (ownClinician && account.role === "user") return { ok: true };
+  return { ok: false, reason: "not_allowed" };
+}
+
+/** Only the Admin reads who revealed whose password, and when (ADR-015). */
+export function mayReadPasswordAccessLog(role: AccountRole): boolean {
+  return role === "admin";
+}
+
+/** Every refusal the reveal-password function answers with (as `{ error }`). */
+export type RevealPasswordError = PasswordRefusal | "no_password_copy";
+
+/** Why a new password is refused, wherever one is set. */
+export type PasswordProblem = "password_too_short";
+
+/** Every refusal the reset-password function answers with (as `{ error }`). */
+export type ResetPasswordError = PasswordRefusal | PasswordProblem;
+
+/** Every refusal the change-password function answers with (as `{ error }`). */
+export type ChangePasswordError = PasswordProblem;
+
+/** Every refusal the password-access-log function answers with (as `{ error }`). */
+export type PasswordAccessLogError = PasswordRefusal;
 
 /** Every refusal the resolve-login endpoint answers with (as `{ error }`). */
 export type ResolveLoginError = "invalid_identifier" | "unknown_username";

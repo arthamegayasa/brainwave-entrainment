@@ -395,7 +395,8 @@ verify_jwt = false
 # Account functions (#5, ADR-018): creating a Patient, suggesting a Username
 # and changing one (#7) need a signed-in Clinician or Admin; resolve-login
 # serves the signed-out sign-in form, and personal-url the signed-out Personal
-# URL page (#6).
+# URL page (#6). The password functions (#8, ADR-015) need a signed-in User;
+# they read the PASSWORD_COPY_KEY secret (locally from supabase/functions/.env).
 [functions.create-patient]
 verify_jwt = true
 
@@ -410,6 +411,18 @@ verify_jwt = false
 
 [functions.personal-url]
 verify_jwt = false
+
+[functions.reveal-password]
+verify_jwt = true
+
+[functions.reset-password]
+verify_jwt = true
+
+[functions.change-password]
+verify_jwt = true
+
+[functions.password-access-log]
+verify_jwt = true
 
 [analytics]
 enabled = true

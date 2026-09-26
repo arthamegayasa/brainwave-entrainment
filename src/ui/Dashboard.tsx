@@ -30,6 +30,7 @@ import type {
 } from "../lib/clinician";
 import { NewPatientForm } from "./NewPatientForm";
 import { ChangeUsernameForm } from "./ChangeUsernameForm";
+import { PatientPassword } from "./PatientPassword";
 import { personalUrlPath } from "../../supabase/functions/_shared/accountRules.ts";
 
 /**
@@ -402,12 +403,15 @@ function PatientDetail({
       <h3>{patientName(patient)}</h3>
 
       {patient.username !== null && (
-        <PersonalUrlBlock
-          patientId={patient.patientId}
-          username={patient.username}
-          flash={flash}
-          onUsernameChange={onUsernameChange}
-        />
+        <>
+          <PersonalUrlBlock
+            patientId={patient.patientId}
+            username={patient.username}
+            flash={flash}
+            onUsernameChange={onUsernameChange}
+          />
+          <PatientPassword patientId={patient.patientId} flash={flash} />
+        </>
       )}
 
       <div className="detail-block">
