@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
-import { PRESETS } from "../audio/presets";
 import type { Band } from "../audio/presets";
 import { exportLabel, getExportJob, runMp3Export, subscribeExport } from "./mp3Export";
 import { BAND_COLORS, BAND_LABELS } from "./bands";
@@ -8,42 +7,32 @@ import {
   AUDIO_CATEGORIES,
   assignToAllPatients,
   assignToPatient,
-  createInviteCode,
   deleteAudio,
-  getHiddenPresets,
-  listAssignmentCounts,
   listBank,
-  listInviteCodes,
   listMyPatients,
-  listPatientAssignments,
-  revokeInviteCode,
-  setPresetHidden,
-  unassignFromPatient,
-  unlinkPatient,
+  patientName,
   updateAudioMeta,
 } from "../lib/clinician";
-import type {
-  AudioCategory,
-  BankAudio,
-  PatientAssignment,
-  PatientLink,
-} from "../lib/clinician";
+import type { AudioCategory, BankAudio, PatientLink } from "../lib/clinician";
+import { PatientsTab } from "./PatientsTab";
+import { PeopleTab } from "./PeopleTab";
 
 /**
- * Clinician Dashboard (D-06): Patients tab (invite codes, linked patients,
- * per-patient preset curation + assignments) and Audio Bank tab (filterable
- * card grid of the clinician's published sessions). The App renders this only
- * for clinicians/admins; RLS enforces every rule server-side regardless.
+ * Clinician Dashboard (D-06): Patients tab (the table of the Clinician's
+ * Patients with their Patient Status, each opening in a drawer with their
+ * detail) and Audio Bank tab (filterable card grid of the clinician's
+ * published sessions). The Admin also gets the Clinicians & Patients tab:
+ * everyone on Serenade in the same table + drawer (#13). The App renders this
+ * only for clinicians/admins; RLS enforces every rule server-side regardless.
  */
-
-/** Soft patient cap — past this, hide the invite button. */
-const PATIENT_CAP = 30;
 
 const BANDS: readonly Band[] = ["delta", "theta", "alpha", "beta", "gamma"];
 
+type DashboardTab = "patients" | "bank" | "people";
+
 export function Dashboard() {
   const ent = useEntitlement();
-  const [tab, setTab] = useState<"patients" | "bank">("patients");
+  const [tab, setTab] = useState<DashboardTab>("patients");
   const [notice, setNotice] = useState<string | null>(null);
 
   const flash = (msg: string) => {
@@ -91,358 +80,34 @@ export function Dashboard() {
         >
           Audio Bank
         </button>
+        {ent.role === "admin" && (
+          <button
+            role="tab"
+            aria-selected={tab === "people"}
+            className={tab === "people" ? "selected" : ""}
+            onClick={() => setTab("people")}
+          >
+            Clinicians &amp; Patients
+          </button>
+        )}
       </div>
 
-      {tab === "patients" ? <PatientsTab flash={flash} /> : <BankTab flash={flash} />}
+      {tab === "patients" && (
+        <PatientsTab
+          flash={flash}
+          patientLimit={ent.patientLimit}
+          adminId={ent.role === "admin" ? ent.userId : null}
+        />
+      )}
+      {tab === "bank" && <BankTab flash={flash} />}
+      {tab === "people" && ent.role === "admin" && <PeopleTab flash={flash} />}
 
-      {notice && <div className="notice">{notice}</div>}
+      {notice && (
+        <div className="notice dash-notice" role="status">
+          {notice}
+        </div>
+      )}
     </section>
-  );
-}
-
-/* ── Patients tab ─────────────────────────────────────────────────────── */
-
-function PatientsTab({ flash }: { flash: (msg: string) => void }) {
-  const [patients, setPatients] = useState<PatientLink[]>([]);
-  const [codes, setCodes] = useState<Array<{ code: string; expiresAt: string }>>([]);
-  const [counts, setCounts] = useState<Record<string, number>>({});
-  const [selected, setSelected] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  const refresh = useCallback(async () => {
-    try {
-      const [pts, cds, cnts] = await Promise.all([
-        listMyPatients(),
-        listInviteCodes(),
-        listAssignmentCounts(),
-      ]);
-      setPatients(pts);
-      setCodes(cds);
-      setCounts(cnts);
-      setError(null);
-    } catch {
-      setError("Could not load your patients — try again later.");
-    }
-  }, []);
-
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
-
-  const invite = async () => {
-    try {
-      await createInviteCode();
-      await refresh();
-      flash("Invite code created ✓");
-    } catch {
-      flash("Could not create an invite code");
-    }
-  };
-
-  const copy = async (code: string) => {
-    try {
-      await navigator.clipboard.writeText(code);
-      flash("Copied ✓");
-    } catch {
-      flash("Could not copy — select the code manually");
-    }
-  };
-
-  const revoke = async (code: string) => {
-    try {
-      await revokeInviteCode(code);
-      await refresh();
-    } catch {
-      flash("Could not revoke the code");
-    }
-  };
-
-  const unlink = async (patient: PatientLink) => {
-    const label = patient.email ?? "this patient";
-    if (
-      !window.confirm(
-        `Disconnect ${label}? They keep the app, but lose your assigned audio and curation.`,
-      )
-    ) {
-      return;
-    }
-    try {
-      await unlinkPatient(patient.patientId);
-      if (selected === patient.patientId) setSelected(null);
-      await refresh();
-      flash("Patient disconnected");
-    } catch {
-      flash("Could not disconnect the patient");
-    }
-  };
-
-  const capped = patients.length >= PATIENT_CAP;
-  const selectedPatient = patients.find((p) => p.patientId === selected) ?? null;
-
-  return (
-    <div className="dash-patients">
-      <div className="library-section">
-        <div className="library-section-head">
-          <h2>Invite a patient</h2>
-          {!capped && (
-            <button className="chip" onClick={() => void invite()}>
-              + New invite code
-            </button>
-          )}
-        </div>
-        {capped ? (
-          <p className="library-note">
-            Patient limit reached ({PATIENT_CAP}) — contact us to expand.
-          </p>
-        ) : (
-          <p className="library-note">
-            Share this code — your patient enters it in their Library.
-          </p>
-        )}
-        {codes.length > 0 && (
-          <div className="library-list">
-            {codes.map((c) => (
-              <div className="library-item invite-row" key={c.code}>
-                <span className="invite-code">{c.code}</span>
-                <button className="chip small" onClick={() => void copy(c.code)}>
-                  Copy
-                </button>
-                <span className="invite-expiry">
-                  expires {new Date(c.expiresAt).toLocaleDateString()}
-                </span>
-                <button
-                  className="saved-del"
-                  aria-label={`Revoke code ${c.code}`}
-                  onClick={() => void revoke(c.code)}
-                >
-                  ✕
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div className="library-section">
-        <h2>Patients</h2>
-        {error && <p className="library-note">{error}</p>}
-        {!error && patients.length === 0 && (
-          <p className="library-note">
-            No patients yet — create an invite code above and share it.
-          </p>
-        )}
-        {patients.length > 0 && (
-          <div className="library-list">
-            {patients.map((p) => (
-              <div
-                className={`library-item patient-row ${selected === p.patientId ? "selected" : ""}`}
-                key={p.patientId}
-              >
-                <button
-                  className="patient-select"
-                  onClick={() =>
-                    setSelected(selected === p.patientId ? null : p.patientId)
-                  }
-                >
-                  <span className="library-item-name">
-                    {p.email ?? p.patientId}
-                  </span>
-                  <span className="library-item-tagline">
-                    linked {new Date(p.linkedAt).toLocaleDateString()} ·{" "}
-                    {counts[p.patientId] ?? 0} assigned
-                  </span>
-                </button>
-                <button
-                  className="saved-del"
-                  aria-label={`Disconnect ${p.email ?? "patient"}`}
-                  onClick={() => void unlink(p)}
-                >
-                  ✕
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-        {selectedPatient && (
-          <PatientDetail
-            key={selectedPatient.patientId}
-            patient={selectedPatient}
-            flash={flash}
-            onAssignmentsChange={() => void refresh()}
-          />
-        )}
-      </div>
-    </div>
-  );
-}
-
-function PatientDetail({
-  patient,
-  flash,
-  onAssignmentsChange,
-}: {
-  patient: PatientLink;
-  flash: (msg: string) => void;
-  onAssignmentsChange: () => void;
-}) {
-  const [hidden, setHidden] = useState<string[]>([]);
-  const [assigned, setAssigned] = useState<PatientAssignment[]>([]);
-  const [bank, setBank] = useState<BankAudio[]>([]);
-  const [bankPick, setBankPick] = useState("");
-  // Presets with an in-flight visibility write — a second toggle is blocked
-  // until the first settles, so a fast uncheck→recheck can't commit its two
-  // independent requests out of order (DB 'hidden' while UI shows 'visible').
-  const [busyPresets, setBusyPresets] = useState<Set<string>>(new Set());
-
-  const load = useCallback(async () => {
-    try {
-      const [hid, asg, bnk] = await Promise.all([
-        getHiddenPresets(patient.patientId),
-        listPatientAssignments(patient.patientId),
-        listBank(),
-      ]);
-      setHidden(hid);
-      setAssigned(asg);
-      setBank(bnk);
-      setBankPick((prev) => prev || bnk[0]?.id || "");
-    } catch {
-      flash("Could not load patient details");
-    }
-    // flash is stable enough for this panel — recreating it must not refetch.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [patient.patientId]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  // CHECKED = VISIBLE: unchecking inserts the hidden row, checking removes it.
-  const togglePreset = async (presetId: string, visible: boolean) => {
-    if (busyPresets.has(presetId)) return; // serialize per-preset writes
-    const hide = !visible;
-    setHidden((prev) =>
-      hide ? [...prev, presetId] : prev.filter((id) => id !== presetId),
-    );
-    setBusyPresets((prev) => new Set(prev).add(presetId));
-    try {
-      await setPresetHidden(patient.patientId, presetId, hide);
-    } catch {
-      flash("Could not update visibility");
-      void load();
-    } finally {
-      setBusyPresets((prev) => {
-        const next = new Set(prev);
-        next.delete(presetId);
-        return next;
-      });
-    }
-  };
-
-  const unassign = async (audioId: string) => {
-    try {
-      await unassignFromPatient(audioId, patient.patientId);
-      await load();
-      onAssignmentsChange();
-    } catch {
-      flash("Could not unassign the audio");
-    }
-  };
-
-  const assign = async () => {
-    if (!bankPick) return;
-    try {
-      await assignToPatient(bankPick, patient.patientId);
-      await load();
-      onAssignmentsChange();
-      flash("Assigned ✓");
-    } catch {
-      flash("Could not assign the audio");
-    }
-  };
-
-  return (
-    <div className="patient-detail">
-      <h3>{patient.email ?? "Patient"}</h3>
-
-      <div className="detail-block">
-        <h4>Built-in sessions</h4>
-        <p className="library-note">
-          Uncheck a session to hide it from this patient's app.
-        </p>
-        <div className="preset-checks">
-          {PRESETS.map((preset) => {
-            const visible = !hidden.includes(preset.id);
-            return (
-              <label className="preset-check" key={preset.id}>
-                <input
-                  type="checkbox"
-                  checked={visible}
-                  disabled={busyPresets.has(preset.id)}
-                  onChange={(e) => void togglePreset(preset.id, e.target.checked)}
-                />
-                <span aria-hidden>{preset.emoji}</span> {preset.name}
-              </label>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="detail-block">
-        <h4>Assigned audio</h4>
-        {assigned.length === 0 ? (
-          <p className="library-note">Nothing assigned yet.</p>
-        ) : (
-          <div className="library-list">
-            {assigned.map((a) => (
-              <div className="library-item" key={a.audioId}>
-                <div className="library-item-info">
-                  <span className="library-item-name">{a.name}</span>
-                  {a.goalTagline && (
-                    <span className="library-item-tagline">{a.goalTagline}</span>
-                  )}
-                </div>
-                <span className="category-badge">{a.category}</span>
-                <button
-                  className="saved-del"
-                  aria-label={`Unassign ${a.name}`}
-                  onClick={() => void unassign(a.audioId)}
-                >
-                  ✕
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div className="detail-block">
-        <h4>Add from bank</h4>
-        {bank.length === 0 ? (
-          <p className="library-note">
-            Your bank is empty — design a session in the Studio and save it
-            here.
-          </p>
-        ) : (
-          <div className="save-row">
-            <select
-              className="select"
-              value={bankPick}
-              aria-label="Choose audio from your bank"
-              onChange={(e) => setBankPick(e.target.value)}
-            >
-              {bank.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
-                </option>
-              ))}
-            </select>
-            <button className="chip" disabled={!bankPick} onClick={() => void assign()}>
-              Assign
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
   );
 }
 
@@ -645,11 +310,19 @@ function BankCard({
 
   const doDownload = async () => {
     try {
-      const saved = await runMp3Export(audio.id, audio.name, async (onPhase) => {
-        // Dynamic on purpose: code-splits the MP3 encoder out of startup.
-        const { exportSessionMp3 } = await import("../audio/export");
-        return exportSessionMp3(audio.spec, dlMin, onPhase);
-      });
+      const saved = await runMp3Export(
+        audio.id,
+        audio.name,
+        {
+          audio: { kind: "custom", id: audio.id, name: audio.name, emoji: null, band: audio.band },
+          lengthMin: dlMin,
+        },
+        async (onPhase) => {
+          // Dynamic on purpose: code-splits the MP3 encoder out of startup.
+          const { exportSessionMp3 } = await import("../audio/export");
+          return exportSessionMp3(audio.spec, dlMin, onPhase);
+        },
+      );
       if (saved) flash("MP3 saved ✓");
     } catch {
       flash("Export failed — try a shorter length.");
@@ -739,7 +412,7 @@ function BankCard({
               <option value="all">All patients</option>
               {patients.map((p) => (
                 <option key={p.patientId} value={p.patientId}>
-                  {p.email ?? p.patientId}
+                  {patientName(p)}
                 </option>
               ))}
             </select>

@@ -9,6 +9,7 @@ import { getMyHiddenPresetIds } from "../lib/patientLink";
 import { isUnlocked } from "../state/tier";
 import { loadPrefs } from "../state/prefs";
 import { exportLabel, getExportJob, runMp3Export, subscribeExport } from "./mp3Export";
+import { presetSnapshot } from "../state/listening";
 import {
   dismissReciprocityCard,
   journeyPercent,
@@ -323,6 +324,7 @@ function SetupSheet({ preset, onClose, onStart }: SetupSheetProps) {
       await runMp3Export(
         exportId,
         `Serenade ${preset.name} ${length} min ${earLabel}`,
+        { audio: presetSnapshot(preset), lengthMin: length },
         async (onPhase) => {
           // Dynamic on purpose: code-splits the MP3 encoder out of startup.
           const { exportPresetMp3 } = await import("../audio/export");

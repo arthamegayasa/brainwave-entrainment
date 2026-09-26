@@ -33,7 +33,7 @@ import {
 import type { CloudAudio } from "../lib/audioLibrary";
 import { AUDIO_CATEGORIES } from "../lib/clinician";
 import type { AudioCategory } from "../lib/clinician";
-import type { Role } from "../lib/roles";
+import type { AccountRole } from "../../supabase/functions/_shared/accountRules.ts";
 
 const LAYER_TYPE_LABELS: Record<BuilderLayerType, string> = {
   binaural: "Binaural",
@@ -354,7 +354,7 @@ function PublishPanel({
 }: {
   getSession: () => CustomSession;
   flash: (msg: string) => void;
-  role: Role;
+  role: AccountRole;
 }) {
   const [tagline, setTagline] = useState("");
   const [category, setCategory] = useState<AudioCategory>("other");

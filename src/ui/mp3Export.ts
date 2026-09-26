@@ -1,4 +1,6 @@
 import type { ExportPhase } from "../audio/export";
+import type { DownloadAudio } from "../state/listening";
+import { recordDownload } from "../lib/listening";
 
 /**
  * The app's single MP3 export (Audio Bank card or preset). One at a time
@@ -40,12 +42,14 @@ export function exportLabel(current: ExportJob): string {
 
 /**
  * Run `render` as the app-wide export and download the result as
- * `<name>.mp3`. Resolves false without doing anything while another export
- * runs; render errors propagate to the caller.
+ * `<name>.mp3`, recorded as a Download of `audio`, `lengthMin` long, in the
+ * signed-in User's Listening History. Resolves false without doing anything
+ * while another export runs; render errors propagate to the caller.
  */
 export async function runMp3Export(
   id: string,
   name: string,
+  download: { audio: DownloadAudio; lengthMin: number },
   render: ExportRender,
 ): Promise<boolean> {
   if (job) return false;
@@ -60,6 +64,7 @@ export async function runMp3Export(
     const core = name.replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-+|-+$/g, "");
     a.download = `${core || "session"}.mp3`;
     a.click();
+    recordDownload(download.audio, download.lengthMin);
     // Revoking right after click() can cancel the download in Safari; keep
     // the URL alive until the browser has taken the file.
     window.setTimeout(() => URL.revokeObjectURL(url), 60_000);

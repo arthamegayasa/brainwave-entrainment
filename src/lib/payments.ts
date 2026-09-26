@@ -22,12 +22,6 @@ export async function signOut(): Promise<void> {
   await supabase?.auth.signOut();
 }
 
-export async function getUserEmail(): Promise<string | null> {
-  if (!supabase) return null;
-  const { data } = await supabase.auth.getUser();
-  return data.user?.email ?? null;
-}
-
 /** Read the signed-in user's entitlement row (null if none / signed out). */
 export async function fetchEntitlement(): Promise<Entitlement | null> {
   if (!supabase) return null;

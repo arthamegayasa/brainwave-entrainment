@@ -1,19 +1,39 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase, isPaymentsConfigured } from "./supabase";
-import { fetchEntitlement, getUserEmail } from "./payments";
+import { fetchEntitlement } from "./payments";
 import type { Entitlement } from "./payments";
 import { fetchProfile } from "./roles";
-import type { Role } from "./roles";
+import type { Profile } from "./roles";
+import { fetchMyLink } from "./patientLink";
+import type { MyLink } from "./patientLink";
+import { isPremiumUser } from "../state/tier";
+import { hasClinicianPowers, patientLimitOf } from "../../supabase/functions/_shared/accountRules.ts";
+import type { AccountRole } from "../../supabase/functions/_shared/accountRules.ts";
 
 export interface AuthEntitlementState {
   configured: boolean;
   loading: boolean;
+  signedIn: boolean;
+  /** The signed-in User's id; null when signed out. */
+  userId: string | null;
+  /**
+   * The signed-in account's email to show, never its internal login email
+   * (ADR-018): null for a Username account without a contact email.
+   */
   email: string | null;
+  /** How the signed-in account reads to its owner: name, else email, else Username. */
+  accountName: string | null;
+  username: string | null;
   entitlement: Entitlement | null;
+  /** The signed-in User's Link to their Clinician; null when they are not a Patient. */
+  link: MyLink | null;
+  /** An active subscription of their own, or the Premium grant on their Link (ADR-014). */
   isPremium: boolean;
   /** True for clinicians AND admins — admins inherit clinician powers. */
   isClinician: boolean;
-  role: Role;
+  role: AccountRole;
+  /** Most Patients this Clinician may have; null means no limit (the Admin). */
+  patientLimit: number | null;
   refresh: () => Promise<void>;
 }
 
@@ -24,7 +44,7 @@ export interface AuthEntitlementState {
  * (the server profile wins, and RLS blocks all data access regardless of
  * client UI state).
  */
-function localRoleOverride(): Role {
+function localRoleOverride(): AccountRole {
   try {
     const stored = localStorage.getItem("serenade.role.override");
     if (stored === "admin") return "admin";
@@ -38,22 +58,26 @@ function localRoleOverride(): Role {
 /** Tracks auth session + the user's entitlement + role, reacting to sign-in/out. */
 export function useEntitlement(): AuthEntitlementState {
   const [loading, setLoading] = useState(isPaymentsConfigured);
-  const [email, setEmail] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [entitlement, setEntitlement] = useState<Entitlement | null>(null);
-  const [role, setRole] = useState<Role>(() =>
+  const [link, setLink] = useState<MyLink | null>(null);
+  const [demoRole] = useState<AccountRole>(() =>
     isPaymentsConfigured ? "user" : localRoleOverride(),
   );
 
   const refresh = useCallback(async () => {
-    if (!isPaymentsConfigured) return;
-    const [mail, ent, profile] = await Promise.all([
-      getUserEmail(),
+    if (!isPaymentsConfigured || !supabase) return;
+    const [user, ent, prof, myLink] = await Promise.all([
+      supabase.auth.getUser(),
       fetchEntitlement(),
       fetchProfile(),
+      fetchMyLink(),
     ]);
-    setEmail(mail);
+    setUserId(user.data.user?.id ?? null);
     setEntitlement(ent);
-    setRole(profile?.role ?? "user");
+    setProfile(prof);
+    setLink(myLink);
     setLoading(false);
   }, []);
 
@@ -64,21 +88,28 @@ export function useEntitlement(): AuthEntitlementState {
     return () => data.subscription.unsubscribe();
   }, [refresh]);
 
-  // Clinician entitlement counts as premium — a paid clinician gets everything
-  // Premium has (D-04); the extra clinician surface is ROLE-gated below.
-  const isPremium =
-    (entitlement?.tier === "premium" || entitlement?.tier === "clinician") &&
-    entitlement?.status === "active";
-  const isClinician = role === "clinician" || role === "admin";
+  const role = isPaymentsConfigured ? (profile?.role ?? "user") : demoRole;
+  const username = profile?.username ?? null;
+
+  const isPremium = isPremiumUser({
+    subscription: entitlement,
+    premiumGrant: link?.premiumGrant ?? false,
+  });
 
   return {
     configured: isPaymentsConfigured,
     loading,
-    email,
+    signedIn: userId !== null,
+    userId,
+    email: profile?.email ?? null,
+    accountName: profile?.displayName ?? profile?.email ?? username,
+    username,
     entitlement,
+    link,
     isPremium,
-    isClinician,
+    isClinician: hasClinicianPowers(role),
     role,
+    patientLimit: profile === null ? null : patientLimitOf(profile),
     refresh,
   };
 }

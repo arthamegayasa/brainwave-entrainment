@@ -14,7 +14,11 @@ const Builder = lazy(() => import("./ui/Builder").then((m) => ({ default: m.Buil
 const Dashboard = lazy(() => import("./ui/Dashboard").then((m) => ({ default: m.Dashboard })));
 const Library = lazy(() => import("./ui/Library").then((m) => ({ default: m.Library })));
 const Science = lazy(() => import("./ui/Science").then((m) => ({ default: m.Science })));
+const Privacy = lazy(() => import("./ui/Privacy").then((m) => ({ default: m.Privacy })));
 const Upgrade = lazy(() => import("./ui/Upgrade").then((m) => ({ default: m.Upgrade })));
+const PersonalUrl = lazy(() =>
+  import("./ui/PersonalUrl").then((m) => ({ default: m.PersonalUrl })),
+);
 const AccountSheet = lazy(() =>
   import("./ui/Account").then((m) => ({ default: m.AccountSheet })),
 );
@@ -24,6 +28,8 @@ import { isAudioBlocked, resumeAudio, subscribeAudio } from "./ui/audioContext";
 import type { SessionConfig } from "./audio/session";
 import { useEntitlement } from "./lib/useEntitlement";
 import { loadProgress, recordSessionCompleted } from "./state/progress";
+import { startListeningSync } from "./lib/listening";
+import { parsePersonalUrlPath } from "../supabase/functions/_shared/accountRules.ts";
 
 type View =
   | "landing"
@@ -33,13 +39,18 @@ type View =
   | "dashboard"
   | "studio"
   | "science"
-  | "upgrade";
+  | "upgrade"
+  | "privacy"
+  | "personal";
 
 /** A session counts as completed when at least 5 minutes were listened. */
 const COMPLETION_MIN_SEC = 300;
 
 function App() {
-  const [view, setView] = useState<View>("landing");
+  // The Personal URL (/p/<username>, ADR-016) is the only view with its own
+  // path; every other view lives in state.
+  const [personalUrl] = useState(() => parsePersonalUrlPath(window.location.pathname));
+  const [view, setView] = useState<View>(personalUrl === null ? "landing" : "personal");
   const [completed, setCompleted] = useState<{ presetName: string } | null>(null);
   const [accountOpen, setAccountOpen] = useState(false);
   const activePresetRef = useRef<{ id: string; name: string } | null>(null);
@@ -50,6 +61,18 @@ function App() {
   useEffect(() => {
     loadProgress();
   }, []);
+
+  // Listening History (ADR-017): Plays and Downloads of the signed-in User
+  // queued on this device go to the server now and whenever it is back online.
+  useEffect(() => startListeningSync(), []);
+
+  // Once the app leaves the Personal URL page, the address returns to "/", so
+  // a reload opens the app as usual instead of the password page again.
+  useEffect(() => {
+    if (view !== "personal" && parsePersonalUrlPath(window.location.pathname) !== null) {
+      window.history.replaceState(null, "", "/");
+    }
+  }, [view]);
 
   const session = useSession((endedAt) => {
     // Natural end — the engine finished the full session. Credit it at the
@@ -158,8 +181,8 @@ function App() {
           aria-label="Account"
           onClick={() => setAccountOpen((v) => !v)}
         >
-          {ent.email ? (
-            ent.email.charAt(0).toUpperCase()
+          {ent.signedIn && ent.accountName ? (
+            ent.accountName.charAt(0).toUpperCase()
           ) : (
             <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden>
               <circle cx="12" cy="8" r="4" />
@@ -197,6 +220,13 @@ function App() {
         <Player session={session} onExit={handleExit} />
       )}
       <Suspense fallback={null}>
+        {view === "personal" && personalUrl !== null && (
+          <PersonalUrl
+            username={personalUrl.username}
+            onEnter={() => setView("library")}
+            onLeave={() => setView("landing")}
+          />
+        )}
         {view === "library" && (
           <Library
             onSignIn={() => setAccountOpen(true)}
@@ -223,7 +253,13 @@ function App() {
             />
           ))}
         {view === "science" && <Science />}
-        {view === "upgrade" && <Upgrade onSignIn={() => setAccountOpen(true)} />}
+        {view === "privacy" && <Privacy />}
+        {view === "upgrade" && (
+          <Upgrade
+            onSignIn={() => setAccountOpen(true)}
+            onOpenPrivacy={() => setView("privacy")}
+          />
+        )}
 
         {accountOpen && (
           <AccountSheet
@@ -232,9 +268,9 @@ function App() {
               setAccountOpen(false);
               setView("upgrade");
             }}
-            onOpenLibrary={() => {
+            onOpenPrivacy={() => {
               setAccountOpen(false);
-              setView("library");
+              setView("privacy");
             }}
           />
         )}
@@ -244,6 +280,10 @@ function App() {
         A relaxation &amp; meditation tool — not a medical device.{" "}
         <button className="link-btn" onClick={() => setView("science")}>
           Learn the science
+        </button>{" "}
+        ·{" "}
+        <button className="link-btn" onClick={() => setView("privacy")}>
+          Privacy policy
         </button>
       </footer>
     </div>

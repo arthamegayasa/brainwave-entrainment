@@ -18,6 +18,7 @@ import {
   resumeAudio,
   subscribeAudio,
 } from "./audioContext";
+import { presetPlays } from "./playAdapters";
 
 // Module-level singleton on the shared AudioContext; the engine itself never
 // creates a context (ENG-07).
@@ -120,6 +121,7 @@ export function useSession(onEnded?: (endedAt: Date) => void): SessionApi {
         setActive(false);
         setConfig(null);
         releaseAudio("session");
+        presetPlays.ended();
         onEndedRef.current?.(new Date(Date.now() - overrunSec * 1000));
       }
     }, 250);
@@ -128,6 +130,7 @@ export function useSession(onEnded?: (endedAt: Date) => void): SessionApi {
 
   const stop = useCallback(() => {
     engine?.stop();
+    presetPlays.stopped();
     releaseAudio("session");
     setActive(false);
     setConfig(null);
@@ -139,6 +142,7 @@ export function useSession(onEnded?: (endedAt: Date) => void): SessionApi {
     (cfg: SessionConfig) => {
       const e = ensureEngine();
       e.start(cfg);
+      presetPlays.started(cfg.preset, cfg.durationMin);
       setConfig(cfg);
       setActive(true);
       setProgress(e.progress());

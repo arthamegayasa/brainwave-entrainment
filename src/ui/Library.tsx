@@ -1,12 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CustomSession } from "../audio/builder";
 import { listAssignedAudios } from "../lib/audioLibrary";
 import type { CloudAudio } from "../lib/audioLibrary";
-import {
-  getMyClinician,
-  redeemInviteCode,
-  unlinkMyClinician,
-} from "../lib/patientLink";
 import { useEntitlement } from "../lib/useEntitlement";
 import {
   deleteCustomSession,
@@ -15,8 +10,9 @@ import {
   listCustomSessions,
   saveCustomSession,
 } from "../state/customPresets";
+import type { AudioKind } from "../state/listening";
 import { loadPrefs } from "../state/prefs";
-import { formatClock } from "./bands";
+import { bandForHz, formatClock } from "./bands";
 import {
   ensureBuilder,
   getBuilderEngine,
@@ -24,6 +20,7 @@ import {
   setNowPlaying,
   stopBuilderPlayback,
 } from "./builderEngine";
+import { libraryPlayStarted } from "./playAdapters";
 
 /**
  * Library (D-04): the user-facing home for custom audio — cloud sessions
@@ -40,15 +37,6 @@ interface LibraryProps {
   onBeforePlay: () => void;
 }
 
-/** Friendly copy for redeem_invite_code error keys (quick-260714-a8a). */
-const REDEEM_ERROR_COPY: Record<string, string> = {
-  invalid_code: "That code doesn't look right — check it and try again.",
-  expired: "This code has expired — ask your clinician for a new one.",
-  already_used: "This code was already used.",
-  already_linked: "You're already connected to a clinician.",
-  not_signed_in: "Please sign in first.",
-};
-
 export function Library({ onSignIn, onBeforePlay }: LibraryProps) {
   const ent = useEntitlement();
   const [cloud, setCloud] = useState<CloudAudio[]>([]);
@@ -60,47 +48,19 @@ export function Library({ onSignIn, onBeforePlay }: LibraryProps) {
   const [elapsed, setElapsed] = useState(0);
   const [remaining, setRemaining] = useState<number | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [clinician, setClinician] = useState<{ clinicianEmail: string } | null>(null);
-  const [codeInput, setCodeInput] = useState("");
-  const [linkMsg, setLinkMsg] = useState<string | null>(null);
-  const [linkBusy, setLinkBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const signedIn = ent.configured && ent.email !== null;
-
-  // The Account sheet can disconnect the clinician while this view stays
-  // mounted underneath it — it dispatches this event so we refetch instead of
-  // keeping a stale "Connected" block and playable assigned sessions.
-  const [clinicianTick, setClinicianTick] = useState(0);
-  useEffect(() => {
-    const bump = () => setClinicianTick((n) => n + 1);
-    window.addEventListener("serenade:clinician-changed", bump);
-    return () => window.removeEventListener("serenade:clinician-changed", bump);
-  }, []);
-
-  // Shared by the mount effect AND the redeem handler, so a fresh link's
-  // assigned audios appear without a reload.
-  const loadCloud = useCallback(async () => {
-    try {
-      const rows = await listAssignedAudios();
-      setCloud(rows);
-      setCloudError(null);
-    } catch {
-      setCloudError("Could not load your sessions — try again later.");
-    }
-  }, []);
+  const signedIn = ent.signedIn;
 
   useEffect(() => {
     if (!signedIn) {
       // Sign-out (possibly from another tab) must drop the personalized list.
       setCloud([]);
       setCloudError(null);
-      setClinician(null);
-      setLinkMsg(null);
       return;
     }
-    // Cancellation guard: if sign-out fires while these fetches are in flight,
-    // their resolutions must NOT repopulate the previous account's data (the
+    // Cancellation guard: if sign-out fires while this fetch is in flight,
+    // its resolution must NOT repopulate the previous account's data (the
     // "Made for you" list renders on assigned.length, not on signedIn).
     let cancelled = false;
     void listAssignedAudios()
@@ -112,17 +72,10 @@ export function Library({ onSignIn, onBeforePlay }: LibraryProps) {
       .catch(() => {
         if (!cancelled) setCloudError("Could not load your sessions — try again later.");
       });
-    void getMyClinician()
-      .then((c) => {
-        if (!cancelled) setClinician(c);
-      })
-      .catch(() => {
-        if (!cancelled) setClinician(null);
-      });
     return () => {
       cancelled = true;
     };
-  }, [signedIn, clinicianTick]);
+  }, [signedIn]);
 
   // Poll the shared engine while playing, mirroring the Studio transport.
   useEffect(() => {
@@ -145,50 +98,8 @@ export function Library({ onSignIn, onBeforePlay }: LibraryProps) {
     window.setTimeout(() => setNotice(null), 2600);
   };
 
-  const connectClinician = async () => {
-    const trimmed = codeInput.trim();
-    if (!trimmed) return;
-    setLinkBusy(true);
-    setLinkMsg(null);
-    try {
-      const result = await redeemInviteCode(trimmed);
-      if ("error" in result) {
-        setLinkMsg(
-          REDEEM_ERROR_COPY[result.error] ??
-            "Could not redeem the code — try again later.",
-        );
-      } else {
-        setClinician(result);
-        setCodeInput("");
-        flash("Connected ✓");
-        // The clinician may already have assigned audio — show it right away.
-        await loadCloud();
-      }
-    } catch {
-      setLinkMsg("Could not redeem the code — try again later.");
-    } finally {
-      setLinkBusy(false);
-    }
-  };
-
-  const disconnectClinician = async () => {
-    if (
-      !window.confirm(
-        "Disconnect from your clinician? Sessions they assigned may no longer be curated for you.",
-      )
-    ) {
-      return;
-    }
-    try {
-      await unlinkMyClinician();
-      setClinician(null);
-      await loadCloud();
-    } catch {
-      flash("Could not disconnect — try again later.");
-    }
-  };
-
-  const play = (id: string, spec: CustomSession) => {
+  /** Play `spec` as `kind` (cloud Custom Audio or a saved session) under the list's id and name. */
+  const play = (kind: AudioKind, id: string, name: string, spec: CustomSession) => {
     onBeforePlay(); // one pair of ears: any running preset session stops first
     const prefs = loadPrefs();
     const durationMin =
@@ -198,6 +109,10 @@ export function Library({ onSignIn, onBeforePlay }: LibraryProps) {
     engine.start(spec.layers, spec.curve, durationMin);
     setNowPlaying(id);
     setPlayingId(id);
+    libraryPlayStarted(
+      { kind, id, name, emoji: null, band: bandForHz(spec.curve.targetHz) },
+      durationMin,
+    );
   };
 
   const stop = () => {
@@ -237,9 +152,9 @@ export function Library({ onSignIn, onBeforePlay }: LibraryProps) {
   // Resolve a play target from either list by id (cloud first, then saved).
   const playFrom = (id: string) => {
     const cloudHit = cloud.find((a) => a.id === id);
-    if (cloudHit) return play(id, cloudHit.spec);
+    if (cloudHit) return play("custom", id, cloudHit.name, cloudHit.spec);
     const savedHit = saved.find((s) => s.id === id);
-    if (savedHit) return play(id, savedHit);
+    if (savedHit) return play("saved", id, savedHit.name, savedHit);
   };
 
   const transport = (id: string) =>
@@ -270,44 +185,12 @@ export function Library({ onSignIn, onBeforePlay }: LibraryProps) {
         </p>
       </header>
 
-      {ent.configured && signedIn && (
+      {ent.link && (
         <div className="library-section my-clinician">
           <h2>My clinician</h2>
-          {clinician ? (
-            <>
-              <p className="library-note">
-                Connected to {clinician.clinicianEmail || "your clinician"}
-              </p>
-              <button
-                className="chip small"
-                onClick={() => void disconnectClinician()}
-              >
-                Disconnect
-              </button>
-            </>
-          ) : (
-            <>
-              <p className="library-note">Have a code from your clinician?</p>
-              <div className="save-row">
-                <input
-                  className="text-input"
-                  value={codeInput}
-                  maxLength={16}
-                  placeholder="Invite code"
-                  aria-label="Clinician invite code"
-                  onChange={(e) => setCodeInput(e.target.value)}
-                />
-                <button
-                  className="chip"
-                  disabled={linkBusy || !codeInput.trim()}
-                  onClick={() => void connectClinician()}
-                >
-                  {linkBusy ? "Connecting…" : "Connect"}
-                </button>
-              </div>
-              {linkMsg && <p className="library-note">{linkMsg}</p>}
-            </>
-          )}
+          <p className="library-note">
+            Connected to {ent.link.clinicianName ?? "your clinician"}
+          </p>
         </div>
       )}
 

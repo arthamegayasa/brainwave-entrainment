@@ -5,9 +5,11 @@ import type { Band } from "../audio/presets";
 import { sanitizeSession } from "../state/customPresets";
 import { bandForHz } from "../ui/bands";
 import { assignAudio, unassignAudio } from "./audioLibrary";
+import { shownEmail } from "../../supabase/functions/_shared/accountRules.ts";
+import type { AccountRole } from "../../supabase/functions/_shared/accountRules.ts";
 
 /**
- * Clinician data layer (quick-260714-a8a): patients, invite codes, Audio Bank,
+ * Clinician data layer (quick-260714-a8a): patients, Audio Bank,
  * per-patient preset visibility, and assignment. Every function throws when
  * Supabase isn't configured — the Dashboard renders only for clinicians on a
  * configured build, and RLS enforces every rule server-side regardless.
@@ -33,8 +35,23 @@ export type AudioCategory = (typeof AUDIO_CATEGORIES)[number];
 
 export interface PatientLink {
   patientId: string;
+  /** The Clinician of the Patient's Link: the one who curates them (the Admin acts in their name). */
+  clinicianId: string;
+  /** The Patient's name (profile display name); null for older Links. */
+  name: string | null;
+  /** The role on the Patient's profile: a Patient may also be a Clinician. */
+  role: AccountRole;
+  username: string | null;
+  /** The email to show; never an internal login email (ADR-018). */
   email: string | null;
   linkedAt: string;
+  /** Whether the Link carries the Premium grant (ADR-014). */
+  premiumGrant: boolean;
+}
+
+/** How a Patient reads in the Dashboard: their name, else their email. */
+export function patientName(patient: PatientLink): string {
+  return patient.name ?? patient.email ?? "Unnamed patient";
 }
 
 export interface PatientAssignment {
@@ -76,87 +93,63 @@ function coerceCategory(value: string | null | undefined): AudioCategory {
 }
 
 /**
- * Linked patients with their emails. patient_links FKs point at auth.users,
- * NOT profiles, so PostgREST embedded joins are unavailable — two-step fetch:
- * links first (RLS scopes to own rows), then the linked patients' profiles
- * (the profiles policy lets clinicians read exactly those rows).
+ * Linked patients with their names, Usernames and emails. patient_links FKs
+ * point at auth.users, NOT profiles, so PostgREST embedded joins are
+ * unavailable — two-step fetch: links first (RLS scopes to own rows), then
+ * the linked patients' profiles (the profiles policy lets clinicians read
+ * exactly those rows).
  */
 export async function listMyPatients(): Promise<PatientLink[]> {
   const sb = client();
   const uid = await currentUserId(sb);
   const { data: links, error } = await sb
     .from("patient_links")
-    .select("patient_id, created_at")
+    .select("patient_id, created_at, premium_grant")
     .eq("clinician_id", uid)
     .order("created_at", { ascending: true });
   if (error) throw error;
-  const rows = (links ?? []) as Array<{ patient_id: string; created_at: string }>;
+  const rows = (links ?? []) as Array<{
+    patient_id: string;
+    created_at: string;
+    premium_grant: boolean;
+  }>;
   if (rows.length === 0) return [];
 
   const ids = rows.map((r) => r.patient_id);
   const { data: profiles, error: profErr } = await sb
     .from("profiles")
-    .select("user_id, email")
+    .select("user_id, email, display_name, username, contact_email, role")
     .in("user_id", ids);
   if (profErr) throw profErr;
-  const emailById = new Map(
-    ((profiles ?? []) as Array<{ user_id: string; email: string | null }>).map(
-      (p) => [p.user_id, p.email],
-    ),
+  const profileById = new Map(
+    (
+      (profiles ?? []) as Array<{
+        user_id: string;
+        email: string | null;
+        display_name: string | null;
+        username: string | null;
+        contact_email: string | null;
+        role: AccountRole;
+      }>
+    ).map((p) => [p.user_id, p]),
   );
 
-  return rows.map((r) => ({
-    patientId: r.patient_id,
-    email: emailById.get(r.patient_id) ?? null,
-    linkedAt: r.created_at,
-  }));
-}
-
-/** Create a single-use invite code (DB defaults generate code + 30-day expiry). */
-export async function createInviteCode(): Promise<{ code: string; expiresAt: string }> {
-  const sb = client();
-  const uid = await currentUserId(sb);
-  const { data, error } = await sb
-    .from("invite_codes")
-    .insert({ clinician_id: uid })
-    .select("code, expires_at")
-    .single();
-  if (error) throw error;
-  const row = data as { code: string; expires_at: string };
-  return { code: row.code, expiresAt: row.expires_at };
-}
-
-/** Active (unused, unexpired) invite codes, newest first. */
-export async function listInviteCodes(): Promise<Array<{ code: string; expiresAt: string }>> {
-  const sb = client();
-  const { data, error } = await sb
-    .from("invite_codes")
-    .select("code, expires_at")
-    .is("used_by", null)
-    .gt("expires_at", new Date().toISOString())
-    .order("created_at", { ascending: false });
-  if (error) throw error;
-  return ((data ?? []) as Array<{ code: string; expires_at: string }>).map((r) => ({
-    code: r.code,
-    expiresAt: r.expires_at,
-  }));
-}
-
-/** Revoke an unused invite code. */
-export async function revokeInviteCode(code: string): Promise<void> {
-  const sb = client();
-  const { error } = await sb.from("invite_codes").delete().eq("code", code);
-  if (error) throw error;
-}
-
-/** Sever the link with a patient (RLS restricts to own links). */
-export async function unlinkPatient(patientId: string): Promise<void> {
-  const sb = client();
-  const { error } = await sb
-    .from("patient_links")
-    .delete()
-    .eq("patient_id", patientId);
-  if (error) throw error;
+  return rows.map((r) => {
+    const profile = profileById.get(r.patient_id);
+    return {
+      patientId: r.patient_id,
+      clinicianId: uid,
+      name: profile?.display_name ?? null,
+      // Without their profile (it cannot be read) they show as a Patient only.
+      role: profile?.role ?? "user",
+      username: profile?.username ?? null,
+      email: profile
+        ? shownEmail({ loginEmail: profile.email, contactEmail: profile.contact_email })
+        : null,
+      linkedAt: r.created_at,
+      premiumGrant: r.premium_grant,
+    };
+  });
 }
 
 /**
@@ -215,18 +208,23 @@ export async function getHiddenPresets(patientId: string): Promise<string[]> {
   return ((data ?? []) as Array<{ preset_id: string }>).map((r) => r.preset_id);
 }
 
-/** Hide (insert row) or show (delete row) a built-in preset for a patient. */
+/**
+ * Hide (insert row) or show (delete row) a built-in preset for a Patient. A
+ * hidden Preset belongs to the Patient's Link, under their Clinician, also
+ * when the Admin hides it: their Clinician sees it, and ending the Link
+ * removes it. Showing removes every row hiding it that RLS lets the caller
+ * manage.
+ */
 export async function setPresetHidden(
-  patientId: string,
+  patient: Pick<PatientLink, "patientId" | "clinicianId">,
   presetId: string,
   hidden: boolean,
 ): Promise<void> {
   const sb = client();
-  const uid = await currentUserId(sb);
   if (hidden) {
     const { error } = await sb.from("template_visibility").upsert({
-      clinician_id: uid,
-      patient_id: patientId,
+      clinician_id: patient.clinicianId,
+      patient_id: patient.patientId,
       preset_id: presetId,
     });
     if (error) throw error;
@@ -234,8 +232,7 @@ export async function setPresetHidden(
     const { error } = await sb
       .from("template_visibility")
       .delete()
-      .eq("clinician_id", uid)
-      .eq("patient_id", patientId)
+      .eq("patient_id", patient.patientId)
       .eq("preset_id", presetId);
     if (error) throw error;
   }
@@ -284,6 +281,24 @@ interface BankRow {
   created_at: string;
 }
 
+function toBankAudio(row: BankRow): BankAudio | null {
+  const spec = sanitizeSession(row.spec);
+  if (!spec) return null;
+  return {
+    id: row.id,
+    name: row.name,
+    goalTagline: row.goal_tagline,
+    category: coerceCategory(row.category),
+    notes: row.notes,
+    spec,
+    isTemplate: row.is_template,
+    createdAt: row.created_at,
+    band: bandForHz(spec.curve.targetHz),
+    targetHz: spec.curve.targetHz,
+    layerCount: spec.layers.length,
+  };
+}
+
 /**
  * The clinician's Audio Bank: own custom_audios rows, newest first. Specs
  * failing sanitizeSession are DROPPED (never reach the engine); unknown
@@ -298,26 +313,90 @@ export async function listBank(): Promise<BankAudio[]> {
     .eq("created_by", uid)
     .order("created_at", { ascending: false });
   if (error) throw error;
+  return ((data ?? []) as BankRow[]).map(toBankAudio).filter((audio) => audio !== null);
+}
 
-  const out: BankAudio[] = [];
-  for (const row of (data ?? []) as BankRow[]) {
-    const spec = sanitizeSession(row.spec);
-    if (!spec) continue;
-    out.push({
-      id: row.id,
-      name: row.name,
-      goalTagline: row.goal_tagline,
-      category: coerceCategory(row.category),
-      notes: row.notes,
-      spec,
-      isTemplate: row.is_template,
-      createdAt: row.created_at,
-      band: bandForHz(spec.curve.targetHz),
-      targetHz: spec.curve.targetHz,
-      layerCount: spec.layers.length,
-    });
+/**
+ * Admin: how many Custom Audio a User created, their Audio Bank's size. A
+ * former Clinician keeps theirs (#15). RLS lets only the Admin count anyone's.
+ */
+export async function audioBankSize(userId: string): Promise<number> {
+  const { count, error } = await client()
+    .from("custom_audios")
+    .select("id", { count: "exact", head: true })
+    .eq("created_by", userId);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/** One Clinician's Audio Bank, named after them. */
+export interface AudioBank {
+  ownerId: string;
+  /** The owner's name, else the email to show (never an internal login email). */
+  ownerName: string;
+  audios: BankAudio[];
+}
+
+/** Rows per request, within PostgREST's row cap (max_rows). */
+const PAGE_ROWS = 500;
+
+/**
+ * Admin: every Audio Bank, the Admin's own first, then by owner name; each
+ * newest first. RLS gives the Admin every Custom Audio and every profile.
+ */
+export async function listEveryBank(): Promise<AudioBank[]> {
+  const sb = client();
+  const uid = await currentUserId(sb);
+  const rows: Array<BankRow & { created_by: string | null }> = [];
+  for (;;) {
+    const { data, error } = await sb
+      .from("custom_audios")
+      .select("id, name, goal_tagline, category, notes, spec, is_template, created_at, created_by")
+      .order("created_at", { ascending: false })
+      .order("id")
+      .range(rows.length, rows.length + PAGE_ROWS - 1);
+    if (error) throw error;
+    const page = (data ?? []) as Array<BankRow & { created_by: string | null }>;
+    rows.push(...page);
+    if (page.length < PAGE_ROWS) break;
   }
-  return out;
+  if (rows.length === 0) return [];
+
+  const ownerIds = [...new Set(rows.flatMap((r) => (r.created_by ? [r.created_by] : [])))];
+  const { data: owners, error: ownerErr } = await sb
+    .from("profiles")
+    .select("user_id, email, display_name, contact_email")
+    .in("user_id", ownerIds);
+  if (ownerErr) throw ownerErr;
+  const ownerName = new Map(
+    (
+      (owners ?? []) as Array<{
+        user_id: string;
+        email: string | null;
+        display_name: string | null;
+        contact_email: string | null;
+      }>
+    ).map((p) => [
+      p.user_id,
+      p.display_name ?? shownEmail({ loginEmail: p.email, contactEmail: p.contact_email }) ?? "Unnamed clinician",
+    ]),
+  );
+
+  const banks = new Map<string, AudioBank>();
+  for (const row of rows) {
+    const audio = toBankAudio(row);
+    if (!audio || !row.created_by) continue;
+    let bank = banks.get(row.created_by);
+    if (!bank) {
+      const name = ownerName.get(row.created_by) ?? "Unnamed clinician";
+      bank = { ownerId: row.created_by, ownerName: row.created_by === uid ? `${name} (you)` : name, audios: [] };
+      banks.set(row.created_by, bank);
+    }
+    bank.audios.push(audio);
+  }
+  return [...banks.values()].sort(
+    (a, b) => Number(b.ownerId === uid) - Number(a.ownerId === uid) || a.ownerName.localeCompare(b.ownerName),
+  );
 }
 
 /** Update Audio Bank metadata (name / tagline / category / notes). */

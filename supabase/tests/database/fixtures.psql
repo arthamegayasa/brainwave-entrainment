@@ -1,0 +1,173 @@
+-- Fixture for the pgTAP suite. Include it right after `begin;` in every test
+-- file with `\ir fixtures.psql`; everything it creates lives in that test's
+-- transaction and disappears on `rollback`. Keep test files in this folder:
+-- `supabase test db <file>` mounts only the file's own folder. The `.psql`
+-- extension keeps `supabase test db` from running this file as a test.
+--
+-- Tests refer to Users and Custom Audio by a label that is unique within one
+-- test file (a fixture label only, not a Username):
+--   select tests.create_user('clinician_a', 'clinician');
+--   select tests.create_user('patient_a');
+--   select tests.link('clinician_a', 'patient_a');
+--   select tests.create_custom_audio('bank_a', 'clinician_a');
+--   select tests.assign('bank_a', 'patient_a');
+--   select tests.act_as('clinician_a');   -- or tests.act_as_anon(),
+--                                         -- tests.act_as_service_role()
+--   reset role;                           -- back to the fixture owner
+
+create schema tests;
+
+-- The test User's email, derived from its label.
+create function tests.email(p_label text)
+returns text
+language sql
+immutable
+as $$
+  select p_label || '@serenade.test';
+$$;
+
+-- The User's id; raises for an unknown label so a typo cannot turn a
+-- "sees nothing" assertion into a vacuous pass. security definer: tests call
+-- it while acting as anon or authenticated, which cannot read auth.users.
+create function tests.user_id(p_label text)
+returns uuid
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_id uuid;
+begin
+  select id into v_id from auth.users where email = tests.email(p_label);
+  if not found then
+    raise exception 'tests.user_id: no User labelled %', p_label;
+  end if;
+  return v_id;
+end;
+$$;
+
+-- Creates a User (auth.users row + profile) with a role: 'user' (a Regular,
+-- or a Patient once linked), 'clinician' or 'admin'. Returns the User's id.
+create function tests.create_user(p_label text, p_role text default 'user')
+returns uuid
+language plpgsql
+as $$
+declare
+  v_id uuid := gen_random_uuid();
+begin
+  insert into auth.users (id, email, aud, role)
+  values (v_id, tests.email(p_label), 'authenticated', 'authenticated');
+
+  -- The signup trigger normally creates the profile; upsert so the role holds
+  -- whatever that trigger does.
+  insert into public.profiles (user_id, email, role)
+  values (v_id, tests.email(p_label), p_role)
+  on conflict (user_id) do update set role = excluded.role;
+
+  return v_id;
+end;
+$$;
+
+-- Creates the Link between a Clinician and a Patient.
+create function tests.link(p_clinician text, p_patient text)
+returns void
+language sql
+as $$
+  insert into public.patient_links (clinician_id, patient_id)
+  values (tests.user_id(p_clinician), tests.user_id(p_patient));
+$$;
+
+-- Creates Custom Audio named by its label, created by the User p_owner;
+-- p_is_template publishes it as a Template. Returns its id.
+create function tests.create_custom_audio(
+  p_label text,
+  p_owner text,
+  p_is_template boolean default false
+)
+returns uuid
+language sql
+as $$
+  insert into public.custom_audios (created_by, name, spec, is_template)
+  values (tests.user_id(p_owner), p_label, '{}'::jsonb, p_is_template)
+  returning id;
+$$;
+
+-- The Custom Audio's id; raises for an unknown label, like tests.user_id.
+-- security definer: the acting User may not be able to read that row.
+create function tests.custom_audio_id(p_label text)
+returns uuid
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_id uuid;
+begin
+  select id into v_id from public.custom_audios where name = p_label;
+  if not found then
+    raise exception 'tests.custom_audio_id: no Custom Audio labelled %', p_label;
+  end if;
+  return v_id;
+end;
+$$;
+
+-- Creates the Assignment of a Custom Audio to a User.
+create function tests.assign(p_audio text, p_user text)
+returns void
+language sql
+as $$
+  insert into public.audio_assignments (audio_id, user_id)
+  values (tests.custom_audio_id(p_audio), tests.user_id(p_user));
+$$;
+
+-- Acts as a signed-in User for the rest of the transaction: the authenticated
+-- role with the JWT claims PostgREST would set, so auth.uid() is that User.
+create function tests.act_as(p_label text)
+returns void
+language plpgsql
+as $$
+declare
+  v_id uuid := tests.user_id(p_label);
+begin
+  perform set_config('role', 'authenticated', true);
+  perform set_config(
+    'request.jwt.claims',
+    json_build_object(
+      'sub', v_id,
+      'role', 'authenticated',
+      'email', tests.email(p_label)
+    )::text,
+    true
+  );
+end;
+$$;
+
+-- Acts as a signed-out visitor (the anon key) for the rest of the transaction.
+create function tests.act_as_anon()
+returns void
+language plpgsql
+as $$
+begin
+  perform set_config('role', 'anon', true);
+  perform set_config('request.jwt.claims', json_build_object('role', 'anon')::text, true);
+end;
+$$;
+
+-- Acts as the server functions do (the service role) for the rest of the
+-- transaction.
+create function tests.act_as_service_role()
+returns void
+language plpgsql
+as $$
+begin
+  perform set_config('role', 'service_role', true);
+  perform set_config('request.jwt.claims', json_build_object('role', 'service_role')::text, true);
+end;
+$$;
+
+-- Tests switch identity and look Users up while acting as anon, authenticated
+-- or the service role.
+grant usage on schema tests to anon, authenticated, service_role;
+grant execute on all functions in schema tests to anon, authenticated, service_role;

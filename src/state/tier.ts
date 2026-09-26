@@ -5,6 +5,8 @@
  * backend/receipt instead of localStorage.
  */
 
+import type { Entitlement } from "../lib/payments";
+
 export type Tier = "free" | "premium";
 
 /** Build-level switch: true = every feature unlocked regardless of tier. */
@@ -102,4 +104,25 @@ export function features(): TierFeatures {
 /** Whether a given feature is available right now. */
 export function isUnlocked(feature: keyof TierFeatures): boolean {
   return features()[feature];
+}
+
+/** The paid tier of a subscription while it is active; null for none, a free or an inactive one. */
+export function activeSubscriptionTier(
+  subscription: Pick<Entitlement, "tier" | "status"> | null,
+): "premium" | "clinician" | null {
+  if (subscription === null || subscription.status !== "active") return null;
+  return subscription.tier === "free" ? null : subscription.tier;
+}
+
+/**
+ * Whether a signed-in User is Premium (ADR-014): their own subscription is
+ * active (a Clinician subscription includes Premium), or their Link carries
+ * the Premium grant from their Clinician. ALL_UNLOCKED still unlocks every
+ * feature for everyone, so this gates nothing yet.
+ */
+export function isPremiumUser(account: {
+  subscription: Pick<Entitlement, "tier" | "status"> | null;
+  premiumGrant: boolean;
+}): boolean {
+  return activeSubscriptionTier(account.subscription) !== null || account.premiumGrant;
 }

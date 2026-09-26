@@ -36,7 +36,14 @@ const CLINICIAN = [
 
 const PRICES = PRICING.IDR;
 
-export function Upgrade({ onSignIn }: { onSignIn: () => void }) {
+export function Upgrade({
+  onSignIn,
+  onOpenPrivacy,
+}: {
+  onSignIn: () => void;
+  /** Navigate to the privacy policy, linked from the signed-out checkout. */
+  onOpenPrivacy: () => void;
+}) {
   const [period, setPeriod] = useState<BillingPeriod>("annual");
   const ent = useEntitlement();
   const sessions = totalSessions();
@@ -136,7 +143,13 @@ export function Upgrade({ onSignIn }: { onSignIn: () => void }) {
           </ul>
 
           {ent.configured ? (
-            <PlanCheckout plan="premium" period={period} ent={ent} onSignIn={onSignIn} />
+            <PlanCheckout
+              plan="premium"
+              period={period}
+              ent={ent}
+              onSignIn={onSignIn}
+              onOpenPrivacy={onOpenPrivacy}
+            />
           ) : (
             <LocalActivate />
           )}
@@ -168,7 +181,13 @@ export function Upgrade({ onSignIn }: { onSignIn: () => void }) {
           </ul>
 
           {ent.configured ? (
-            <PlanCheckout plan="clinician" period={period} ent={ent} onSignIn={onSignIn} />
+            <PlanCheckout
+              plan="clinician"
+              period={period}
+              ent={ent}
+              onSignIn={onSignIn}
+              onOpenPrivacy={onOpenPrivacy}
+            />
           ) : (
             <p className="plan-note">
               Available once payments are configured in this build.
@@ -213,11 +232,13 @@ function PlanCheckout({
   period,
   ent,
   onSignIn,
+  onOpenPrivacy,
 }: {
   plan: "premium" | "clinician";
   period: BillingPeriod;
   ent: ReturnType<typeof useEntitlement>;
   onSignIn: () => void;
+  onOpenPrivacy: () => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -227,7 +248,8 @@ function PlanCheckout({
   }
 
   // Active states: clinician card keys off the ROLE (clinician/admin);
-  // premium card keys off the entitlement (clinician tier counts as premium).
+  // premium card keys off isPremium: an active subscription (the clinician
+  // tier counts) or the Premium grant from the Patient's Clinician.
   const active = plan === "clinician" ? ent.isClinician : ent.isPremium;
   if (active) {
     return (
@@ -236,7 +258,7 @@ function PlanCheckout({
           {plan === "clinician" ? "Clinician active ✓" : "Premium active ✓"}
         </button>
         <p className="plan-note">
-          Signed in as {ent.email}
+          Signed in as {ent.accountName}
           {ent.entitlement?.currentPeriodEnd
             ? ` · renews ${new Date(ent.entitlement.currentPeriodEnd).toLocaleDateString()}`
             : ""}
@@ -247,13 +269,18 @@ function PlanCheckout({
   }
 
   // Signed out → the Account sheet owns the sign-in form (shared).
-  if (!ent.email) {
+  if (!ent.signedIn) {
     return (
       <>
         <button className="start-btn compact" onClick={onSignIn}>
           Sign in to subscribe
         </button>
-        <p className="plan-note">No password needed — we'll email you a link.</p>
+        <p className="plan-note">
+          No password needed — we'll email you a link.{" "}
+          <button className="link-btn" onClick={onOpenPrivacy}>
+            Privacy policy
+          </button>
+        </p>
       </>
     );
   }
@@ -301,7 +328,7 @@ function PlanCheckout({
         {busy ? "Starting…" : `Subscribe — ${priceLabel}`}
       </button>
       {msg && <p className="plan-note">{msg}</p>}
-      <p className="plan-note">Signed in as {ent.email}.</p>
+      <p className="plan-note">Signed in as {ent.accountName}.</p>
     </>
   );
 }
