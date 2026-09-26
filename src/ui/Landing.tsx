@@ -98,7 +98,7 @@ export function Landing({ onEnter, onScience }: LandingProps) {
       </section>
 
       <section className="landing-honesty">
-        <h2>Grounded in research</h2>
+        <h2>Backed by research</h2>
         <p>
           Our audio is grounded in published research on how sound can
           influence brain activity and well-being. Studies have shown that
