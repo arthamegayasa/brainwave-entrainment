@@ -17,8 +17,10 @@ import {
   mayManageLink,
   mayPromoteToClinician,
   mayReadPasswordAccessLog,
+  mayRemoveClinicianRole,
   mayRevealOrResetPassword,
   maySetPatientLimit,
+  mayTransferPatients,
   normalizeUsername,
   parseLoginIdentifier,
   parsePersonalUrlPath,
@@ -34,6 +36,7 @@ import {
 import type {
   PasswordAccount,
   PatientCreator,
+  TransferTarget,
   UsernameState,
 } from "../supabase/functions/_shared/accountRules.ts";
 
@@ -844,5 +847,157 @@ describe("may set a Clinician's Patient limit", () => {
     expect(maySetPatientLimit({ actor: admin, account: { role: "clinician", patientCount: 0 }, limit: 0 })).toEqual({
       ok: true,
     });
+  });
+});
+
+describe("may Transfer Patients", () => {
+  const admin = { role: "admin" } as const;
+  /** Clinician B, with 28 of their 30 Patients. */
+  const clinicianB: TransferTarget = { id: "clinician-b", role: "clinician", patientCount: 28, patientLimit: 30 };
+  /** Ivan, a Patient of Clinician A. */
+  const ivan = { fromClinicianId: "clinician-a", patientIds: ["ivan-id"] };
+
+  it("lets the Admin Transfer one Patient to another Clinician", () => {
+    expect(mayTransferPatients({ actor: admin, ...ivan, target: clinicianB })).toEqual({ ok: true });
+  });
+
+  it("refuses everyone but the Admin, the Patients' own Clinician included", () => {
+    for (const role of ["clinician", "user"] as const) {
+      expect(mayTransferPatients({ actor: { role }, ...ivan, target: clinicianB }), role).toEqual({
+        ok: false,
+        reason: "not_allowed",
+      });
+    }
+  });
+
+  it("tells the Admin when there is nobody to move: no Link, or a Clinician without Patients", () => {
+    expect(mayTransferPatients({ actor: admin, fromClinicianId: null, patientIds: [], target: clinicianB })).toEqual({
+      ok: false,
+      reason: "not_linked",
+    });
+    expect(
+      mayTransferPatients({ actor: admin, fromClinicianId: "clinician-a", patientIds: [], target: clinicianB }),
+    ).toEqual({ ok: false, reason: "not_linked" });
+  });
+
+  it("moves Patients only to someone who holds the Clinician role, or to the Admin", () => {
+    const theAdmin: TransferTarget = { id: "admin", role: "admin", patientCount: 400, patientLimit: 30 };
+    expect(mayTransferPatients({ actor: admin, ...ivan, target: theAdmin })).toEqual({ ok: true });
+    // A Regular, a Patient, or an Inactive Clinician: all read as role "user".
+    const noRole: TransferTarget = { ...clinicianB, role: "user", patientCount: 3 };
+    expect(mayTransferPatients({ actor: admin, ...ivan, target: noRole })).toEqual({
+      ok: false,
+      reason: "target_not_clinician",
+    });
+  });
+
+  it("refuses to move Patients to the Clinician they already have", () => {
+    const clinicianA: TransferTarget = { ...clinicianB, id: "clinician-a" };
+    expect(mayTransferPatients({ actor: admin, ...ivan, target: clinicianA })).toEqual({
+      ok: false,
+      reason: "same_clinician",
+    });
+  });
+
+  it("never makes a Clinician their own Patient", () => {
+    // Made, a Clinician who is also one of Clinician A's Patients.
+    const made: TransferTarget = { ...clinicianB, id: "made-id" };
+    const everyPatientOfA = { fromClinicianId: "clinician-a", patientIds: ["ivan-id", "made-id"] };
+    expect(mayTransferPatients({ actor: admin, ...everyPatientOfA, target: made })).toEqual({
+      ok: false,
+      reason: "target_is_patient",
+    });
+  });
+
+  it("fills the new Clinician up to their limit, never past it", () => {
+    const oneFree: TransferTarget = { ...clinicianB, patientCount: 29 };
+    const full: TransferTarget = { ...clinicianB, patientCount: 30 };
+    expect(mayTransferPatients({ actor: admin, ...ivan, target: oneFree })).toEqual({ ok: true });
+    expect(mayTransferPatients({ actor: admin, ...ivan, target: full })).toEqual({
+      ok: false,
+      reason: "patient_limit_reached",
+    });
+  });
+
+  it("moves every Patient of a Clinician or none: all of them must fit", () => {
+    const three = { fromClinicianId: "clinician-a", patientIds: ["ivan-id", "made-id", "ketut-id"] };
+    expect(mayTransferPatients({ actor: admin, ...three, target: { ...clinicianB, patientCount: 27 } })).toEqual({
+      ok: true,
+    });
+    expect(mayTransferPatients({ actor: admin, ...three, target: clinicianB })).toEqual({
+      ok: false,
+      reason: "patient_limit_reached",
+    });
+  });
+
+  it("follows a limit the Admin raised, and gives the Admin no limit", () => {
+    expect(mayTransferPatients({ actor: admin, ...ivan, target: { ...clinicianB, patientCount: 30, patientLimit: 45 } }))
+      .toEqual({ ok: true });
+    const theAdmin: TransferTarget = { id: "admin", role: "admin", patientCount: 30, patientLimit: 30 };
+    expect(mayTransferPatients({ actor: admin, ...ivan, target: theAdmin })).toEqual({ ok: true });
+  });
+});
+
+describe("may remove the Clinician role", () => {
+  const admin = { role: "admin" } as const;
+  const clinicianB: TransferTarget = { id: "clinician-b", role: "clinician", patientCount: 28, patientLimit: 30 };
+  /** Clinician A, with two Patients. */
+  const clinicianA = { id: "clinician-a", role: "clinician", patientIds: ["ivan-id", "made-id"] } as const;
+
+  it("removes the role from a Clinician without Patients, with no Transfer target needed", () => {
+    const idle = { ...clinicianA, patientIds: [] };
+    expect(mayRemoveClinicianRole({ actor: admin, account: idle, target: null })).toEqual({ ok: true });
+  });
+
+  it("is refused while the Clinician still has Patients, unless a Transfer target is chosen", () => {
+    expect(mayRemoveClinicianRole({ actor: admin, account: clinicianA, target: null })).toEqual({
+      ok: false,
+      reason: "transfer_target_required",
+    });
+    expect(mayRemoveClinicianRole({ actor: admin, account: clinicianA, target: clinicianB })).toEqual({ ok: true });
+  });
+
+  it("lets only the Admin remove the role", () => {
+    for (const role of ["clinician", "user"] as const) {
+      for (const account of [clinicianA, { ...clinicianA, patientIds: [] }]) {
+        expect(mayRemoveClinicianRole({ actor: { role }, account, target: clinicianB }), role).toEqual({
+          ok: false,
+          reason: "not_allowed",
+        });
+      }
+    }
+  });
+
+  it("never touches the Admin account", () => {
+    const theAdmin = { id: "admin", role: "admin", patientIds: ["ivan-id"] } as const;
+    expect(mayRemoveClinicianRole({ actor: admin, account: theAdmin, target: clinicianB })).toEqual({
+      ok: false,
+      reason: "not_allowed",
+    });
+  });
+
+  it("tells the Admin when the User holds no Clinician role: a Regular, or an Inactive Clinician", () => {
+    for (const patientIds of [[], ["ivan-id"]]) {
+      const noRole = { id: "clinician-a", role: "user", patientIds } as const;
+      expect(mayRemoveClinicianRole({ actor: admin, account: noRole, target: clinicianB })).toEqual({
+        ok: false,
+        reason: "not_clinician",
+      });
+    }
+  });
+
+  it("needs a Transfer the Admin may make: within the target's limit, never to the Clinician or their Patient", () => {
+    const cases: Array<[TransferTarget, string]> = [
+      [{ ...clinicianB, patientCount: 29 }, "patient_limit_reached"],
+      [{ ...clinicianB, id: "clinician-a" }, "same_clinician"],
+      [{ ...clinicianB, id: "made-id" }, "target_is_patient"],
+      [{ ...clinicianB, role: "user" }, "target_not_clinician"],
+    ];
+    for (const [target, reason] of cases) {
+      expect(mayRemoveClinicianRole({ actor: admin, account: clinicianA, target }), reason).toEqual({
+        ok: false,
+        reason,
+      });
+    }
   });
 });

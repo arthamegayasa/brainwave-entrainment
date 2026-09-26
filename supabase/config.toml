@@ -400,7 +400,8 @@ verify_jwt = false
 # Disconnecting a Patient and switching their Premium grant (#9, ADR-014) need
 # a signed-in Clinician or Admin. Creating a Clinician, promoting a User to
 # Clinician and setting a Clinician's Patient limit (#14) need the signed-in
-# Admin; create-clinician also reads PASSWORD_COPY_KEY.
+# Admin; create-clinician also reads PASSWORD_COPY_KEY. Transferring Patients
+# and removing the Clinician role (#15) need the signed-in Admin too.
 [functions.create-patient]
 verify_jwt = true
 
@@ -441,6 +442,12 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.set-patient-limit]
+verify_jwt = true
+
+[functions.transfer-patients]
+verify_jwt = true
+
+[functions.remove-clinician-role]
 verify_jwt = true
 
 [analytics]

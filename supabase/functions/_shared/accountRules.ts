@@ -476,6 +476,82 @@ export function maySetPatientLimit(request: {
 /** Every refusal the set-patient-limit function answers with (as `{ error }`). */
 export type SetPatientLimitError = SetPatientLimitRefusal;
 
+/** Someone a Transfer moves Patients to, as the server reads them. */
+export interface TransferTarget {
+  id: string;
+  role: AccountRole;
+  /** Patients currently Linked to them. */
+  patientCount: number;
+  /** The Patient limit on their profile. */
+  patientLimit: number;
+}
+
+export type TransferRefusal =
+  | AdminOnlyRefusal
+  | "not_linked"
+  | "target_not_clinician"
+  | "same_clinician"
+  | "target_is_patient"
+  | "patient_limit_reached";
+
+/**
+ * Only the Admin Transfers Patients (ADR-014): one Patient, or every Patient
+ * of a Clinician, an Inactive Clinician's included. They move to someone who
+ * holds the Clinician role or to the Admin, never to the Clinician they
+ * already have or to one of themselves, and only when the new Clinician's
+ * Patient limit takes every one of them (the Admin has none): a Transfer
+ * moves all its Patients or none.
+ */
+export function mayTransferPatients(request: {
+  actor: { role: AccountRole };
+  /** The Clinician of the Links that move; null when the Patient has no Link. */
+  fromClinicianId: string | null;
+  /** The Patients that move: one, or every Patient of that Clinician. */
+  patientIds: readonly string[];
+  target: TransferTarget;
+}): { ok: true } | { ok: false; reason: TransferRefusal } {
+  const { actor, fromClinicianId, patientIds, target } = request;
+  if (actor.role !== "admin") return { ok: false, reason: "not_allowed" };
+  if (fromClinicianId === null || patientIds.length === 0) return { ok: false, reason: "not_linked" };
+  if (!hasClinicianPowers(target.role)) return { ok: false, reason: "target_not_clinician" };
+  if (target.id === fromClinicianId) return { ok: false, reason: "same_clinician" };
+  if (patientIds.includes(target.id)) return { ok: false, reason: "target_is_patient" };
+  const limit = patientLimitOf(target);
+  if (limit !== null && target.patientCount + patientIds.length > limit) {
+    return { ok: false, reason: "patient_limit_reached" };
+  }
+  return { ok: true };
+}
+
+export type RemoveClinicianRoleRefusal = AdminOnlyRefusal | "not_clinician" | "transfer_target_required";
+
+/**
+ * Only the Admin removes someone's Clinician role (ADR-014), never the Admin
+ * account's. While the Clinician still has Patients, the Admin first chooses
+ * a Transfer target and that Transfer must be allowed, so no Patient is left
+ * unmonitored. An Inactive Clinician holds no role to remove: the Admin
+ * Transfers their Patients instead.
+ */
+export function mayRemoveClinicianRole(request: {
+  actor: { role: AccountRole };
+  account: { id: string; role: AccountRole; patientIds: readonly string[] };
+  /** Where their Patients are Transferred; null when none is chosen. */
+  target: TransferTarget | null;
+}): { ok: true } | { ok: false; reason: RemoveClinicianRoleRefusal | TransferRefusal } {
+  const { actor, account, target } = request;
+  if (actor.role !== "admin" || account.role === "admin") return { ok: false, reason: "not_allowed" };
+  if (account.role !== "clinician") return { ok: false, reason: "not_clinician" };
+  if (account.patientIds.length === 0) return { ok: true };
+  if (target === null) return { ok: false, reason: "transfer_target_required" };
+  return mayTransferPatients({ actor, fromClinicianId: account.id, patientIds: account.patientIds, target });
+}
+
+/** Every refusal the remove-clinician-role function answers with (as `{ error }`). */
+export type RemoveClinicianRoleError = RemoveClinicianRoleRefusal | TransferRefusal;
+
+/** Every refusal the transfer-patients function answers with (as `{ error }`). */
+export type TransferPatientsError = TransferRefusal;
+
 /** An account whose password is revealed, reset or changed, as the server reads it. */
 export interface PasswordAccount extends ProfileRole {
   /** The Clinician of its Link; null without a Link. */

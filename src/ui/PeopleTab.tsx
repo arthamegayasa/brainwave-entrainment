@@ -10,6 +10,7 @@ import type { PatientStatus } from "../state/patientStatus";
 import {
   accountLabel,
   firstName,
+  hasClinicianPowers,
   isInactiveClinician,
   patientLimitOf,
   rolesOf,
@@ -22,6 +23,7 @@ import { formatMinutes } from "./listeningFormat";
 import { NewClinicianForm } from "./NewClinicianForm";
 import { PasswordViews } from "./PasswordViews";
 import { PatientDetail } from "./PatientDetail";
+import type { TransferCandidate } from "./TransferForm";
 import { STATUS_NAMES, StatusPill, readStatus } from "./PatientStatusPill";
 import type { StatusReading } from "./PatientStatusPill";
 import {
@@ -61,6 +63,8 @@ type SortKey = "attention" | "name" | "role" | "clinician" | "last" | "minutes" 
 /** A Clinician's Patients, summed up for their row, their drawer and the scope banner. */
 interface Caseload {
   patients: number;
+  /** Who they are, for a Transfer of all of them. */
+  patientIds: string[];
   /** Null for the Admin, who has no limit. */
   limit: number | null;
   needAttention: number;
@@ -174,6 +178,7 @@ function toPeople(users: UserOverview[], now: number): Person[] {
     const patients = (patientsOf.get(p.user.userId) ?? []).flatMap((u) => byId.get(u.userId) ?? []);
     p.caseload = {
       patients: patients.length,
+      patientIds: patients.map((pt) => pt.user.userId),
       limit: patientLimitOf(p.user),
       needAttention: patients.filter((pt) => pt.statusReading && needsAttention(pt.statusReading.status)).length,
       listenedThisWeek: patients.filter((pt) => pt.user.activity.plays7 > 0).length,
@@ -276,7 +281,8 @@ function clinicianRoleAccountOf(person: Person): ClinicianRoleAccount {
     role: user.role,
     clinicianOrigin: user.clinicianOrigin,
     patientLimit: user.patientLimit,
-    patientCount: person.caseload?.patients ?? 0,
+    patientIds: person.caseload?.patientIds ?? [],
+    isPatient: user.link !== null,
   };
 }
 
@@ -302,6 +308,22 @@ export function PeopleTab({ flash }: { flash: (msg: string) => void }) {
   const clinicians = useMemo(
     () => people.filter((p) => p.caseload !== null).sort((a, b) => a.name.localeCompare(b.name)),
     [people],
+  );
+  /** Everyone who may take over Patients: the Clinicians and the Admin, not an Inactive Clinician. */
+  const transferTargets = useMemo(
+    () =>
+      clinicians
+        .filter((p) => hasClinicianPowers(p.user.role))
+        .map(
+          (p): TransferCandidate => ({
+            id: p.user.userId,
+            name: p.name,
+            role: p.user.role,
+            patientCount: p.caseload?.patients ?? 0,
+            patientLimit: p.user.patientLimit,
+          }),
+        ),
+    [clinicians],
   );
 
   const q = query.trim().toLowerCase().replace(/^@/, "");
@@ -695,10 +717,12 @@ export function PeopleTab({ flash }: { flash: (msg: string) => void }) {
                 <ClinicianRole
                   account={clinicianRoleAccountOf(openRow.person)}
                   passwordShownAsPatient={openRow.person.user.username !== null}
+                  transferTargets={transferTargets}
                   flash={flash}
                   onChange={refresh}
                 />
               }
+              transferTargets={transferTargets}
             />
           ) : (
             <PersonDetail
@@ -709,6 +733,7 @@ export function PeopleTab({ flash }: { flash: (msg: string) => void }) {
                 <ClinicianRole
                   account={clinicianRoleAccountOf(openRow.person)}
                   passwordShownAsPatient={false}
+                  transferTargets={transferTargets}
                   flash={flash}
                   onChange={refresh}
                 />

@@ -193,3 +193,28 @@ export async function promoteToClinician(accountId: string): Promise<void> {
 export async function setPatientLimit(accountId: string, limit: number): Promise<void> {
   await invoke("set-patient-limit", { accountId, limit });
 }
+
+/**
+ * The Admin Transfers one Patient (`{ patientId }`), or every Patient of a
+ * Clinician (`{ clinicianId }`), to the Clinician `targetId` (ADR-014), and
+ * learns how many moved. They keep their Listening History, Premium grant,
+ * password copy and Username; the old Clinician's Assignments and Hidden
+ * Presets go. Refusals arrive as AccountError with a TransferPatientsError
+ * code.
+ */
+export async function transferPatients(
+  from: { patientId: string } | { clinicianId: string },
+  targetId: string,
+): Promise<number> {
+  const { moved } = await invoke<{ moved: number }>("transfer-patients", { ...from, targetId });
+  return moved;
+}
+
+/**
+ * The Admin takes someone's Clinician role away, first Transferring their
+ * Patients to `targetId` (required while they have Patients). Refusals arrive
+ * as AccountError with a RemoveClinicianRoleError code.
+ */
+export async function removeClinicianRole(accountId: string, targetId: string | null): Promise<void> {
+  await invoke("remove-clinician-role", targetId === null ? { accountId } : { accountId, targetId });
+}

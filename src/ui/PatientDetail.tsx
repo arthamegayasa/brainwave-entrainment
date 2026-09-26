@@ -12,23 +12,25 @@ import {
   unassignFromPatient,
 } from "../lib/clinician";
 import type { AudioBank, PatientAssignment, PatientLink } from "../lib/clinician";
-import { setPremiumGrant } from "../lib/accounts";
+import { setPremiumGrant, transferPatients } from "../lib/accounts";
 import { StatusPill } from "./PatientStatusPill";
 import type { StatusReading } from "./PatientStatusPill";
 import { ChangeUsernameForm } from "./ChangeUsernameForm";
 import { AccountPassword } from "./AccountPassword";
 import { ListeningReport } from "./ListeningReport";
 import { RoleBadges } from "./roster";
+import { TransferForm } from "./TransferForm";
+import type { TransferCandidate } from "./TransferForm";
 import { personalUrlPath } from "../../supabase/functions/_shared/accountRules.ts";
 import type { ShownRole } from "../../supabase/functions/_shared/accountRules.ts";
 
 /**
  * One Patient in full, in the drawer of a people table (#12, #13): their
  * roles and Patient Status, every action on the Patient (Premium grant,
- * Personal URL and Username, password, disconnect), their Listening History
- * report, and the curation of Built-in sessions and Assigned audio. The
- * Admin acts exactly as the Patient's Clinician would, and assigns audio
- * from any Audio Bank.
+ * Personal URL and Username, password, disconnect, and the Admin's Transfer,
+ * #15), their Listening History report, and the curation of Built-in
+ * sessions and Assigned audio. The Admin acts exactly as the Patient's
+ * Clinician would, and assigns audio from any Audio Bank.
  */
 
 /** Who looks at the Patient: their own Clinician, or the Admin. */
@@ -88,6 +90,7 @@ export function PatientDetail({
   onChange,
   onDisconnect,
   clinicianRole,
+  transferTargets,
 }: {
   patient: PatientLink;
   /** Every role the Patient holds, for the badges in the header. */
@@ -98,12 +101,15 @@ export function PatientDetail({
   zoneLabel: string;
   viewer: PatientViewer;
   flash: (msg: string) => void;
-  /** Something shown in the table changed (assignments, Username, Premium). */
+  /** Something shown in the table changed (assignments, Username, Premium, Clinician). */
   onChange: () => Promise<void>;
   onDisconnect: () => void;
   /** The Admin's management of their Clinician role, under the header. */
   clinicianRole?: ReactNode;
+  /** Whom the Admin may Transfer the Patient to; without it, no Transfer. */
+  transferTargets?: readonly TransferCandidate[];
 }) {
+  const [transferring, setTransferring] = useState(false);
   const [hidden, setHidden] = useState<string[]>([]);
   const [assigned, setAssigned] = useState<PatientAssignment[]>([]);
   const [banks, setBanks] = useState<AudioBank[]>([]);
@@ -209,12 +215,42 @@ export function PatientDetail({
           <button className="chip small danger" onClick={onDisconnect}>
             Disconnect
           </button>
+          {transferTargets && !transferring && (
+            <button className="chip small" onClick={() => setTransferring(true)}>
+              Transfer…
+            </button>
+          )}
         </div>
         <p className="library-note" id={premiumNoteId}>
           {copy.premiumNote}: every Premium feature, without a subscription. Their Account says “Premium from
           your clinician”.
         </p>
       </header>
+
+      {transferTargets && transferring && (
+        <div className="detail-block">
+          <h4>Transfer to another clinician</h4>
+          <TransferForm
+            fromClinicianId={patient.clinicianId}
+            patientIds={[patient.patientId]}
+            candidates={transferTargets}
+            submitLabel="Transfer"
+            note={
+              <>
+                Their listening history, Premium grant, password and @username move with them. Audio assigned from
+                their current clinician's bank and the sessions hidden for them are removed.
+              </>
+            }
+            onSubmit={async (target) => {
+              await transferPatients({ patientId: patient.patientId }, target.id);
+              setTransferring(false);
+              await onChange();
+              flash(`${name} transferred to ${target.name} ✓`);
+            }}
+            onClose={() => setTransferring(false)}
+          />
+        </div>
+      )}
 
       {clinicianRole}
 
