@@ -8,7 +8,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["icon-192.png", "icon-512.png"],
+      includeAssets: ["icon-192.png", "icon-512.png", "icon.svg"],
       manifest: {
         name: "SwaraSanti — Healing Audio",
         short_name: "SwaraSanti",
@@ -31,7 +31,16 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ["**/*.{js,css,html,woff,woff2,png,svg}"],
+        // Card-size scene paintings (~220 KB) ship with the app shell; the
+        // large ones are cached the first time a banner or player shows them.
+        globPatterns: ["**/*.{js,css,html,woff,woff2,png,svg}", "scenes/*-768.webp"],
+        runtimeCaching: [
+          {
+            urlPattern: ({ url }) => url.pathname.startsWith("/scenes/"),
+            handler: "CacheFirst",
+            options: { cacheName: "scene-paintings", expiration: { maxEntries: 24 } },
+          },
+        ],
         // Every navigation opens the app shell, so the installed PWA serves a
         // Personal URL (/p/<username>) like the host's rewrite in vercel.json.
         navigateFallback: "index.html",

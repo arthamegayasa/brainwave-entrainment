@@ -1,3 +1,5 @@
+import { SceneArt } from "./SceneArt";
+
 interface LandingProps {
   onEnter: () => void;
   onScience: () => void;
@@ -5,21 +7,21 @@ interface LandingProps {
 
 const STEPS = [
   {
-    emoji: "🎯",
+    sceneId: "deep-sleep",
     title: "Choose a goal",
     body: "Sleeping, meditating, focusing, or calming anxiety — you pick the outcome, not a frequency number.",
   },
   {
-    emoji: "🌊",
+    sceneId: "deep-meditation",
     title: "The sound guides you gradually",
     body: "A session isn't a static tone: the frequency eases down along a curve, accompanying your brain toward the target state.",
   },
   {
-    emoji: "🎧",
+    sceneId: "focus",
     title: "Listen and let go",
     body: "Binaural beats on headphones or isochronic tones on speakers, blended with purely synthesized rain, ocean, and wind.",
   },
-];
+] satisfies { sceneId: string; title: string; body: string }[];
 
 const FEATURES = [
   {
@@ -43,42 +45,40 @@ const FEATURES = [
 export function Landing({ onEnter, onScience }: LandingProps) {
   return (
     <div className="landing">
-      <section className="landing-hero">
-        <div className="landing-orb" aria-hidden>
-          <div className="orb-halo" />
-          <div className="orb" />
-          <div className="orb-ring" />
+      <section className="landing-hero" data-parallax>
+        <div className="landing-copy">
+          <span className="landing-eyebrow">A space to slow down</span>
+          <h1>
+            Find your
+            <br />
+            <em>quiet horizon.</em>
+          </h1>
+          <p className="landing-lede">
+            Choose a goal. SwaraSanti shapes binaural beats, ambient sound, and a
+            gradual listening journey around it — live in your browser.
+          </p>
+          <div className="landing-cta">
+            <button className="start-btn compact" onClick={onEnter}>
+              Start a Free Session
+            </button>
+            <button className="pill-btn" onClick={onScience}>
+              See the Science
+            </button>
+          </div>
+          <p className="landing-note">
+            Free, no account, right in your browser. Use headphones for the best
+            experience.
+          </p>
         </div>
-        <h1>
-          Find calm,
-          <br />
-          <em>one frequency</em> at a time
-        </h1>
-        <p className="landing-lede">
-          SwaraSanti synthesizes binaural beats, isochronic tones, solfeggio, and
-          natural atmospheres — then guides them along a frequency curve
-          designed for relaxation, sleep, and focus.
-        </p>
-        <div className="landing-cta">
-          <button className="start-btn compact" onClick={onEnter}>
-            Start a Free Session
-          </button>
-          <button className="pill-btn" onClick={onScience}>
-            See the Science
-          </button>
+        <div className="landing-scene">
+          <SceneArt sceneId="landing" variant="hero" />
         </div>
-        <p className="landing-note">
-          Free, no account, right in your browser. Use headphones for the best
-          experience.
-        </p>
       </section>
 
       <section className="landing-steps">
         {STEPS.map((s) => (
-          <div className="step-card" key={s.title}>
-            <span className="emoji" aria-hidden>
-              {s.emoji}
-            </span>
+          <div className="step-card" key={s.title} data-parallax>
+            <SceneArt sceneId={s.sceneId} variant="step" />
             <h3>{s.title}</h3>
             <p>{s.body}</p>
           </div>

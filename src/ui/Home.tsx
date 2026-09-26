@@ -4,6 +4,7 @@ import type { Preset } from "../audio/presets";
 import { SOUND_LABELS } from "../audio/constants";
 import type { AmbientKind } from "../audio/types";
 import type { ListeningMode, SessionConfig } from "../audio/session";
+import { SceneArt } from "./SceneArt";
 import { BAND_COLORS, BAND_LABELS } from "./bands";
 import { getMyHiddenPresetIds } from "../lib/patientLink";
 import { isUnlocked } from "../state/tier";
@@ -115,16 +116,15 @@ export function Home({ onStart, onUpgrade }: HomeProps) {
         className="reco-card"
         style={{ "--card-accent": BAND_COLORS[recommended.band] } as React.CSSProperties}
         aria-label="Recommended now"
+        data-parallax
       >
         <div className="reco-info">
           <span className="reco-label">Recommended now</span>
-          <h2>
-            <span className="emoji" aria-hidden>
-              {recommended.emoji}
-            </span>{" "}
-            {recommended.name}
-          </h2>
+          <h2>{recommended.name}</h2>
           <p className="tagline">{recommended.tagline}</p>
+        </div>
+        <div className="reco-art">
+          <SceneArt sceneId={recommended.id} variant="reco" />
         </div>
         <div className="reco-actions">
           <button className="start-btn compact" onClick={startRecommended}>
@@ -191,18 +191,19 @@ export function Home({ onStart, onUpgrade }: HomeProps) {
             className="preset-card"
             style={{ "--card-accent": BAND_COLORS[preset.band], "--i": i } as React.CSSProperties}
             onClick={() => setSelected(preset)}
+            data-parallax
           >
-            <span className="emoji" aria-hidden>
-              {preset.emoji}
-            </span>
+            <SceneArt sceneId={preset.id} variant="card" />
             {preset.premium && (
               <span className="premium-tag">
                 {premiumUnlocked ? "Premium" : "🔒 Premium"}
               </span>
             )}
-            <h3>{preset.name}</h3>
-            <p className="tagline">{preset.tagline}</p>
-            <span className="band-chip">{BAND_LABELS[preset.band]}</span>
+            <div className="preset-card-content">
+              <h3>{preset.name}</h3>
+              <p className="tagline">{preset.tagline}</p>
+              <span className="band-chip">{BAND_LABELS[preset.band]}</span>
+            </div>
           </button>
         ))}
       </section>

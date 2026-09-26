@@ -58,6 +58,33 @@
   background: var(--bg-raised-hover);
 }
 
+@media (max-width: 760px) {
+  .topbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.6rem;
+  }
+
+  .topnav {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    min-width: 0;
+    width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .topnav button {
+    flex: none;
+    white-space: nowrap;
+  }
+
+  .account-btn {
+    grid-column: 2;
+    grid-row: 1;
+  }
+}
+
 /* ── Home: hero + preset grid ───────────────────────────────────────── */
 
 .hero {
@@ -91,57 +118,57 @@
 .preset-card {
   --card-accent: var(--accent);
   position: relative;
-  text-align: left;
-  padding: 1.25rem 1.2rem 1.1rem;
-  border-radius: var(--radius);
-  background: var(--bg-raised);
-  border: 1px solid var(--line);
-  transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.3, 1), border-color 0.25s,
-    background 0.25s, box-shadow 0.25s;
   overflow: hidden;
-  animation: card-in 0.6s cubic-bezier(0.2, 0.8, 0.3, 1) both;
-  animation-delay: calc(var(--i) * 55ms);
+  padding: 0;
+  text-align: left;
+  border-radius: 20px;
+  background: #121c28;
+  border: 1px solid var(--line);
+  transition: transform 0.55s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.35s,
+    box-shadow 0.35s;
+  animation: card-in 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(var(--i) * 70ms);
 }
 
 @keyframes card-in {
   from {
     opacity: 0;
-    transform: translateY(14px);
+    translate: 0 26px;
   }
 }
 
-.preset-card::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(
-    320px 180px at 85% -20%,
-    color-mix(in srgb, var(--card-accent) 22%, transparent),
-    transparent 70%
-  );
-  opacity: 0;
-  transition: opacity 0.3s;
+.preset-card:hover,
+.preset-card:focus-visible {
+  transform: translateY(-5px);
+  border-color: color-mix(in srgb, var(--card-accent) 40%, var(--line));
+  box-shadow: 0 30px 60px -28px color-mix(in srgb, var(--card-accent) 45%, #050a13);
 }
 
-.preset-card:hover {
-  transform: translateY(-3px);
-  border-color: color-mix(in srgb, var(--card-accent) 45%, transparent);
-  background: var(--bg-raised-hover);
-  box-shadow: 0 12px 40px -18px color-mix(in srgb, var(--card-accent) 55%, transparent);
+.preset-card:active {
+  scale: 0.985;
 }
 
-.preset-card:hover::after {
-  opacity: 1;
-}
-
-.preset-card .emoji {
-  font-size: 1.7rem;
+.preset-card .scene-art {
   display: block;
+  width: 100%;
+  height: 148px;
+  transition: filter 0.5s ease;
+}
+
+.preset-card:is(:hover, :focus-visible) .scene-art {
+  filter: saturate(1.18) brightness(1.1);
+}
+
+.preset-card-content {
+  position: relative;
+  min-height: 146px;
+  padding: 1rem 1.15rem 1.15rem;
+  background: linear-gradient(180deg, #16212d, #121c28 48%);
 }
 
 .preset-card h3 {
-  font-size: 1.18rem;
-  margin: 0.55rem 0 0.25rem;
+  font-size: 1.2rem;
+  margin: 0 0 0.3rem;
 }
 
 .preset-card .tagline {
@@ -166,14 +193,16 @@
 
 .preset-card .premium-tag {
   position: absolute;
+  z-index: 1;
   top: 0.9rem;
   right: 0.9rem;
   font-size: 0.68rem;
   letter-spacing: 0.06em;
-  color: var(--band-alpha);
-  border: 1px solid color-mix(in srgb, var(--band-alpha) 45%, transparent);
+  color: #fbe1a9;
+  background: rgba(12, 21, 32, 0.78);
+  border: 1px solid rgba(255, 224, 170, 0.35);
   border-radius: 999px;
-  padding: 0.12rem 0.5rem;
+  padding: 0.16rem 0.55rem;
 }
 
 /* ── Setup sheet ─────────────────────────────────────────────────────── */
@@ -187,6 +216,12 @@
   display: grid;
   place-items: end center;
   animation: fade-in 0.25s ease both;
+}
+
+/* A dialog covers the scenes: freeze them so its blurred backdrop is
+   computed once instead of on every animation frame. */
+body:has(.sheet-backdrop) .scene-art * {
+  animation-play-state: paused !important;
 }
 
 @keyframes fade-in {
@@ -329,12 +364,28 @@
     color-mix(in srgb, var(--accent) 70%, #ffffff)
   );
   box-shadow: 0 8px 30px -10px color-mix(in srgb, var(--accent) 70%, transparent);
+  position: relative;
+  overflow: hidden;
   transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.start-btn::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.5) 50%, transparent 70%);
+  translate: -120% 0;
+  pointer-events: none;
 }
 
 .start-btn:hover {
   transform: translateY(-1px);
   box-shadow: 0 12px 36px -10px color-mix(in srgb, var(--accent) 80%, transparent);
+}
+
+.start-btn:hover::after {
+  translate: 120% 0;
+  transition: translate 0.9s ease;
 }
 
 .sheet .close-btn {
@@ -366,6 +417,64 @@
   place-items: center;
 }
 
+.player-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: min(820px, 100%);
+  aspect-ratio: 16 / 9;
+  min-height: 300px;
+  overflow: hidden;
+  border: 1px solid rgba(238, 237, 227, 0.13);
+  border-radius: 28px;
+  box-shadow: 0 40px 100px -60px color-mix(in srgb, var(--accent) 55%, #000);
+}
+
+.player-stage .scene-art {
+  position: absolute;
+  inset: 0;
+}
+
+/* A soft vignette keeps the timer readable over any scene. */
+.player-stage::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: radial-gradient(circle at 50% 50%, rgba(5, 11, 20, 0.5), transparent 46%),
+    linear-gradient(0deg, rgba(5, 11, 20, 0.35), transparent 40%);
+  pointer-events: none;
+}
+
+.player-stage .orb-wrap {
+  z-index: 2;
+  width: min(46vw, 230px);
+}
+
+/* Over a landscape the orb becomes a glass lens. It is painted glass
+   rather than backdrop blur, which would re-blur the moving scene on
+   every frame. */
+.player-stage .orb {
+  background: radial-gradient(circle at 36% 30%, rgba(255, 255, 255, 0.3),
+    rgba(214, 226, 255, 0.12) 55%, rgba(10, 18, 32, 0.3));
+  filter: none;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22),
+    inset 0 -24px 48px -24px color-mix(in srgb, var(--accent) 45%, transparent),
+    0 24px 70px -24px rgba(0, 0, 0, 0.65);
+}
+
+.player-stage .orb-ring {
+  inset: -9%;
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+@media (max-width: 600px) {
+  .player-stage {
+    aspect-ratio: 1;
+    min-height: 0;
+  }
+}
+
 .orb {
   position: absolute;
   inset: 0;
@@ -377,7 +486,6 @@
     transparent 72%
   );
   filter: blur(2px);
-  animation: breathe 9s ease-in-out infinite;
 }
 
 .orb-ring {
@@ -385,7 +493,6 @@
   inset: 6%;
   border-radius: 50%;
   border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
-  animation: breathe 9s ease-in-out infinite;
 }
 
 .orb-halo {
@@ -397,7 +504,6 @@
     color-mix(in srgb, var(--accent) 16%, transparent),
     transparent 65%
   );
-  animation: breathe 9s ease-in-out infinite reverse;
 }
 
 /* Paused session: the breathing orb holds with the audio. */
@@ -408,15 +514,8 @@
 }
 
 @keyframes breathe {
-  0%,
-  100% {
-    transform: scale(0.94);
-    opacity: 0.85;
-  }
-  50% {
-    transform: scale(1.05);
-    opacity: 1;
-  }
+  0%, 100% { transform: scale(0.98); opacity: 0.88; }
+  50% { transform: scale(1.025); opacity: 1; }
 }
 
 .player .session-name {
@@ -822,76 +921,122 @@
 }
 
 .landing-hero {
-  text-align: center;
-  padding: clamp(1.5rem, 5vw, 3.5rem) 0 2.5rem;
   position: relative;
+  display: flex;
+  align-items: center;
+  isolation: isolate;
+  min-height: 550px;
+  padding: clamp(2rem, 6vw, 4.5rem);
+  overflow: hidden;
+  border: 1px solid rgba(238, 237, 227, 0.13);
+  border-radius: 28px;
+  background: #142a35;
+  box-shadow: 0 35px 90px -60px rgba(35, 97, 109, 0.55);
 }
 
-.landing-orb {
+.landing-hero::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(7, 17, 27, 0.94) 0%,
+    rgba(9, 23, 34, 0.82) 36%, rgba(8, 22, 34, 0.13) 85%),
+    linear-gradient(0deg, rgba(9, 22, 32, 0.38), transparent 42%);
+  pointer-events: none;
+}
+
+.landing-copy {
   position: relative;
-  width: 160px;
-  aspect-ratio: 1;
-  margin: 0 auto 1.5rem;
+  z-index: 1;
+  width: min(100%, 500px);
+}
+
+.landing-scene {
+  position: absolute;
+  z-index: -2;
+  inset: 0;
+}
+
+.landing-scene .scene-art {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.landing-eyebrow {
+  display: block;
+  margin-bottom: 1.25rem;
+  color: #f3d8bb;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
 }
 
 .landing-hero h1 {
-  font-size: clamp(2rem, 6vw, 3.4rem);
-  line-height: 1.12;
+  font-size: clamp(2.7rem, 5.5vw, 4.5rem);
+  line-height: 1.09;
+  letter-spacing: -0.035em;
 }
 
 .landing-hero h1 em {
   font-style: italic;
-  color: var(--accent);
+  color: #f1d6bd;
 }
 
 .landing-lede {
-  max-width: 560px;
-  margin: 1.1rem auto 0;
-  color: var(--ink-dim);
-  font-size: 1.05rem;
+  max-width: 430px;
+  margin: 1.5rem 0 0;
+  color: rgba(247, 248, 245, 0.84);
+  font-size: 1.02rem;
 }
 
 .landing-cta {
   display: flex;
+  align-items: center;
   gap: 0.7rem;
-  justify-content: center;
   flex-wrap: wrap;
-  margin-top: 1.8rem;
+  margin-top: 2rem;
 }
 
 .landing-note {
-  margin-top: 1rem;
+  margin-top: 1.15rem;
+  color: rgba(245, 246, 242, 0.67);
   font-size: 0.83rem;
-  color: var(--ink-faint);
 }
 
 .landing-steps {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 1rem;
-  margin: 1rem 0 3rem;
+  margin: 1.2rem 0 3rem;
 }
 
 .step-card {
+  position: relative;
+  overflow: hidden;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: var(--bg-raised);
-  padding: 1.4rem 1.3rem;
+  background: #131d29;
+  padding: 0 0 1.3rem;
 }
 
-.step-card .emoji {
-  font-size: 1.8rem;
+.step-card .scene-art {
+  display: block;
+  width: 100%;
+  height: 128px;
+  margin-bottom: 1.1rem;
 }
 
 .step-card h3 {
   font-size: 1.15rem;
-  margin: 0.6rem 0 0.4rem;
+  margin: 0 1.3rem 0.4rem;
 }
 
 .step-card p {
   color: var(--ink-dim);
   font-size: 0.9rem;
-  margin: 0;
+  margin: 0 1.3rem;
 }
 
 .landing-features {
@@ -948,6 +1093,33 @@
   color: var(--ink-dim);
   font-size: 0.95rem;
   margin: 0 0 1.2rem;
+}
+
+@media (max-width: 760px) {
+  .landing-hero {
+    min-height: 700px;
+    align-items: flex-end;
+    padding: 1.65rem 1.35rem 2rem;
+    border-radius: 22px;
+  }
+
+  .landing-hero::after {
+    background: linear-gradient(0deg, rgba(7, 17, 27, 0.98) 0%,
+      rgba(7, 17, 27, 0.87) 32%, rgba(7, 17, 27, 0.14) 85%);
+  }
+
+  .landing-hero h1 {
+    font-size: clamp(2.2rem, 9vw, 3.4rem);
+  }
+
+  .landing-lede {
+    margin-top: 1rem;
+    font-size: 0.93rem;
+  }
+
+  .landing-cta {
+    margin-top: 1.25rem;
+  }
 }
 
 /* ── Session visualization ───────────────────────────────────────────── */
@@ -1332,39 +1504,73 @@
   --card-accent: var(--accent);
   position: relative;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
-  gap: 1.25rem;
-  flex-wrap: wrap;
-  padding: 1.4rem 1.5rem;
+  gap: 1.5rem;
+  min-height: 280px;
+  padding: 1.6rem 1.8rem;
   margin-bottom: 1.1rem;
-  border-radius: var(--radius);
-  background: linear-gradient(
-      135deg,
-      color-mix(in srgb, var(--card-accent) 14%, transparent),
-      transparent 65%
-    ),
-    var(--bg-raised);
-  border: 1px solid color-mix(in srgb, var(--card-accent) 35%, var(--line));
+  border-radius: 20px;
+  border: 1px solid rgba(238, 237, 227, 0.13);
+  background: #1c2c3b;
+  overflow: hidden;
+}
+
+.reco-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(7, 17, 28, 0.89),
+    rgba(7, 17, 28, 0.62) 43%, rgba(7, 17, 28, 0.12)),
+    linear-gradient(0deg, rgba(7, 17, 28, 0.5), transparent 72%);
+  pointer-events: none;
+}
+
+.reco-art {
+  position: absolute;
+  inset: 0;
+}
+
+.reco-art .scene-art {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.reco-info,
+.reco-actions {
+  position: relative;
+  z-index: 1;
+}
+
+@media (max-width: 720px) {
+  .reco-card {
+    min-height: 300px;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-end;
+    padding: 1.3rem;
+  }
 }
 
 .reco-label {
   display: inline-block;
-  font-size: 0.72rem;
-  letter-spacing: 0.12em;
+  color: #ffe2c2;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.15em;
   text-transform: uppercase;
-  color: color-mix(in srgb, var(--card-accent) 80%, var(--ink));
-  margin-bottom: 0.35rem;
+  margin-bottom: 0.45rem;
 }
 
 .reco-info h2 {
   font-family: var(--font-display);
-  font-size: 1.5rem;
+  font-size: clamp(1.6rem, 3vw, 2rem);
   margin: 0;
 }
 
 .reco-info .tagline {
-  color: var(--ink-dim);
+  color: rgba(248, 249, 245, 0.85);
   font-size: 0.92rem;
   margin: 0.3rem 0 0;
 }
@@ -1373,6 +1579,7 @@
   display: flex;
   align-items: center;
   gap: 0.6rem;
+  flex: none;
 }
 
 /* Journey strip (goal gradient) */
@@ -1481,19 +1688,22 @@
 }
 
 .complete-card {
+  position: relative;
   text-align: center;
   max-width: 420px;
   width: 100%;
-  padding: 2.2rem 2rem;
-  border-radius: var(--radius);
-  background: var(--bg-raised);
+  padding: 1.2rem 1.2rem 2rem;
+  border-radius: 20px;
+  background: #121c28;
   border: 1px solid var(--line);
 }
 
-.complete-emoji {
-  font-size: 2rem;
+.complete-card .scene-art {
   display: block;
-  margin-bottom: 0.6rem;
+  width: 100%;
+  height: 185px;
+  margin: 0 auto 1.5rem;
+  border-radius: 14px;
 }
 
 .complete-card h2 {
@@ -4397,4 +4607,346 @@
   .lr-heat--month {
     --lr-cell-h: 8px;
   }
+}
+
+/* ── Living scenes ───────────────────────────────────────────────────────
+   Each scene is a GPT Image painting with live layers pinned to it (see
+   SceneArt). Every animation below touches only transform or opacity on
+   plain elements, so the compositor runs it without main-thread paint;
+   no blend modes, filters or backdrop blur sit over moving content.
+   `.scene-ambient` elements only fade, so they keep running with reduced
+   motion; everything that moves lives in the no-preference block. */
+.scene-art {
+  --shift-x: 14px;
+  --shift-y: 8px;
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  contain: layout paint;
+  background: var(--scene-tint, #0d1824);
+}
+
+.scene-art--hero {
+  --shift-x: 36px;
+  --shift-y: 18px;
+}
+
+.scene-art--reco,
+.scene-art--player {
+  --shift-x: 26px;
+  --shift-y: 12px;
+}
+
+.scene-stage,
+.scene-plane,
+.scene-image,
+.scene-fx {
+  position: absolute;
+  pointer-events: none;
+}
+
+.scene-plane {
+  --depth: 0;
+  inset: 0;
+}
+
+.scene-plane--stars { --depth: 0.1; bottom: auto; }
+.scene-plane--base { --depth: 0.35; }
+.scene-plane--mist { --depth: 0.85; }
+.scene-plane--particles { --depth: 1.2; }
+
+.scene-image,
+.scene-fx {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform-origin: var(--origin, 50% 50%);
+}
+
+.scene-image {
+  display: block;
+  opacity: 0;
+  transition: opacity 1.2s ease;
+  user-select: none;
+}
+
+.scene-art[data-loaded] .scene-image {
+  opacity: 1;
+}
+
+.scene-fx > *,
+.fx-glint,
+.fx-rays-glow,
+.fx-stars,
+.fx-mist,
+.fx-particle,
+.fx-meteor {
+  position: absolute;
+}
+
+.fx-bloom,
+.fx-rays,
+.fx-ripple,
+.fx-curtain {
+  translate: -50% -50%;
+  border-radius: 50%;
+}
+
+.fx-bloom {
+  aspect-ratio: 1;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--glow) 70%, transparent),
+    color-mix(in srgb, var(--glow) 22%, transparent) 45%, transparent);
+}
+
+.fx-rays {
+  aspect-ratio: 1;
+}
+
+.fx-rays-glow {
+  inset: 0;
+  -webkit-mask-image: radial-gradient(closest-side, #000, rgba(0, 0, 0, 0.4) 35%, transparent);
+  mask-image: radial-gradient(closest-side, #000, rgba(0, 0, 0, 0.4) 35%, transparent);
+}
+
+/* Small cards read the painting first; the live light only hints. */
+.scene-art:is(.scene-art--card, .scene-art--step) .fx-rays {
+  opacity: 0.55;
+}
+
+.fx-glint,
+.fx-stars {
+  inset: 0;
+  background-repeat: no-repeat;
+}
+
+.fx-ripple {
+  aspect-ratio: 170 / 14;
+  border: 1.5px solid color-mix(in srgb, var(--glow) 65%, transparent);
+  opacity: 0;
+}
+
+.fx-aurora {
+  inset: 0;
+  transform-origin: 50% 0;
+}
+
+.fx-curtain {
+  background: radial-gradient(closest-side, rgba(162, 247, 220, 0.5),
+    rgba(143, 230, 208, 0.18) 55%, transparent);
+}
+
+.fx-meteor {
+  left: 70%;
+  top: 14%;
+  width: 16%;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #fffaf0, transparent);
+  rotate: -22deg;
+  transform-origin: left center;
+  opacity: 0;
+}
+
+.fx-mist {
+  left: -20%;
+  width: 140%;
+  background:
+    radial-gradient(ellipse 30% 50% at 18% 50%, rgba(244, 240, 234, 0.36), transparent),
+    radial-gradient(ellipse 36% 42% at 55% 62%, rgba(244, 240, 234, 0.3), transparent),
+    radial-gradient(ellipse 26% 40% at 88% 40%, rgba(244, 240, 234, 0.28), transparent);
+}
+
+.fx-particle {
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--glow);
+  box-shadow: 0 0 6px 1px color-mix(in srgb, var(--glow) 55%, transparent);
+  opacity: 0;
+}
+
+.fx-particle--snow {
+  background: #f4fbff;
+}
+
+.scene-glare {
+  display: none;
+}
+
+/* Player overlay that deepens or warms the scene as the session travels. */
+.scene-shade {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  opacity: 0;
+  transition: opacity 3s linear;
+  pointer-events: none;
+}
+
+/* Opacity-only ambience: calm enough to keep with reduced motion. */
+.fx-bloom { animation: scene-pulse 6s ease-in-out infinite alternate; }
+.fx-rays-glow { animation: scene-pulse 7s ease-in-out -2s infinite alternate; }
+.fx-mist { animation: scene-breathe 9s ease-in-out infinite alternate; }
+.fx-stars { animation: scene-twinkle 3.2s ease-in-out infinite alternate; }
+.fx-stars--b { animation-duration: 4.4s; animation-delay: -2.1s; }
+.fx-glint { animation: scene-glint 2.4s ease-in-out infinite alternate; }
+.fx-glint--b { animation-delay: -1.2s; }
+.fx-curtain { animation: scene-curtain 5s ease-in-out infinite alternate; }
+
+.scene-art[data-offscreen] *,
+.player.paused .scene-art * {
+  animation-play-state: paused !important;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .orb, .orb-ring { animation: breathe 10s ease-in-out infinite; }
+  .orb-halo { animation: breathe 10s ease-in-out infinite reverse; }
+
+  /* A slow push toward the light: the painting itself breathes. */
+  .scene-image,
+  .scene-fx {
+    animation: scene-kenburns 26s ease-in-out infinite alternate;
+  }
+
+  /* The arrival scales the plane around the painting, never the image
+     itself: two `scale` animations on one element cannot both run on the
+     compositor, and the pair would fall back to the main thread. */
+  .scene-art--hero .scene-plane--base {
+    transform-origin: var(--origin, 50% 50%);
+    animation: scene-arrive 2.6s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  }
+
+  .scene-plane--mist { animation: scene-drift 20s ease-in-out infinite alternate; }
+  .scene-plane--stars { animation: scene-drift-slow 40s ease-in-out infinite alternate; }
+  .fx-glints { animation: scene-sway 7s ease-in-out infinite alternate; }
+
+  .fx-rays--down { animation: scene-rays-sway 11s ease-in-out infinite alternate; }
+  .fx-rays--burst { animation: scene-rays-spin 160s linear infinite; }
+  .fx-aurora { animation: scene-aurora 12s ease-in-out infinite alternate; }
+
+  .fx-particle { animation: scene-float 10s ease-in-out infinite; }
+
+  .fx-ripple { animation: scene-ripple 7.5s ease-out infinite; }
+  .fx-ripple:nth-last-child(2) { animation-delay: 2.5s; }
+  .fx-ripple:nth-last-child(1) { animation-delay: 5s; }
+
+  .fx-meteor { animation: scene-meteor 11s ease-in 2.5s infinite; }
+
+  .landing-copy > * {
+    animation: hero-rise 1.1s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .landing-copy > :nth-child(2) { animation-delay: 0.12s; }
+  .landing-copy > :nth-child(3) { animation-delay: 0.26s; }
+  .landing-copy > :nth-child(4) { animation-delay: 0.4s; }
+  .landing-copy > :nth-child(5) { animation-delay: 0.52s; }
+
+  @supports (animation-timeline: view()) {
+    .step-card,
+    .feature-card,
+    .landing-features h2,
+    .landing-honesty {
+      animation: scroll-reveal linear both;
+      animation-timeline: view();
+      animation-range: entry 5% cover 30%;
+    }
+  }
+}
+
+/* Pointer depth, tilt and glare exist only where there is a fine pointer. */
+@media (hover: hover) and (pointer: fine) {
+  .scene-plane {
+    translate: calc(var(--px, 0) * var(--depth) * var(--shift-x) * -1)
+      calc(var(--py, 0) * var(--depth) * var(--shift-y) * -1);
+    transition: translate 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .scene-glare {
+    display: block;
+    position: absolute;
+    z-index: 2;
+    left: 10%;
+    top: -30%;
+    width: 80%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: radial-gradient(closest-side, rgba(255, 238, 214, 0.2),
+      rgba(255, 238, 214, 0.05) 45%, transparent);
+    opacity: 0;
+    translate: calc(var(--px, 0) * 48%) calc(var(--py, 0) * 48% + 18%);
+    transition: opacity 0.5s ease, translate 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+    pointer-events: none;
+  }
+
+  [data-parallax]:hover .scene-glare {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) and (hover: hover) and (pointer: fine) {
+  .preset-card:hover {
+    transform: perspective(900px) rotateX(calc(var(--py, 0) * -6deg))
+      rotateY(calc(var(--px, 0) * 7deg)) translateY(-6px);
+  }
+
+  .step-card {
+    transition: transform 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .step-card:hover {
+    transform: perspective(900px) rotateX(calc(var(--py, 0) * -4deg))
+      rotateY(calc(var(--px, 0) * 5deg)) translateY(-4px);
+  }
+}
+
+/* Phones: the same scenes with a lighter particle budget. */
+@media (max-width: 760px) {
+  .fx-particle:nth-child(n + 9) {
+    display: none;
+  }
+}
+
+@keyframes scene-pulse { from { opacity: 0.45; } to { opacity: 1; } }
+@keyframes scene-breathe { from { opacity: 0.45; } to { opacity: 1; } }
+@keyframes scene-twinkle { from { opacity: 1; } to { opacity: 0.15; } }
+@keyframes scene-glint { from { opacity: 0.08; } to { opacity: 1; } }
+@keyframes scene-curtain { from { opacity: 0.15; } to { opacity: 0.85; } }
+
+@keyframes scene-kenburns { from { scale: 1; } to { scale: 1.07; } }
+@keyframes scene-drift { from { transform: translateX(-6%); } to { transform: translateX(6%); } }
+@keyframes scene-drift-slow { from { transform: translateX(-1.2%); } to { transform: translateX(1.2%); } }
+@keyframes scene-sway { from { transform: translateX(-4%); } to { transform: translateX(4%); } }
+@keyframes scene-rays-sway { from { rotate: -3deg; } to { rotate: 3deg; } }
+@keyframes scene-rays-spin { to { rotate: 360deg; } }
+@keyframes scene-arrive { from { scale: 1.14; } to { scale: 1; } }
+
+@keyframes scene-aurora {
+  from { transform: translateX(-4%) skewX(-6deg); }
+  to { transform: translateX(4%) skewX(6deg); }
+}
+
+@keyframes scene-float {
+  0% { transform: translate(0, 0); opacity: 0; }
+  20% { opacity: 0.95; }
+  75% { opacity: 0.7; }
+  100% { transform: translate(var(--dx), var(--dy)); opacity: 0; }
+}
+
+@keyframes scene-ripple {
+  from { transform: scale(0.2); opacity: 0.85; }
+  to { transform: scale(3); opacity: 0; }
+}
+
+@keyframes scene-meteor {
+  0% { transform: translateX(0); opacity: 0; }
+  1.5% { opacity: 1; }
+  8% { transform: translateX(-280%); opacity: 0; }
+  100% { transform: translateX(-280%); opacity: 0; }
+}
+
+@keyframes hero-rise {
+  from { opacity: 0; translate: 0 22px; }
+}
+
+@keyframes scroll-reveal {
+  from { opacity: 0; translate: 0 56px; scale: 0.96; }
 }
