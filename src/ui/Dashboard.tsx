@@ -92,7 +92,13 @@ export function Dashboard() {
         )}
       </div>
 
-      {tab === "patients" && <PatientsTab flash={flash} patientLimit={ent.patientLimit} />}
+      {tab === "patients" && (
+        <PatientsTab
+          flash={flash}
+          patientLimit={ent.patientLimit}
+          adminId={ent.role === "admin" ? ent.userId : null}
+        />
+      )}
       {tab === "bank" && <BankTab flash={flash} />}
       {tab === "people" && ent.role === "admin" && <PeopleTab flash={flash} />}
 

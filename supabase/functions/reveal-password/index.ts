@@ -2,8 +2,8 @@
 // verify_jwt = true.
 //
 // 1. mayRevealOrResetPassword: the Patient's own Clinician (unless that
-//    Patient also holds the Clinician role), or the Admin for any Patient and
-//    any Clinician they created.
+//    Patient is a Clinician too, active or Inactive, ADR-021), or the Admin
+//    for any Patient and any Clinician they created.
 // 2. Decrypt the password copy: the password the account has now, including
 //    one its owner chose in Account.
 // 3. Log the reveal (viewer, target, time) before answering, so no password

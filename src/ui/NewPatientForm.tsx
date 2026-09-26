@@ -4,9 +4,12 @@ import { AccountError, createPatient, fetchUsernameSuggestion } from "../lib/acc
 import {
   checkNewPatient,
   generatePassword,
+  normalizeUsername,
   PASSWORD_MIN_LENGTH,
 } from "../../supabase/functions/_shared/accountRules.ts";
-import type { CreatePatientError } from "../../supabase/functions/_shared/accountRules.ts";
+import type { CreatePatientError, UsernameLoginInput } from "../../supabase/functions/_shared/accountRules.ts";
+import { LinkedCredentials, LinkRegisteredAccount } from "./LinkPatientForm";
+import type { LinkedInstead } from "./LinkPatientForm";
 import { PASSWORD_REFUSALS } from "./passwordMessages";
 import { USERNAME_REFUSALS } from "./usernameMessages";
 
@@ -14,7 +17,9 @@ import { USERNAME_REFUSALS } from "./usernameMessages";
  * "+ New patient" (ADR-014, ADR-016): a Clinician or the Admin creates a
  * Patient account with a name, an optional email, a Username (suggested from
  * the name, editable) and a password (typed or generated). The server
- * decides; this form only checks the fields first for quick feedback.
+ * decides; this form only checks the fields first for quick feedback. An
+ * email that already belongs to an account is refused; the Admin may link
+ * that account as their Patient instead (#16), a Clinician may not.
  */
 
 // Every refusal must have a message (satisfies); lookups take any server code.
@@ -30,16 +35,16 @@ const ERRORS: Partial<Record<string, string>> = {
 } satisfies Record<CreatePatientError, string>;
 const UNEXPECTED_ERROR = "Could not create the patient — try again later.";
 
-interface Created {
-  name: string;
-  username: string;
-  password: string;
-}
+/** What the form shows once done: the new Patient's sign-in, or the account the Admin linked instead. */
+type Created = { kind: "created"; name: string; login: UsernameLoginInput } | ({ kind: "linked" } & LinkedInstead);
 
 export function NewPatientForm({
+  adminId,
   onCreated,
   onClose,
 }: {
+  /** The Admin, who may link a registered email's account instead; null for a Clinician. */
+  adminId: string | null;
   onCreated: () => void;
   onClose: () => void;
 }) {
@@ -52,6 +57,8 @@ export function NewPatientForm({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<Created | null>(null);
+  /** The email the server just called registered, while it is still the one typed. */
+  const [registeredEmail, setRegisteredEmail] = useState<string | null>(null);
 
   // Suggest a free Username for the name (debounced; the latest name wins).
   // A failed suggestion leaves the field for the Clinician to fill in.
@@ -83,6 +90,7 @@ export function NewPatientForm({
     setPassword("");
     setError(null);
     setCreated(null);
+    setRegisteredEmail(null);
   };
 
   const submit = async (e: FormEvent) => {
@@ -95,32 +103,51 @@ export function NewPatientForm({
     }
     setBusy(true);
     setError(null);
+    setRegisteredEmail(null);
     try {
       const result = await createPatient(form);
-      setCreated({ name: checked.patient.name, username: result.username, password });
+      setCreated({ kind: "created", name: checked.patient.name, login: { username: result.username, password } });
       onCreated();
     } catch (err) {
       const code = err instanceof AccountError ? err.code : "";
       setError(ERRORS[code] ?? UNEXPECTED_ERROR);
+      if (code === "email_registered") setRegisteredEmail(checked.patient.email);
     } finally {
       setBusy(false);
     }
   };
 
+  const typedEmail = email.trim().toLowerCase();
+
   if (created) {
     return (
       <div className="new-patient-done" role="status">
-        <p>
-          <strong>{created.name}</strong> can now sign in on the Serenade
-          homepage with:
-        </p>
-        <dl>
-          <dt>Username</dt>
-          <dd>{created.username}</dd>
-          <dt>Password</dt>
-          <dd>{created.password}</dd>
-        </dl>
-        <p className="library-note">Share these with your patient.</p>
+        {created.kind === "created" ? (
+          <>
+            <p>
+              <strong>{created.name}</strong> can now sign in on the Serenade homepage with:
+            </p>
+            <dl>
+              <dt>Username</dt>
+              <dd>{created.login.username}</dd>
+              <dt>Password</dt>
+              <dd>{created.login.password}</dd>
+            </dl>
+            <p className="library-note">Share these with your patient.</p>
+          </>
+        ) : "login" in created ? (
+          <>
+            <p>
+              <strong>{created.label}</strong> is now your patient.
+            </p>
+            <LinkedCredentials login={created.login} />
+          </>
+        ) : (
+          <p>
+            <strong>{created.label}</strong> is now your patient. They keep their username @{created.keptUsername}{" "}
+            and their own password.
+          </p>
+        )}
         <div className="save-row">
           <button className="chip" onClick={reset}>
             Add another
@@ -198,6 +225,17 @@ export function NewPatientForm({
         <p className="library-note form-error" role="alert">
           {error}
         </p>
+      )}
+      {adminId !== null && registeredEmail !== null && registeredEmail === typedEmail && (
+        <LinkRegisteredAccount
+          email={registeredEmail}
+          login={{ username: normalizeUsername(username), password }}
+          adminId={adminId}
+          onLinked={(linked) => {
+            setCreated({ kind: "linked", ...linked });
+            onCreated();
+          }}
+        />
       )}
       <div className="save-row">
         <button type="submit" className="chip" disabled={busy}>

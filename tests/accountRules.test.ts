@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  checkLinkLogin,
   checkNewClinician,
   checkNewPatient,
+  checkUsernameLogin,
   checkoutCustomer,
   clinicianRoleAfterPayment,
   firstName,
@@ -14,6 +16,8 @@ import {
   mayClaimUsername,
   mayCreateClinician,
   mayCreatePatient,
+  mayAddUsernameLogin,
+  mayLinkExistingAccount,
   mayManageLink,
   mayPromoteToClinician,
   mayReadPasswordAccessLog,
@@ -31,6 +35,7 @@ import {
   shownEmail,
   suggestUsername,
   takenOrLockedUsernames,
+  usernameLogin,
   usernameStem,
 } from "../supabase/functions/_shared/accountRules.ts";
 import type {
@@ -489,7 +494,7 @@ describe("may change a Username", () => {
 
 describe("may reveal or reset a password", () => {
   /** Ivan, a Patient of Clinician A. */
-  const ivan: PasswordAccount = { role: "user", clinicianOrigin: null, clinicianId: "clinician-a" };
+  const ivan: PasswordAccount = { role: "user", clinicianOrigin: null, clinicianId: "clinician-a", patientCount: 0 };
 
   it("lets the owning Clinician reveal and reset their Patient's password", () => {
     const actor = { id: "clinician-a", role: "clinician" } as const;
@@ -520,6 +525,7 @@ describe("may reveal or reset a password", () => {
       role: "clinician",
       clinicianOrigin: "subscription",
       clinicianId: "clinician-a",
+      patientCount: 0,
     };
     expect(
       mayRevealOrResetPassword({ actor: { id: "clinician-a", role: "clinician" }, account: clinicianPatient }),
@@ -529,8 +535,18 @@ describe("may reveal or reset a password", () => {
     ).toEqual({ ok: true });
   });
 
+  it("leaves an Inactive Clinician who is a Patient to the Admin alone: their role may come back", () => {
+    const inactiveClinicianPatient: PasswordAccount = { ...ivan, patientCount: 2 };
+    expect(
+      mayRevealOrResetPassword({ actor: { id: "clinician-a", role: "clinician" }, account: inactiveClinicianPatient }),
+    ).toEqual({ ok: false, reason: "not_allowed" });
+    expect(
+      mayRevealOrResetPassword({ actor: { id: "admin", role: "admin" }, account: inactiveClinicianPatient }),
+    ).toEqual({ ok: true });
+  });
+
   it("lets only the Admin handle a Clinician the Admin created", () => {
-    const granted: PasswordAccount = { role: "clinician", clinicianOrigin: "admin", clinicianId: null };
+    const granted: PasswordAccount = { role: "clinician", clinicianOrigin: "admin", clinicianId: null, patientCount: 0 };
     expect(mayRevealOrResetPassword({ actor: { id: "admin", role: "admin" }, account: granted })).toEqual({
       ok: true,
     });
@@ -541,10 +557,10 @@ describe("may reveal or reset a password", () => {
 
   it("refuses everyone for a subscription Clinician, a Regular and the Admin account", () => {
     const accounts: PasswordAccount[] = [
-      { role: "clinician", clinicianOrigin: "subscription", clinicianId: null },
-      { role: "clinician", clinicianOrigin: null, clinicianId: null },
-      { role: "user", clinicianOrigin: null, clinicianId: null },
-      { role: "admin", clinicianOrigin: null, clinicianId: null },
+      { role: "clinician", clinicianOrigin: "subscription", clinicianId: null, patientCount: 0 },
+      { role: "clinician", clinicianOrigin: null, clinicianId: null, patientCount: 0 },
+      { role: "user", clinicianOrigin: null, clinicianId: null, patientCount: 0 },
+      { role: "admin", clinicianOrigin: null, clinicianId: null, patientCount: 0 },
     ];
     for (const account of accounts) {
       for (const actor of [
@@ -562,23 +578,23 @@ describe("may reveal or reset a password", () => {
 
 describe("password copy", () => {
   it("is kept for a Patient, including one who also holds the Clinician role", () => {
-    expect(keepsPasswordCopy({ role: "user", clinicianOrigin: null, clinicianId: "clinician-a" })).toBe(
+    expect(keepsPasswordCopy({ role: "user", clinicianOrigin: null, clinicianId: "clinician-a", patientCount: 0 })).toBe(
       true,
     );
     expect(
-      keepsPasswordCopy({ role: "clinician", clinicianOrigin: "subscription", clinicianId: "clinician-a" }),
+      keepsPasswordCopy({ role: "clinician", clinicianOrigin: "subscription", clinicianId: "clinician-a", patientCount: 0 }),
     ).toBe(true);
   });
 
   it("is kept for a Clinician the Admin created", () => {
-    expect(keepsPasswordCopy({ role: "clinician", clinicianOrigin: "admin", clinicianId: null })).toBe(true);
+    expect(keepsPasswordCopy({ role: "clinician", clinicianOrigin: "admin", clinicianId: null, patientCount: 0 })).toBe(true);
   });
 
   it("is not kept for a Regular, a subscription Clinician or the Admin", () => {
     const accounts: PasswordAccount[] = [
-      { role: "user", clinicianOrigin: null, clinicianId: null },
-      { role: "clinician", clinicianOrigin: "subscription", clinicianId: null },
-      { role: "admin", clinicianOrigin: null, clinicianId: null },
+      { role: "user", clinicianOrigin: null, clinicianId: null, patientCount: 0 },
+      { role: "clinician", clinicianOrigin: "subscription", clinicianId: null, patientCount: 0 },
+      { role: "admin", clinicianOrigin: null, clinicianId: null, patientCount: 0 },
     ];
     for (const account of accounts) expect(keepsPasswordCopy(account), account.role).toBe(false);
   });
@@ -999,5 +1015,190 @@ describe("may remove the Clinician role", () => {
         reason,
       });
     }
+  });
+});
+
+describe("may link an existing account as a Patient", () => {
+  const admin = { role: "admin" } as const;
+  /** Clinician B, with 28 of their 30 Patients. */
+  const clinicianB: TransferTarget = { id: "clinician-b", role: "clinician", patientCount: 28, patientLimit: 30 };
+  /** Nadia, a Regular who signed up with a magic link. */
+  const nadia = { id: "nadia-id", role: "user", clinicianId: null, username: null } as const;
+  /** The Admin links Nadia to Clinician B, without a Username login unless the case says otherwise. */
+  const link = (request: Partial<Parameters<typeof mayLinkExistingAccount>[0]>) =>
+    mayLinkExistingAccount({ actor: admin, account: nadia, clinician: clinicianB, usernameLogin: false, ...request });
+
+  it("lets the Admin link a Regular to a Clinician, with or without a Username login", () => {
+    expect(link({})).toEqual({ ok: true });
+    expect(link({ usernameLogin: true })).toEqual({ ok: true });
+  });
+
+  it("refuses every Clinician: they get “email already registered” instead", () => {
+    for (const role of ["clinician", "user"] as const) {
+      expect(link({ actor: { role } }), role).toEqual({ ok: false, reason: "not_allowed" });
+    }
+  });
+
+  it("never makes the Admin account anyone's Patient", () => {
+    expect(link({ account: { ...nadia, id: "admin-id", role: "admin" } })).toEqual({
+      ok: false,
+      reason: "account_is_admin",
+    });
+  });
+
+  it("refuses an account that already has a Clinician: the Admin Transfers it instead", () => {
+    expect(link({ account: { ...nadia, clinicianId: "clinician-a" } })).toEqual({
+      ok: false,
+      reason: "already_linked",
+    });
+  });
+
+  it("links a Clinician too, since roles overlap, and never to themselves", () => {
+    const made = { ...nadia, id: "made-id", role: "clinician" } as const;
+    expect(link({ account: made })).toEqual({ ok: true });
+    expect(link({ account: made, clinician: { ...clinicianB, id: "made-id" } })).toEqual({
+      ok: false,
+      reason: "target_is_account",
+    });
+  });
+
+  it("links only to someone who holds the Clinician role, or to the Admin", () => {
+    expect(link({ clinician: { id: "admin-id", role: "admin", patientCount: 400, patientLimit: 30 } })).toEqual({
+      ok: true,
+    });
+    // A Regular, a Patient, or an Inactive Clinician: all read as role "user".
+    expect(link({ clinician: { ...clinicianB, role: "user", patientCount: 3 } })).toEqual({
+      ok: false,
+      reason: "target_not_clinician",
+    });
+  });
+
+  it("respects the Clinician's Patient limit, one the Admin raised included", () => {
+    expect(link({ clinician: { ...clinicianB, patientCount: 29 } })).toEqual({ ok: true });
+    expect(link({ clinician: { ...clinicianB, patientCount: 30 } })).toEqual({
+      ok: false,
+      reason: "patient_limit_reached",
+    });
+    expect(link({ clinician: { ...clinicianB, patientCount: 30, patientLimit: 45 } })).toEqual({ ok: true });
+  });
+
+  it("links a former Patient who kept their Username, but gives them no second one", () => {
+    const former = { ...nadia, username: "nadia" };
+    expect(link({ account: former })).toEqual({ ok: true });
+    expect(link({ account: former, usernameLogin: true })).toEqual({ ok: false, reason: "has_username" });
+  });
+});
+
+describe("may add a Username and password to a Patient", () => {
+  /** Nadia, a magic-link Patient of Clinician A without a Username. */
+  const nadia = { role: "user", clinicianOrigin: null, clinicianId: "clinician-a", patientCount: 0, username: null } as const;
+  const clinicianA = { id: "clinician-a", role: "clinician" } as const;
+  const admin = { id: "admin-id", role: "admin" } as const;
+
+  it("lets the Patient's own Clinician and the Admin add them", () => {
+    expect(mayAddUsernameLogin({ actor: clinicianA, account: nadia })).toEqual({ ok: true });
+    expect(mayAddUsernameLogin({ actor: admin, account: nadia })).toEqual({ ok: true });
+  });
+
+  it("leaves a Patient who also holds the Clinician role to the Admin alone", () => {
+    const made = { ...nadia, role: "clinician", clinicianOrigin: "subscription" } as const;
+    expect(mayAddUsernameLogin({ actor: clinicianA, account: made })).toEqual({ ok: false, reason: "not_allowed" });
+    expect(mayAddUsernameLogin({ actor: admin, account: made })).toEqual({ ok: true });
+  });
+
+  it("leaves an Inactive Clinician who is a Patient to the Admin alone", () => {
+    const inactive = { ...nadia, patientCount: 3 };
+    expect(mayAddUsernameLogin({ actor: clinicianA, account: inactive })).toEqual({ ok: false, reason: "not_allowed" });
+    expect(mayAddUsernameLogin({ actor: admin, account: inactive })).toEqual({ ok: true });
+  });
+
+  it("refuses another Clinician, the Patient themselves and a Clinician who lost the role", () => {
+    const actors = [
+      { id: "clinician-b", role: "clinician" },
+      { id: "nadia-id", role: "user" },
+      { id: "clinician-a", role: "user" },
+    ] as const;
+    for (const actor of actors) {
+      expect(mayAddUsernameLogin({ actor, account: nadia }), `${actor.id} ${actor.role}`).toEqual({
+        ok: false,
+        reason: "not_allowed",
+      });
+    }
+  });
+
+  it("adds them only to a Patient: the Admin links a Regular or a Clinician first", () => {
+    for (const account of [
+      { ...nadia, clinicianId: null },
+      { role: "clinician", clinicianOrigin: "admin", clinicianId: null, patientCount: 0, username: null },
+    ] as const) {
+      expect(mayAddUsernameLogin({ actor: admin, account })).toEqual({ ok: false, reason: "not_linked" });
+    }
+  });
+
+  it("refuses an account that already has a Username: that one is changed instead", () => {
+    const ivan = { ...nadia, username: "ivan" };
+    for (const actor of [clinicianA, admin]) {
+      expect(mayAddUsernameLogin({ actor, account: ivan }), actor.role).toEqual({
+        ok: false,
+        reason: "has_username",
+      });
+    }
+  });
+
+  it("refuses another Clinician before saying whether the account has a Username", () => {
+    const actor = { id: "clinician-b", role: "clinician" } as const;
+    expect(mayAddUsernameLogin({ actor, account: { ...nadia, username: "ivan" } })).toEqual({
+      ok: false,
+      reason: "not_allowed",
+    });
+  });
+});
+
+describe("moving an account to a Username and password", () => {
+  const randomId = "5f0c7c1e-8d1c-4a55-9d3a-2f3c1b0e6a11";
+
+  it("signs it in with a new internal login email and keeps its own email as the contact email", () => {
+    expect(usernameLogin({ loginEmail: "Nadia@Mail.com", contactEmail: null }, randomId)).toEqual({
+      loginEmail: "5f0c7c1e-8d1c-4a55-9d3a-2f3c1b0e6a11@login.serenade.invalid",
+      contactEmail: "nadia@mail.com",
+    });
+  });
+
+  it("never keeps an internal login email as a contact email", () => {
+    const loginEmail = internalLoginEmail("0b9d8f3e-2a1c-4e5f-8a7b-6c5d4e3f2a1b");
+    expect(usernameLogin({ loginEmail, contactEmail: null }, randomId).contactEmail).toBeNull();
+  });
+});
+
+describe("the Username and password fields", () => {
+  it("normalize the Username and keep the password as typed", () => {
+    expect(checkUsernameLogin({ username: " @Nadia ", password: "hujan-biru-42" })).toEqual({
+      ok: true,
+      login: { username: "nadia", password: "hujan-biru-42" },
+    });
+  });
+
+  it("need a valid Username and a password of at least 6 characters", () => {
+    expect(checkUsernameLogin({ username: "na", password: "hujan-biru-42" })).toEqual({
+      ok: false,
+      error: "invalid_username",
+    });
+    expect(checkUsernameLogin({ username: "nadia", password: "12345" })).toEqual({
+      ok: false,
+      error: "password_too_short",
+    });
+  });
+
+  it("are optional when linking an account: both blank adds none, one alone is refused", () => {
+    expect(checkLinkLogin({ username: " ", password: "" })).toEqual({ ok: true, login: null });
+    expect(checkLinkLogin({ username: "nadia", password: "" })).toEqual({ ok: false, error: "password_too_short" });
+    expect(checkLinkLogin({ username: "", password: "hujan-biru-42" })).toEqual({
+      ok: false,
+      error: "invalid_username",
+    });
+    expect(checkLinkLogin({ username: "Nadia", password: "hujan-biru-42" })).toEqual({
+      ok: true,
+      login: { username: "nadia", password: "hujan-biru-42" },
+    });
   });
 });

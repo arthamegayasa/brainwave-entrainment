@@ -139,10 +139,13 @@ async function loadPatients() {
 export function PatientsTab({
   flash,
   patientLimit,
+  adminId,
 }: {
   flash: (msg: string) => void;
   /** Most Patients this Clinician may have; null means no limit (the Admin). */
   patientLimit: number | null;
+  /** The Admin, who may link an existing account from "+ New patient"; null for a Clinician. */
+  adminId: string | null;
 }) {
   const { loaded, failed, refresh } = useReloadingLoad(loadPatients);
   const error = failed ? "Could not load your patients — try again later." : null;
@@ -272,7 +275,7 @@ export function PatientsTab({
 
       {creating && (
         <div className="library-section roster-create">
-          <NewPatientForm onCreated={() => void refresh()} onClose={() => setCreating(false)} />
+          <NewPatientForm adminId={adminId} onCreated={() => void refresh()} onClose={() => setCreating(false)} />
         </div>
       )}
 
@@ -386,6 +389,7 @@ export function PatientsTab({
             statusReading={openRow.statusReading}
             zoneLabel={timeZoneLabel(openRow.timeZone, now)}
             viewer="clinician"
+            viewerRole={adminId !== null ? "admin" : "clinician"}
             flash={flash}
             onChange={refresh}
             onDisconnect={() => void disconnect(openRow.patient)}

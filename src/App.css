@@ -1770,6 +1770,19 @@
   color: var(--ink-faint);
 }
 
+/* A checkbox that opens more of the form ("Also give them a username and password"). */
+.new-patient-form label.check-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* The Admin's "Link as my patient" under "email already registered". */
+.new-patient-link-instead {
+  display: grid;
+  gap: 0.5rem;
+}
+
 .form-error {
   color: #e58c8c;
 }
@@ -2482,6 +2495,12 @@
   font-size: 1.05rem;
   color: var(--ink);
   outline: none;
+}
+
+.roster-scope-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 .roster-caseload {

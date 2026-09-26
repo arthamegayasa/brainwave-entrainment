@@ -401,7 +401,10 @@ verify_jwt = false
 # a signed-in Clinician or Admin. Creating a Clinician, promoting a User to
 # Clinician and setting a Clinician's Patient limit (#14) need the signed-in
 # Admin; create-clinician also reads PASSWORD_COPY_KEY. Transferring Patients
-# and removing the Clinician role (#15) need the signed-in Admin too.
+# and removing the Clinician role (#15) need the signed-in Admin too. Linking
+# an existing User as a Patient (#16) needs the signed-in Admin; giving a
+# Patient a Username and password needs their Clinician or the Admin. Both
+# read PASSWORD_COPY_KEY.
 [functions.create-patient]
 verify_jwt = true
 
@@ -448,6 +451,12 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.remove-clinician-role]
+verify_jwt = true
+
+[functions.link-patient]
+verify_jwt = true
+
+[functions.add-username-login]
 verify_jwt = true
 
 [analytics]

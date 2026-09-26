@@ -26,7 +26,7 @@ export function patientsText(count: number): string {
 }
 
 /** "Sari Dewi · 28 / 30", "Artha (Admin) · 4 patients", "… · full". */
-function candidateLabel(c: TransferCandidate, full: boolean): string {
+export function candidateLabel(c: TransferCandidate, full: boolean): string {
   const limit = patientLimitOf(c);
   const load = limit === null ? patientsText(c.patientCount) : `${c.patientCount} / ${limit}`;
   return `${c.name}${c.role === "admin" ? " (Admin)" : ""} · ${load}${full ? " · full" : ""}`;

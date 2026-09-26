@@ -20,6 +20,8 @@ import { ClinicianRole, ORIGIN_NAMES } from "./ClinicianRole";
 import type { ClinicianRoleAccount } from "./ClinicianRole";
 import { ListeningReport } from "./ListeningReport";
 import { formatMinutes } from "./listeningFormat";
+import { LinkExistingUser, LinkToClinician } from "./LinkPatientForm";
+import type { LinkableAccount } from "./LinkPatientForm";
 import { NewClinicianForm } from "./NewClinicianForm";
 import { PasswordViews } from "./PasswordViews";
 import { PatientDetail } from "./PatientDetail";
@@ -30,6 +32,7 @@ import {
   AttentionToggle,
   Drawer,
   InactivePill,
+  ROLE_NAMES,
   RoleBadges,
   RosterFoot,
   RosterMeta,
@@ -53,8 +56,10 @@ import type { Dir, StatusFilter } from "./roster";
  * back. Any Patient's drawer lets the Admin act exactly as that Patient's
  * Clinician would. The Admin creates Clinicians here, and in the drawer
  * promotes Users, raises Patient limits and handles the passwords of
- * Clinicians they created (#14). Everything comes from one aggregate read
- * (user_overview, 0013); roles follow from it through the Account rules.
+ * Clinicians they created (#14). The Admin links anyone who is nobody's
+ * Patient to a Clinician, from their drawer or from a Clinician's Patients
+ * (#16). Everything comes from one aggregate read (user_overview, 0013);
+ * roles follow from it through the Account rules.
  */
 
 type RoleTab = "all" | "clinicians" | "patients" | "regulars";
@@ -286,6 +291,23 @@ function clinicianRoleAccountOf(person: Person): ClinicianRoleAccount {
   };
 }
 
+/** Someone in the table, as "Link to clinician…" reads them. */
+function linkableAccountOf(person: Person): LinkableAccount {
+  const { user } = person;
+  return {
+    id: user.userId,
+    role: user.role,
+    clinicianId: user.link?.clinicianId ?? null,
+    label: person.name,
+    // The email once: the name falls back to it when there is none.
+    detail: [person.roles.map((r) => ROLE_NAMES[r]).join(" + "), user.email !== person.name && user.email]
+      .filter(Boolean)
+      .join(" · "),
+    name: user.name,
+    username: user.username,
+  };
+}
+
 export function PeopleTab({ flash }: { flash: (msg: string) => void }) {
   const { loaded, failed, refresh } = useReloadingLoad(loadPeople);
   const error = failed ? "Could not load everyone — try again later." : null;
@@ -299,6 +321,8 @@ export function PeopleTab({ flash }: { flash: (msg: string) => void }) {
   /** A Clinician to turn to and focus once the list shows them again ("‹ All clinicians"). */
   const [returnTo, setReturnTo] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  /** The Clinician whose Patients the Admin is adding an existing User to. */
+  const [linkingTo, setLinkingTo] = useState<string | null>(null);
 
   const scopeRef = useRef<HTMLHeadingElement>(null);
 
@@ -325,6 +349,8 @@ export function PeopleTab({ flash }: { flash: (msg: string) => void }) {
         ),
     [clinicians],
   );
+  /** Everyone, for "+ Link existing user…"; the Account rules keep who may become a Patient. */
+  const linkableAccounts = useMemo(() => people.map(linkableAccountOf), [people]);
 
   const q = query.trim().toLowerCase().replace(/^@/, "");
   const searched = useMemo(
@@ -407,6 +433,8 @@ export function PeopleTab({ flash }: { flash: (msg: string) => void }) {
   }, [nav.openId, sorted, byId]);
 
   const scopeClinician = clinicianId ? (byId.get(clinicianId) ?? null) : null;
+  /** The scoped Clinician as someone who may take a Patient; null for an Inactive Clinician. */
+  const scopeTarget = transferTargets.find((t) => t.id === clinicianId) ?? null;
 
   const onSort = (key: SortKey) => {
     setSort((s) => (s.key === key ? { key, dir: s.dir === 1 ? -1 : 1 } : { key, dir: SORT_DEFAULT_DIR[key] }));
@@ -544,9 +572,27 @@ export function PeopleTab({ flash }: { flash: (msg: string) => void }) {
                 </h3>
                 <CaseloadLine caseload={scopeClinician.caseload} />
               </div>
-              <button className="chip small" onClick={() => nav.setOpenId(scopeClinician.user.userId)}>
-                Clinician profile
-              </button>
+              <div className="roster-scope-actions">
+                {scopeTarget && linkingTo !== clinicianId && (
+                  <button className="chip small" onClick={() => setLinkingTo(clinicianId)}>
+                    + Link existing user…
+                  </button>
+                )}
+                <button className="chip small" onClick={() => nav.setOpenId(scopeClinician.user.userId)}>
+                  Clinician profile
+                </button>
+              </div>
+            </div>
+          )}
+
+          {scopeTarget && linkingTo === clinicianId && (
+            <div className="library-section roster-create">
+              <LinkExistingUser
+                clinician={scopeTarget}
+                accounts={linkableAccounts}
+                onChange={refresh}
+                onClose={() => setLinkingTo(null)}
+              />
             </div>
           )}
 
@@ -708,6 +754,7 @@ export function PeopleTab({ flash }: { flash: (msg: string) => void }) {
               statusReading={openRow.person.statusReading}
               zoneLabel={timeZoneLabel(openRow.person.timeZone, now)}
               viewer="admin"
+              viewerRole="admin"
               flash={flash}
               onChange={refresh}
               onDisconnect={() => {
@@ -734,6 +781,14 @@ export function PeopleTab({ flash }: { flash: (msg: string) => void }) {
                   account={clinicianRoleAccountOf(openRow.person)}
                   passwordShownAsPatient={false}
                   transferTargets={transferTargets}
+                  flash={flash}
+                  onChange={refresh}
+                />
+              }
+              patientLink={
+                <LinkToClinician
+                  account={linkableAccountOf(openRow.person)}
+                  clinicians={transferTargets}
                   flash={flash}
                   onChange={refresh}
                 />
@@ -809,8 +864,22 @@ function PersonCallouts({
   return <>{callouts}</>;
 }
 
-/** Someone who is not a Patient: who they are, their Clinician role, and their Listening History. */
-function PersonDetail({ person, now, clinicianRole }: { person: Person; now: number; clinicianRole: ReactNode }) {
+/**
+ * Someone who is not a Patient: who they are, their Clinician role, the way
+ * to make them a Patient, and their Listening History.
+ */
+function PersonDetail({
+  person,
+  now,
+  clinicianRole,
+  patientLink,
+}: {
+  person: Person;
+  now: number;
+  clinicianRole: ReactNode;
+  /** "Link to clinician…"; nothing for the Admin, who is never a Patient. */
+  patientLink: ReactNode;
+}) {
   const { user } = person;
   return (
     <div className="patient-detail">
@@ -826,6 +895,7 @@ function PersonDetail({ person, now, clinicianRole }: { person: Person; now: num
         </p>
       </header>
       {clinicianRole}
+      {patientLink}
       <div className="detail-block">
         <h4>Listening history</h4>
         <ListeningReport

@@ -39,6 +39,19 @@ export function shownEmail(account: {
 }
 
 /**
+ * The sign-in an account moves to when it gets a Username and password
+ * (ADR-018): a new internal login email, with the email it had kept as its
+ * lowercase contact email, so the homepage asks for a password for that email
+ * from then on.
+ */
+export function usernameLogin(
+  account: { loginEmail: string | null; contactEmail: string | null },
+  randomId: string,
+): { loginEmail: string; contactEmail: string | null } {
+  return { loginEmail: internalLoginEmail(randomId), contactEmail: shownEmail(account)?.toLowerCase() ?? null };
+}
+
+/**
  * How an account reads to someone else: its name, else the email to show,
  * else its @Username. Null when it has none of them.
  */
@@ -293,8 +306,8 @@ export type ChangeUsernameRefusal = "not_allowed" | "no_username";
 /**
  * Only the account's own Clinician (while they hold the role) or the Admin
  * changes a Username; a Patient never changes their own. Only an account that
- * has a Username gets a new one: adding a first Username also moves the
- * account to a password login (ADR-018), which this does not do.
+ * has a Username gets a new one: a first Username comes with a password login
+ * (mayAddUsernameLogin, ADR-018).
  */
 export function mayChangeUsername(request: {
   actor: { id: string; role: AccountRole };
@@ -552,10 +565,52 @@ export type RemoveClinicianRoleError = RemoveClinicianRoleRefusal | TransferRefu
 /** Every refusal the transfer-patients function answers with (as `{ error }`). */
 export type TransferPatientsError = TransferRefusal;
 
+export type LinkExistingAccountRefusal =
+  | AdminOnlyRefusal
+  | "account_is_admin"
+  | "already_linked"
+  | "target_is_account"
+  | "target_not_clinician"
+  | "patient_limit_reached"
+  | "has_username";
+
+/**
+ * Only the Admin links an existing account as a Patient (ADR-014); a
+ * Clinician who types that account's email into "+ New patient" gets
+ * "email already registered". Any User may become a Patient, a Clinician too
+ * since roles overlap, but the Admin account never does, and an account that
+ * already has a Clinician moves only by a Transfer. As for a Transfer, the
+ * Clinician holds the role or is the Admin (never an Inactive Clinician, nor
+ * the account itself) and has room under their Patient limit. The Admin may
+ * add a Username and password in the same step, but only to an account
+ * without a Username (mayAddUsernameLogin).
+ */
+export function mayLinkExistingAccount(request: {
+  actor: { role: AccountRole };
+  account: { id: string; role: AccountRole; clinicianId: string | null; username: string | null };
+  /** Who the account becomes a Patient of, read like a Transfer target. */
+  clinician: TransferTarget;
+  /** Whether the Link comes with a Username and password. */
+  usernameLogin: boolean;
+}): { ok: true } | { ok: false; reason: LinkExistingAccountRefusal } {
+  const { actor, account, clinician } = request;
+  if (actor.role !== "admin") return { ok: false, reason: "not_allowed" };
+  if (account.role === "admin") return { ok: false, reason: "account_is_admin" };
+  if (account.clinicianId !== null) return { ok: false, reason: "already_linked" };
+  if (clinician.id === account.id) return { ok: false, reason: "target_is_account" };
+  if (!hasClinicianPowers(clinician.role)) return { ok: false, reason: "target_not_clinician" };
+  const limit = patientLimitOf(clinician);
+  if (limit !== null && clinician.patientCount >= limit) return { ok: false, reason: "patient_limit_reached" };
+  if (request.usernameLogin && account.username !== null) return { ok: false, reason: "has_username" };
+  return { ok: true };
+}
+
 /** An account whose password is revealed, reset or changed, as the server reads it. */
 export interface PasswordAccount extends ProfileRole {
   /** The Clinician of its Link; null without a Link. */
   clinicianId: string | null;
+  /** The Patients Linked to it: more than none without the role makes it an Inactive Clinician. */
+  patientCount: number;
 }
 
 /**
@@ -575,7 +630,8 @@ export type PasswordRefusal = "not_allowed";
 /**
  * Who may reveal or reset an account's password (ADR-015): the Admin, for
  * every account that keeps a password copy; a Patient's own Clinician, while
- * they hold the role, unless that Patient also holds the Clinician role.
+ * they hold the role, unless that Patient is a Clinician too, active or
+ * Inactive (ADR-021): an Inactive Clinician's role may come back.
  */
 export function mayRevealOrResetPassword(request: {
   actor: { id: string; role: AccountRole };
@@ -586,7 +642,8 @@ export function mayRevealOrResetPassword(request: {
     return keepsPasswordCopy(account) ? { ok: true } : { ok: false, reason: "not_allowed" };
   }
   // One Clinician must never sign in as another (and see their Patients).
-  if (isOwnClinician(actor, account.clinicianId) && account.role === "user") return { ok: true };
+  const isClinician = hasClinicianPowers(account.role) || isInactiveClinician(account);
+  if (isOwnClinician(actor, account.clinicianId) && !isClinician) return { ok: true };
   return { ok: false, reason: "not_allowed" };
 }
 
@@ -609,6 +666,28 @@ export type ChangePasswordError = PasswordProblem;
 
 /** Every refusal the password-access-log function answers with (as `{ error }`). */
 export type PasswordAccessLogError = PasswordRefusal;
+
+export type AddUsernameLoginRefusal = PasswordRefusal | "not_linked" | "has_username";
+
+/**
+ * Who may give a Patient without a Username a Username and password (ADR-014,
+ * ADR-018): whoever may reset their password, so their own Clinician unless
+ * they are a Clinician too (active or Inactive), and the Admin. Only a
+ * Patient gets one (the Admin links a Regular or a Clinician first); an
+ * account that already has a Username changes it instead.
+ */
+export function mayAddUsernameLogin(request: {
+  actor: { id: string; role: AccountRole };
+  account: PasswordAccount & { username: string | null };
+}): { ok: true } | { ok: false; reason: AddUsernameLoginRefusal } {
+  const { actor, account } = request;
+  if (actor.role !== "admin" && !mayRevealOrResetPassword({ actor, account }).ok) {
+    return { ok: false, reason: "not_allowed" };
+  }
+  if (account.clinicianId === null) return { ok: false, reason: "not_linked" };
+  if (account.username !== null) return { ok: false, reason: "has_username" };
+  return { ok: true };
+}
 
 /** Every refusal the resolve-login endpoint answers with (as `{ error }`). */
 export type ResolveLoginError = "invalid_identifier" | "unknown_username";
@@ -636,23 +715,59 @@ export interface NewPatient {
   password: string;
 }
 
+/** A Username and password as typed, wherever an account gets both. */
+export interface UsernameLoginInput {
+  username: string;
+  password: string;
+}
+
+export type UsernameLoginProblem = "invalid_username" | PasswordProblem;
+
+/** Checks and normalizes a Username and password, in the app and on the server. */
+export function checkUsernameLogin(input: UsernameLoginInput):
+  | { ok: true; login: UsernameLoginInput }
+  | { ok: false; error: UsernameLoginProblem } {
+  const username = normalizeUsername(input.username);
+  if (!isValidUsername(username)) return { ok: false, error: "invalid_username" };
+  if (input.password.length < PASSWORD_MIN_LENGTH) return { ok: false, error: "password_too_short" };
+  return { ok: true, login: { username, password: input.password } };
+}
+
+/**
+ * The optional Username and password of "Link to clinician…": none when both
+ * are blank (the account keeps signing in as before), else both, checked.
+ */
+export function checkLinkLogin(input: UsernameLoginInput):
+  | { ok: true; login: UsernameLoginInput | null }
+  | { ok: false; error: UsernameLoginProblem } {
+  if (input.username.trim() === "" && input.password === "") return { ok: true, login: null };
+  return checkUsernameLogin(input);
+}
+
+/**
+ * Refusals of a move to a Username login beyond who may make it: the fields,
+ * a Username held or locked (mayClaimUsername), and an email that another
+ * account already keeps as its contact email.
+ */
+export type UsernameLoginRefusal = UsernameLoginProblem | UsernameClaimRefusal | "email_registered";
+
+/** Every refusal the link-patient function answers with (as `{ error }`). */
+export type LinkPatientError = LinkExistingAccountRefusal | UsernameLoginRefusal;
+
+/** Every refusal the add-username-login function answers with (as `{ error }`). */
+export type AddUsernameLoginError = AddUsernameLoginRefusal | UsernameLoginRefusal;
+
 /** Checks and normalizes the "+ New patient" fields, in the app and on the server. */
 export function checkNewPatient(input: NewPatientInput):
   | { ok: true; patient: NewPatient }
   | { ok: false; error: NewPatientProblem } {
   const name = input.name.trim();
   const email = input.email.trim().toLowerCase();
-  const username = normalizeUsername(input.username);
   if (name.length === 0) return { ok: false, error: "name_required" };
   if (email.length > 0 && !EMAIL_PATTERN.test(email)) return { ok: false, error: "invalid_email" };
-  if (!isValidUsername(username)) return { ok: false, error: "invalid_username" };
-  if (input.password.length < PASSWORD_MIN_LENGTH) {
-    return { ok: false, error: "password_too_short" };
-  }
-  return {
-    ok: true,
-    patient: { name, email: email.length > 0 ? email : null, username, password: input.password },
-  };
+  const login = checkUsernameLogin(input);
+  if (!login.ok) return login;
+  return { ok: true, patient: { name, email: email.length > 0 ? email : null, ...login.login } };
 }
 
 export type LoginIdentifier =

@@ -17,11 +17,12 @@ import { StatusPill } from "./PatientStatusPill";
 import type { StatusReading } from "./PatientStatusPill";
 import { ChangeUsernameForm } from "./ChangeUsernameForm";
 import { AccountPassword } from "./AccountPassword";
+import { AddUsernameLogin } from "./AddUsernameLogin";
 import { ListeningReport } from "./ListeningReport";
 import { RoleBadges } from "./roster";
 import { TransferForm } from "./TransferForm";
 import type { TransferCandidate } from "./TransferForm";
-import { personalUrlPath } from "../../supabase/functions/_shared/accountRules.ts";
+import { mayRevealOrResetPassword, personalUrlPath } from "../../supabase/functions/_shared/accountRules.ts";
 import type { ShownRole } from "../../supabase/functions/_shared/accountRules.ts";
 
 /**
@@ -30,7 +31,9 @@ import type { ShownRole } from "../../supabase/functions/_shared/accountRules.ts
  * Personal URL and Username, password, disconnect, and the Admin's Transfer,
  * #15), their Listening History report, and the curation of Built-in
  * sessions and Assigned audio. The Admin acts exactly as the Patient's
- * Clinician would, and assigns audio from any Audio Bank.
+ * Clinician would, and assigns audio from any Audio Bank. A Patient without
+ * a Username gets one with a password here (#16). The password of a Patient
+ * who is also a Clinician is the Admin's alone (ADR-015).
  */
 
 /** Who looks at the Patient: their own Clinician, or the Admin. */
@@ -80,12 +83,25 @@ async function copyText(text: string, flash: (msg: string) => void): Promise<voi
   }
 }
 
+/**
+ * Whether the signed-in User may reveal, reset or set this Patient's password
+ * (ADR-015, ADR-021): the Admin always; the Patient's own Clinician (this
+ * drawer only opens for them or the Admin) unless the Patient is a Clinician
+ * too. A Clinician reads only their own Links, so an Inactive Clinician among
+ * their Patients reads here as having no Patients; the server refuses them.
+ */
+function handlesPasswordOf(patient: PatientLink, role: "admin" | "clinician"): boolean {
+  const account = { role: patient.role, clinicianOrigin: null, clinicianId: patient.clinicianId, patientCount: 0 };
+  return mayRevealOrResetPassword({ actor: { id: patient.clinicianId, role }, account }).ok;
+}
+
 export function PatientDetail({
   patient,
   roles,
   statusReading,
   zoneLabel,
   viewer,
+  viewerRole,
   flash,
   onChange,
   onDisconnect,
@@ -100,6 +116,11 @@ export function PatientDetail({
   /** How times in the Patient's zone are labelled (WIB, WITA, WIT). */
   zoneLabel: string;
   viewer: PatientViewer;
+  /**
+   * The signed-in User's role: the Admin handles every Patient's password,
+   * in their own Patients tab too, where they view as the Clinician.
+   */
+  viewerRole: "admin" | "clinician";
   flash: (msg: string) => void;
   /** Something shown in the table changed (assignments, Username, Premium, Clinician). */
   onChange: () => Promise<void>;
@@ -110,6 +131,8 @@ export function PatientDetail({
   transferTargets?: readonly TransferCandidate[];
 }) {
   const [transferring, setTransferring] = useState(false);
+  /** A password the viewer just set with a new Username, shown once in the Password block. */
+  const [justSetPassword, setJustSetPassword] = useState<string | null>(null);
   const [hidden, setHidden] = useState<string[]>([]);
   const [assigned, setAssigned] = useState<PatientAssignment[]>([]);
   const [banks, setBanks] = useState<AudioBank[]>([]);
@@ -120,6 +143,7 @@ export function PatientDetail({
   const [busyPresets, setBusyPresets] = useState<Set<string>>(new Set());
   const name = patientName(patient);
   const copy = VIEWER_COPY[viewer];
+  const handlesPassword = handlesPasswordOf(patient, viewerRole);
   const premiumNoteId = useId();
 
   const load = useCallback(async () => {
@@ -254,7 +278,7 @@ export function PatientDetail({
 
       {clinicianRole}
 
-      {patient.username !== null && (
+      {patient.username !== null ? (
         <>
           <PersonalUrlBlock
             patientId={patient.patientId}
@@ -262,8 +286,24 @@ export function PatientDetail({
             flash={flash}
             onUsernameChange={() => void onChange()}
           />
-          <AccountPassword accountId={patient.patientId} owner="patient" flash={flash} />
+          {handlesPassword ? (
+            <AccountPassword accountId={patient.patientId} owner="patient" flash={flash} justSet={justSetPassword} />
+          ) : (
+            <AdminOnlyPassword />
+          )}
         </>
+      ) : handlesPassword ? (
+        <AddUsernameLogin
+          patientId={patient.patientId}
+          name={patient.name}
+          onAdded={async (login) => {
+            setJustSetPassword(login.password);
+            await onChange();
+            flash(`Username and password added ✓ Share them with ${name}.`);
+          }}
+        />
+      ) : (
+        <AdminOnlyPassword />
       )}
 
       <div className="detail-block">
@@ -361,6 +401,18 @@ export function PatientDetail({
         )}
         {copy.bankNote && <p className="library-note">{copy.bankNote}</p>}
       </div>
+    </div>
+  );
+}
+
+/** Where a Clinician's Patient who is also a Clinician has their password: with the Admin alone. */
+function AdminOnlyPassword() {
+  return (
+    <div className="detail-block">
+      <h4>Password</h4>
+      <p className="library-note">
+        They are a clinician too, so only the Admin can see, reset or set their password.
+      </p>
     </div>
   );
 }

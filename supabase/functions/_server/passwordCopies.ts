@@ -48,25 +48,29 @@ async function decryptPassword(ciphertext: string): Promise<string> {
 
 /**
  * The account as the password rules read it (role, Clinician origin, the
- * Clinician of its Link); null when no account has that id.
+ * Clinician of its Link, the Patients Linked to it); null when no account has
+ * that id.
  */
 export async function passwordAccountOf(
   admin: SupabaseClient,
   userId: string,
 ): Promise<PasswordAccount | null> {
   if (!UUID_PATTERN.test(userId)) return null;
-  const [profile, link] = await Promise.all([
+  const [profile, link, patients] = await Promise.all([
     admin.from("profiles").select("role, clinician_origin").eq("user_id", userId).maybeSingle(),
     admin.from("patient_links").select("clinician_id").eq("patient_id", userId).maybeSingle(),
+    admin.from("patient_links").select("patient_id", { count: "exact", head: true }).eq("clinician_id", userId),
   ]);
   if (profile.error) throw profile.error;
   if (link.error) throw link.error;
+  if (patients.error) throw patients.error;
   if (profile.data === null) return null;
   return {
     // profiles_role_check and profiles_clinician_origin_check admit exactly these values.
     role: profile.data.role as AccountRole,
     clinicianOrigin: profile.data.clinician_origin as ClinicianOrigin | null,
     clinicianId: link.data?.clinician_id ?? null,
+    patientCount: patients.count ?? 0,
   };
 }
 

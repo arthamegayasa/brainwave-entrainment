@@ -4,6 +4,7 @@ import type {
   NewClinicianInput,
   NewPatientInput,
   PersonalUrlError,
+  UsernameLoginInput,
 } from "../../supabase/functions/_shared/accountRules.ts";
 
 /**
@@ -217,4 +218,27 @@ export async function transferPatients(
  */
 export async function removeClinicianRole(accountId: string, targetId: string | null): Promise<void> {
   await invoke("remove-clinician-role", targetId === null ? { accountId } : { accountId, targetId });
+}
+
+/**
+ * The Admin links an existing User as a Patient of `clinicianId` (#16;
+ * ADR-014), optionally with a Username and password: the account then signs
+ * in with an internal login email and keeps its email as the contact email
+ * (ADR-018). Refusals arrive as AccountError with a LinkPatientError code.
+ */
+export function linkPatient(
+  accountId: string,
+  clinicianId: string,
+  login: UsernameLoginInput | null,
+): Promise<{ username: string | null }> {
+  return invoke("link-patient", { accountId, clinicianId, ...login });
+}
+
+/**
+ * Gives a Patient without a Username a Username and password (#16; ADR-018),
+ * for their Clinician or the Admin. Refusals arrive as AccountError with an
+ * AddUsernameLoginError code.
+ */
+export function addUsernameLogin(accountId: string, login: UsernameLoginInput): Promise<{ username: string }> {
+  return invoke("add-username-login", { accountId, ...login });
 }

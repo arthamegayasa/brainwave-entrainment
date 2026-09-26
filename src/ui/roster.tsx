@@ -490,7 +490,8 @@ export function WeekBars({ dailySec, label }: { dailySec: number[]; label?: stri
   );
 }
 
-const ROLE_NAMES: Record<ShownRole, string> = {
+/** Each role as its badge names it. */
+export const ROLE_NAMES: Record<ShownRole, string> = {
   admin: "Admin",
   clinician: "Clinician",
   patient: "Patient",

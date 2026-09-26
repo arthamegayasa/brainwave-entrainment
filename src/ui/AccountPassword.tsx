@@ -39,13 +39,16 @@ export function AccountPassword({
   accountId,
   owner,
   flash,
+  justSet = null,
 }: {
   accountId: string;
   owner: PasswordOwner;
   flash: (msg: string) => void;
+  /** A password the viewer set a moment ago, shown at first like one after a reset. */
+  justSet?: string | null;
 }) {
   // The password on screen: revealed, or just set by a reset; null hides it.
-  const [shown, setShown] = useState<string | null>(null);
+  const [shown, setShown] = useState<string | null>(justSet);
   const [resetting, setResetting] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
