@@ -123,10 +123,20 @@ export function localDay(instant: number, timeZone: string): string {
   return wallClock(instant, timeZone).day;
 }
 
+/** Days since 1970-01-01 of a calendar day ("2026-09-26"). */
+function dayNumber(day: string): number {
+  const [y, m, d] = day.split("-").map(Number);
+  return Date.UTC(y, m - 1, d) / 86_400_000;
+}
+
 /** The calendar day `offset` days after `day` ("2026-09-26", -1 → "2026-09-25"). */
 function shiftDay(day: string, offset: number): string {
-  const [y, m, d] = day.split("-").map(Number);
-  return new Date(Date.UTC(y, m - 1, d + offset)).toISOString().slice(0, 10);
+  return new Date((dayNumber(day) + offset) * 86_400_000).toISOString().slice(0, 10);
+}
+
+/** How many calendar days before `now` the day of `instant` is, in `timeZone`: 0 today, 1 yesterday. */
+export function daysAgo(instant: string, now: number, timeZone: string): number {
+  return dayNumber(localDay(now, timeZone)) - dayNumber(localDay(Date.parse(instant), timeZone));
 }
 
 /** First and last calendar day of a period, both included. */
@@ -166,7 +176,8 @@ export function streakMayRunEarlier(plays: Play[], now: number, timeZone: string
   return streak !== null && days.every((day) => day >= streak.firstDay);
 }
 
-function isKnownTimeZone(timeZone: string): boolean {
+/** Whether this browser can show times in `timeZone`. */
+export function isKnownTimeZone(timeZone: string): boolean {
   try {
     new Intl.DateTimeFormat("en-US", { timeZone });
     return true;

@@ -44,6 +44,11 @@ export interface PatientLink {
   premiumGrant: boolean;
 }
 
+/** How a Patient reads in the Dashboard: their name, else their email. */
+export function patientName(patient: PatientLink): string {
+  return patient.name ?? patient.email ?? "Unnamed patient";
+}
+
 export interface PatientAssignment {
   audioId: string;
   name: string;

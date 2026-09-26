@@ -12,6 +12,7 @@ import type {
 } from "../state/listening";
 import { historyTimeZone, streakMayRunEarlier } from "../state/listeningReport";
 import type { ListeningHistory } from "../state/listeningReport";
+import type { PatientActivity } from "../state/patientStatus";
 import type { Band } from "../audio/presets";
 
 /**
@@ -21,7 +22,8 @@ import type { Band } from "../audio/presets";
  * right away, or once the device is back online. Signed out, nothing leaves
  * the device. The playback paths reach this module through their thin
  * adapters (src/ui/playAdapters.ts). `loadListeningHistory` reads a history
- * back for the report (src/state/listeningReport.ts, src/ui/ListeningReport.tsx).
+ * back for the report (src/state/listeningReport.ts, src/ui/ListeningReport.tsx);
+ * `loadPatientActivity` reads the aggregates of the Dashboard's Patients table.
  */
 
 /**
@@ -349,4 +351,40 @@ export async function loadListeningHistory(userId: string, now: number): Promise
       }),
     ),
   };
+}
+
+interface PatientActivityRow {
+  patient_id: string;
+  account_created_at: string;
+  last_play_at: string | null;
+  time_zone: string | null;
+  plays_7d: number;
+  stopped_7d: number;
+  listened_sec_7d: number;
+  daily_listened_sec: number[];
+}
+
+/**
+ * The aggregates of the signed-in Clinician's Patients (0012), by Patient id:
+ * what the Patients table shows and Patient Status is derived from, without
+ * downloading their Plays. Another Clinician's Patients never appear.
+ */
+export async function loadPatientActivity(): Promise<Map<string, PatientActivity>> {
+  if (!supabase) throw new Error("Listening History needs Supabase");
+  const { data, error } = await supabase.rpc("patient_activity");
+  if (error) throw error;
+  return new Map(
+    (data as PatientActivityRow[]).map((row) => [
+      row.patient_id,
+      {
+        accountCreatedAt: row.account_created_at,
+        lastPlayAt: row.last_play_at,
+        timeZone: row.time_zone,
+        plays7: row.plays_7d,
+        stopped7: row.stopped_7d,
+        listenedSec7: row.listened_sec_7d,
+        dailySec7: row.daily_listened_sec,
+      },
+    ]),
+  );
 }
