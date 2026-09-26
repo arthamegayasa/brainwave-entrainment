@@ -2,37 +2,43 @@
 // false): the signed-out /p/<username> page asks whose Personal URL it is.
 //
 //   Username of a password account
-//     → { firstName, loginEmail }   (first name only; the internal login email)
+//     → { username, firstName, loginEmail }   (first name only; the internal
+//                                               login email)
+//   old Username of a renamed account, while no other account holds it (#7)
+//     → the same for the owner's current Username: the page redirects there
 //   anything else → 404 { error: "not_found" }
 //
 // The page shows the first name and one password field, then calls Supabase's
 // own password sign-in with loginEmail, so Auth's per-IP rate limits apply to
 // every attempt. An invalid Username gets the same answer as an unknown one.
 
-import { firstName, isValidUsername, normalizeUsername } from "../_shared/accountRules.ts";
+import {
+  firstName,
+  isValidUsername,
+  normalizeUsername,
+  personalUrlTarget,
+} from "../_shared/accountRules.ts";
 import type { PersonalUrlError } from "../_shared/accountRules.ts";
 import { json, readBody, serve, serviceClient, stringField } from "../_server/endpoint.ts";
+import { usernameStateOf } from "../_server/usernames.ts";
 
 const notFound = () => json({ error: "not_found" satisfies PersonalUrlError }, 404);
 
 serve(async (req) => {
-  const username = normalizeUsername(stringField(await readBody(req), "username"));
-  if (!isValidUsername(username)) return notFound();
+  const requested = normalizeUsername(stringField(await readBody(req), "username"));
+  if (!isValidUsername(requested)) return notFound();
 
   const admin = serviceClient();
-  const { data: profile, error } = await admin
-    .from("profiles")
-    .select("display_name")
-    .eq("username", username)
-    .maybeSingle();
-  if (error) throw error;
-  if (profile === null) return notFound();
+  const username = personalUrlTarget(requested, await usernameStateOf(admin, requested));
+  if (username === null) return notFound();
 
-  const { data: loginEmail, error: loginError } = await admin.rpc("password_login_email", {
-    p_identifier: username,
-  });
-  if (loginError) throw loginError;
-  if (typeof loginEmail !== "string") return notFound();
+  const [profile, login] = await Promise.all([
+    admin.from("profiles").select("display_name").eq("username", username).maybeSingle(),
+    admin.rpc("password_login_email", { p_identifier: username }),
+  ]);
+  if (profile.error) throw profile.error;
+  if (login.error) throw login.error;
+  if (profile.data === null || typeof login.data !== "string") return notFound();
 
-  return json({ firstName: firstName(profile.display_name), loginEmail });
+  return json({ username, firstName: firstName(profile.data.display_name), loginEmail: login.data });
 });

@@ -5,17 +5,21 @@ import {
   generatePassword,
   internalLoginEmail,
   isValidUsername,
+  mayChangeUsername,
+  mayClaimUsername,
   mayCreatePatient,
   normalizeUsername,
   parseLoginIdentifier,
   parsePersonalUrlPath,
   patientLimitOf,
   personalUrlPath,
+  personalUrlTarget,
   shownEmail,
   suggestUsername,
+  takenOrLockedUsernames,
   usernameStem,
 } from "../supabase/functions/_shared/accountRules.ts";
-import type { PatientCreator } from "../supabase/functions/_shared/accountRules.ts";
+import type { PatientCreator, UsernameState } from "../supabase/functions/_shared/accountRules.ts";
 
 describe("Username normalization", () => {
   it("lowercases, trims and drops a leading @", () => {
@@ -273,5 +277,175 @@ describe("First name on a Personal URL", () => {
   it("is absent without a name", () => {
     expect(firstName(null)).toBeNull();
     expect(firstName("   ")).toBeNull();
+  });
+});
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const releasedAt = new Date("2026-09-01T10:00:00Z");
+const afterRelease = (ms: number) => new Date(releasedAt.getTime() + ms);
+/** "ivan" after its owner was renamed to "ivan-moon"; owner null = a deleted account. */
+const released = (owner: string | null): UsernameState => ({
+  holder: null,
+  lastRelease: { owner, ownerUsername: owner === null ? null : "ivan-moon", releasedAt },
+});
+
+describe("Claiming a released Username", () => {
+  it("refuses another account until 30 days after the release", () => {
+    for (const now of [afterRelease(0), afterRelease(30 * DAY_MS - 1)]) {
+      expect(mayClaimUsername({ state: released("ivan-id"), claimant: "budi-id", now })).toEqual({
+        ok: false,
+        reason: "username_locked",
+      });
+    }
+  });
+
+  it("allows another account from 30 days after the release", () => {
+    for (const now of [afterRelease(30 * DAY_MS), afterRelease(400 * DAY_MS)]) {
+      expect(mayClaimUsername({ state: released("ivan-id"), claimant: "budi-id", now })).toEqual({
+        ok: true,
+      });
+    }
+  });
+
+  it("locks a new Patient out the same way", () => {
+    const state = released("ivan-id");
+    expect(mayClaimUsername({ state, claimant: null, now: afterRelease(30 * DAY_MS - 1) }).ok).toBe(
+      false,
+    );
+    expect(mayClaimUsername({ state, claimant: null, now: afterRelease(30 * DAY_MS) }).ok).toBe(true);
+  });
+
+  it("lets the owner take their released Username back at once", () => {
+    expect(
+      mayClaimUsername({ state: released("ivan-id"), claimant: "ivan-id", now: afterRelease(1) }),
+    ).toEqual({ ok: true });
+  });
+
+  it("keeps a deleted account's Username locked for everyone for 30 days", () => {
+    for (const claimant of ["budi-id", null]) {
+      expect(
+        mayClaimUsername({ state: released(null), claimant, now: afterRelease(30 * DAY_MS - 1) }),
+      ).toEqual({ ok: false, reason: "username_locked" });
+      expect(
+        mayClaimUsername({ state: released(null), claimant, now: afterRelease(30 * DAY_MS) }).ok,
+      ).toBe(true);
+    }
+  });
+
+  it("refuses a Username another account holds, however old its release", () => {
+    const state: UsernameState = { ...released("ivan-id"), holder: "made-id" };
+    for (const claimant of ["budi-id", "ivan-id", null]) {
+      expect(mayClaimUsername({ state, claimant, now: afterRelease(400 * DAY_MS) })).toEqual({
+        ok: false,
+        reason: "username_taken",
+      });
+    }
+  });
+
+  it("allows a Username nobody holds and nobody released", () => {
+    const state: UsernameState = { holder: null, lastRelease: null };
+    expect(mayClaimUsername({ state, claimant: null, now: releasedAt })).toEqual({ ok: true });
+  });
+});
+
+describe("Old Personal URL", () => {
+  it("opens the account that holds the Username", () => {
+    expect(personalUrlTarget("ivan", { holder: "ivan-id", lastRelease: null })).toBe("ivan");
+  });
+
+  it("redirects to the owner's current Username while the old one is unclaimed", () => {
+    expect(personalUrlTarget("ivan", released("ivan-id"))).toBe("ivan-moon");
+  });
+
+  it("stops redirecting once another account holds the old Username", () => {
+    expect(personalUrlTarget("ivan", { ...released("ivan-id"), holder: "made-id" })).toBe("ivan");
+  });
+
+  it("opens a Username its owner took back", () => {
+    expect(personalUrlTarget("ivan", { ...released("ivan-id"), holder: "ivan-id" })).toBe("ivan");
+  });
+
+  it("leads nowhere for a Username never held, or released by a deleted account", () => {
+    expect(personalUrlTarget("ivan", { holder: null, lastRelease: null })).toBeNull();
+    expect(personalUrlTarget("ivan", released(null))).toBeNull();
+  });
+});
+
+describe("Username suggestion around released Usernames", () => {
+  const releases = [{ username: "ivan", releasedAt }];
+
+  it("skips a Username released less than 30 days ago", () => {
+    const taken = takenOrLockedUsernames({
+      held: [],
+      releases,
+      now: afterRelease(30 * DAY_MS - 1),
+    });
+    expect(suggestUsername("Ivan Pratama", taken)).toBe("ivan-pratama");
+  });
+
+  it("offers it again from 30 days after the release", () => {
+    const taken = takenOrLockedUsernames({ held: [], releases, now: afterRelease(30 * DAY_MS) });
+    expect(suggestUsername("Ivan Pratama", taken)).toBe("ivan");
+  });
+
+  it("still skips Usernames accounts hold", () => {
+    const taken = takenOrLockedUsernames({
+      held: ["ivan", "ivan-pratama"],
+      releases: [],
+      now: releasedAt,
+    });
+    expect(suggestUsername("Ivan Pratama", taken)).toBe("ivan-2");
+  });
+});
+
+describe("may change a Username", () => {
+  /** Ivan, a Patient of Clinician A. */
+  const ivan = { clinicianId: "clinician-a", username: "ivan" };
+
+  it("lets the owning Clinician change their Patient's Username", () => {
+    const actor = { id: "clinician-a", role: "clinician" } as const;
+    expect(mayChangeUsername({ actor, account: ivan })).toEqual({ ok: true });
+  });
+
+  it("lets the Admin change any account's Username", () => {
+    const actor = { id: "admin", role: "admin" } as const;
+    expect(mayChangeUsername({ actor, account: ivan })).toEqual({ ok: true });
+    expect(mayChangeUsername({ actor, account: { clinicianId: null, username: "ivan" } })).toEqual({
+      ok: true,
+    });
+  });
+
+  it("refuses another Clinician, the Patient themselves and a Clinician who lost the role", () => {
+    const actors = [
+      { id: "clinician-b", role: "clinician" },
+      { id: "ivan-id", role: "user" },
+      { id: "clinician-a", role: "user" },
+    ] as const;
+    for (const actor of actors) {
+      expect(mayChangeUsername({ actor, account: ivan }), actor.id).toEqual({
+        ok: false,
+        reason: "not_allowed",
+      });
+    }
+  });
+
+  it("refuses an account without a Username: adding one needs a password login too", () => {
+    const noUsername = { clinicianId: "clinician-a", username: null };
+    for (const actor of [
+      { id: "clinician-a", role: "clinician" },
+      { id: "admin", role: "admin" },
+    ] as const) {
+      expect(mayChangeUsername({ actor, account: noUsername })).toEqual({
+        ok: false,
+        reason: "no_username",
+      });
+    }
+  });
+
+  it("refuses another Clinician before saying whether the account has a Username", () => {
+    const actor = { id: "clinician-b", role: "clinician" } as const;
+    expect(
+      mayChangeUsername({ actor, account: { clinicianId: "clinician-a", username: null } }),
+    ).toEqual({ ok: false, reason: "not_allowed" });
   });
 });

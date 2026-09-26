@@ -392,13 +392,17 @@ verify_jwt = true
 [functions.midtrans-webhook]
 verify_jwt = false
 
-# Account functions (#5, ADR-018): creating a Patient and suggesting a Username
-# need a signed-in Clinician or Admin; resolve-login serves the signed-out
-# sign-in form, and personal-url the signed-out Personal URL page (#6).
+# Account functions (#5, ADR-018): creating a Patient, suggesting a Username
+# and changing one (#7) need a signed-in Clinician or Admin; resolve-login
+# serves the signed-out sign-in form, and personal-url the signed-out Personal
+# URL page (#6).
 [functions.create-patient]
 verify_jwt = true
 
 [functions.suggest-username]
+verify_jwt = true
+
+[functions.change-username]
 verify_jwt = true
 
 [functions.resolve-login]

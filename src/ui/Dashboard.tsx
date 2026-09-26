@@ -29,6 +29,7 @@ import type {
   PatientLink,
 } from "../lib/clinician";
 import { NewPatientForm } from "./NewPatientForm";
+import { ChangeUsernameForm } from "./ChangeUsernameForm";
 import { personalUrlPath } from "../../supabase/functions/_shared/accountRules.ts";
 
 /**
@@ -302,6 +303,7 @@ function PatientsTab({
             patient={selectedPatient}
             flash={flash}
             onAssignmentsChange={() => void refresh()}
+            onUsernameChange={() => void refresh()}
           />
         )}
       </div>
@@ -313,10 +315,12 @@ function PatientDetail({
   patient,
   flash,
   onAssignmentsChange,
+  onUsernameChange,
 }: {
   patient: PatientLink;
   flash: (msg: string) => void;
   onAssignmentsChange: () => void;
+  onUsernameChange: () => void;
 }) {
   const [hidden, setHidden] = useState<string[]>([]);
   const [assigned, setAssigned] = useState<PatientAssignment[]>([]);
@@ -393,28 +397,17 @@ function PatientDetail({
     }
   };
 
-  const personalUrl =
-    patient.username === null
-      ? null
-      : `${window.location.origin}${personalUrlPath(patient.username)}`;
-
   return (
     <div className="patient-detail">
       <h3>{patientName(patient)}</h3>
 
-      {personalUrl && (
-        <div className="detail-block">
-          <h4>Personal URL</h4>
-          <div className="save-row">
-            <span className="personal-url-address">{personalUrl}</span>
-            <button className="chip small" onClick={() => void copyText(personalUrl, flash)}>
-              Copy link
-            </button>
-          </div>
-          <p className="library-note">
-            Your patient opens this address and types their password.
-          </p>
-        </div>
+      {patient.username !== null && (
+        <PersonalUrlBlock
+          patientId={patient.patientId}
+          username={patient.username}
+          flash={flash}
+          onUsernameChange={onUsernameChange}
+        />
       )}
 
       <div className="detail-block">
@@ -495,6 +488,56 @@ function PatientDetail({
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/** A Patient's Personal URL to copy, and the change of Username behind it. */
+function PersonalUrlBlock({
+  patientId,
+  username,
+  flash,
+  onUsernameChange,
+}: {
+  patientId: string;
+  username: string;
+  flash: (msg: string) => void;
+  onUsernameChange: () => void;
+}) {
+  const [changing, setChanging] = useState(false);
+  const personalUrl = `${window.location.origin}${personalUrlPath(username)}`;
+
+  const changed = (next: string) => {
+    setChanging(false);
+    onUsernameChange();
+    flash(`Username changed to @${next} ✓ The old Personal URL still works.`);
+  };
+
+  return (
+    <div className="detail-block">
+      <h4>Personal URL</h4>
+      <div className="save-row">
+        <span className="personal-url-address">{personalUrl}</span>
+        <button className="chip small" onClick={() => void copyText(personalUrl, flash)}>
+          Copy link
+        </button>
+        {!changing && (
+          <button className="chip small" onClick={() => setChanging(true)}>
+            Change username
+          </button>
+        )}
+      </div>
+      <p className="library-note">
+        Your patient opens this address and types their password.
+      </p>
+      {changing && (
+        <ChangeUsernameForm
+          accountId={patientId}
+          current={username}
+          onChanged={changed}
+          onClose={() => setChanging(false)}
+        />
+      )}
     </div>
   );
 }

@@ -49,6 +49,11 @@ export async function signInWithPassword(loginEmail: string, password: string): 
 
 /** Whose Personal URL it is: the first name to greet and the login email. */
 export interface PersonalUrlLogin {
+  /**
+   * The Username that opened: the requested one, or, for the old Username of
+   * a renamed account, that account's current one (the page redirects).
+   */
+  username: string;
   firstName: string | null;
   loginEmail: string;
 }
@@ -79,4 +84,13 @@ export function createPatient(
   input: NewPatientInput,
 ): Promise<{ patientId: string; username: string }> {
   return invoke("create-patient", { ...input });
+}
+
+/**
+ * Gives an account a new Username; its old Personal URL redirects to the new
+ * one until another account claims it. Refusals arrive as AccountError with a
+ * ChangeUsernameError code.
+ */
+export function changeUsername(accountId: string, username: string): Promise<{ username: string }> {
+  return invoke("change-username", { accountId, username });
 }

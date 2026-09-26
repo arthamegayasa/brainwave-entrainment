@@ -90,6 +90,83 @@ export function suggestUsername(name: string, taken: ReadonlySet<string>): strin
   return null;
 }
 
+/**
+ * How long a released Username stays locked for everyone but the account that
+ * released it (ADR-016), so an old Personal URL never opens someone else's
+ * sign-in page right away.
+ */
+export const USERNAME_LOCK_DAYS = 30;
+const USERNAME_LOCK_MS = USERNAME_LOCK_DAYS * 24 * 60 * 60 * 1000;
+
+/** The latest release of a Username in the Username history. */
+export interface UsernameRelease {
+  /** The account that released it; null once that account is deleted. */
+  owner: string | null;
+  /** The owner's current Username; null when they hold none. */
+  ownerUsername: string | null;
+  releasedAt: Date;
+}
+
+/** One Username as the server reads it at one moment. */
+export interface UsernameState {
+  /** The account that holds the Username now; null when unclaimed. */
+  holder: string | null;
+  /** Its latest release; null when it was never released. */
+  lastRelease: UsernameRelease | null;
+}
+
+export type UsernameClaimRefusal = "username_taken" | "username_locked";
+
+/** Every reason a Username typed into a form is refused. */
+export type UsernameRefusal = "invalid_username" | UsernameClaimRefusal;
+
+/** Whether a Username released at `releasedAt` is still locked at `now`. */
+function isLockedSince(releasedAt: Date, now: Date): boolean {
+  return now.getTime() < releasedAt.getTime() + USERNAME_LOCK_MS;
+}
+
+/**
+ * Whether `claimant` may take a Username: not while another account holds it,
+ * and not for 30 days after another account released it, whether by a rename
+ * or, once recorded as a release, by deleting the account. The account that
+ * released it may take it back at once.
+ */
+export function mayClaimUsername(request: {
+  state: UsernameState;
+  /** The account taking the Username; null for a Patient not created yet. */
+  claimant: string | null;
+  now: Date;
+}): { ok: true } | { ok: false; reason: UsernameClaimRefusal } {
+  const { state, claimant, now } = request;
+  if (state.holder !== null) {
+    return state.holder === claimant ? { ok: true } : { ok: false, reason: "username_taken" };
+  }
+  const release = state.lastRelease;
+  const ownRelease = claimant !== null && claimant === release?.owner;
+  if (release !== null && !ownRelease && isLockedSince(release.releasedAt, now)) {
+    return { ok: false, reason: "username_locked" };
+  }
+  return { ok: true };
+}
+
+/**
+ * The Usernames a new Patient cannot take, for `suggestUsername`: those an
+ * account holds, and those released less than 30 days ago.
+ */
+export function takenOrLockedUsernames(request: {
+  held: readonly string[];
+  /** Username history rows, in any order: a new Patient has no release of their own. */
+  releases: ReadonlyArray<{ username: string; releasedAt: Date }>;
+  now: Date;
+}): Set<string> {
+  const { held, releases, now } = request;
+  const taken = new Set(held);
+  for (const release of releases) {
+    if (isLockedSince(release.releasedAt, now)) taken.add(release.username);
+  }
+  return taken;
+}
+
 /** The role stored on a profile; "Patient" and "Regular" derive from Links. */
 export type AccountRole = "user" | "clinician" | "admin";
 
@@ -143,7 +220,33 @@ export type NewPatientProblem =
   | "password_too_short";
 
 /** Every refusal the create-patient function answers with (as `{ error }`). */
-export type CreatePatientError = NewPatientProblem | CreatePatientRefusal | "username_taken";
+export type CreatePatientError = NewPatientProblem | CreatePatientRefusal | UsernameClaimRefusal;
+
+export type ChangeUsernameRefusal = "not_allowed" | "no_username";
+
+/**
+ * Only the account's own Clinician (while they hold the role) or the Admin
+ * changes a Username; a Patient never changes their own. Only an account that
+ * has a Username gets a new one: adding a first Username also moves the
+ * account to a password login (ADR-018), which this does not do.
+ */
+export function mayChangeUsername(request: {
+  actor: { id: string; role: AccountRole };
+  account: {
+    /** The Clinician of the account's Link; null without a Link. */
+    clinicianId: string | null;
+    username: string | null;
+  };
+}): { ok: true } | { ok: false; reason: ChangeUsernameRefusal } {
+  const { actor, account } = request;
+  const ownClinician = actor.role === "clinician" && account.clinicianId === actor.id;
+  if (actor.role !== "admin" && !ownClinician) return { ok: false, reason: "not_allowed" };
+  if (account.username === null) return { ok: false, reason: "no_username" };
+  return { ok: true };
+}
+
+/** Every refusal the change-username function answers with (as `{ error }`). */
+export type ChangeUsernameError = UsernameRefusal | ChangeUsernameRefusal;
 
 /** Every refusal the resolve-login endpoint answers with (as `{ error }`). */
 export type ResolveLoginError = "invalid_identifier" | "unknown_username";
@@ -221,6 +324,17 @@ export function parsePersonalUrlPath(pathname: string): { username: string | nul
   if (match === null) return null;
   const username = normalizeUsername((match[1] ?? "").replace(/\/$/, ""));
   return { username: isValidUsername(username) ? username : null };
+}
+
+/**
+ * The Username whose account a Personal URL opens (ADR-016): its own while an
+ * account holds it. An unclaimed Username redirects to the current Username
+ * of the account that released it last, until another account claims it,
+ * however long that takes. Null when it opens no account.
+ */
+export function personalUrlTarget(username: string, state: UsernameState): string | null {
+  if (state.holder !== null) return username;
+  return state.lastRelease?.ownerUsername ?? null;
 }
 
 /**

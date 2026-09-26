@@ -4,11 +4,13 @@ import { useEntitlement } from "../lib/useEntitlement";
 import { openPersonalUrl, signInWithPassword } from "../lib/accounts";
 import type { PersonalUrlLogin } from "../lib/accounts";
 import { passwordRefusal, SIGN_IN_UNAVAILABLE } from "./signInMessages";
+import { personalUrlPath } from "../../supabase/functions/_shared/accountRules.ts";
 
 /**
  * Personal URL page (ADR-016): /p/<username> greets the Patient by first name
  * and asks for one password; signing in opens their Library. A device already
- * signed in to that account skips the password. A Username nobody has shows a
+ * signed in to that account skips the password. The old Username of a renamed
+ * account redirects to its current one (#7). A Username nobody has shows a
  * neutral "Link not found" that never hints whether it ever existed.
  */
 
@@ -32,7 +34,10 @@ export function PersonalUrl({ username, onEnter, onLeave }: PersonalUrlProps) {
   const [lookup, setLookup] = useState<Lookup>({ state: "loading" });
   // Bumped by "Try again" after the lookup could not reach the server.
   const [attempt, setAttempt] = useState(0);
-  const signedInHere = username !== null && ent.signedIn && ent.username === username;
+  // The Username that opened: after a redirect, the account's current one.
+  const openedUsername = lookup.state === "found" ? lookup.login.username : username;
+  const signedInHere =
+    openedUsername !== null && ent.signedIn && ent.username === openedUsername;
 
   useEffect(() => {
     if (signedInHere) onEnter();
@@ -52,6 +57,14 @@ export function PersonalUrl({ username, onEnter, onLeave }: PersonalUrlProps) {
       cancelled = true;
     };
   }, [ent.configured, username, attempt]);
+
+  // Redirect: the address shows the current Username, so a reload or a
+  // bookmark goes straight there.
+  useEffect(() => {
+    if (openedUsername !== null && openedUsername !== username) {
+      window.history.replaceState(null, "", personalUrlPath(openedUsername));
+    }
+  }, [openedUsername, username]);
 
   const retry = () => {
     setLookup({ state: "loading" });
@@ -95,7 +108,6 @@ export function PersonalUrl({ username, onEnter, onLeave }: PersonalUrlProps) {
   } else {
     content = (
       <PasswordForm
-        username={username}
         login={lookup.login}
         signedInAs={ent.signedIn ? (ent.accountName ?? "another account") : null}
         onSignedIn={onEnter}
@@ -129,12 +141,10 @@ function Notice({
 }
 
 function PasswordForm({
-  username,
   login,
   signedInAs,
   onSignedIn,
 }: {
-  username: string;
   login: PersonalUrlLogin;
   /** Who this device is signed in as, when that is another account. */
   signedInAs: string | null;
@@ -169,7 +179,7 @@ function PasswordForm({
         </p>
       )}
       {/* Lets password managers file the password under this Username. */}
-      <input type="text" autoComplete="username" value={username} readOnly hidden />
+      <input type="text" autoComplete="username" value={login.username} readOnly hidden />
       <input
         className="text-input"
         type="password"
