@@ -28,11 +28,13 @@ import { disconnectPatient, setPremiumGrant } from "../lib/accounts";
 import { NewPatientForm } from "./NewPatientForm";
 import { ChangeUsernameForm } from "./ChangeUsernameForm";
 import { PatientPassword } from "./PatientPassword";
+import { ListeningReport } from "./ListeningReport";
 import { personalUrlPath } from "../../supabase/functions/_shared/accountRules.ts";
 
 /**
  * Clinician Dashboard (D-06): Patients tab (linked patients with their
- * Premium grant, per-patient preset curation + assignments) and Audio Bank
+ * Premium grant, Listening History report, per-patient preset curation +
+ * assignments) and Audio Bank
  * tab (filterable card grid of the clinician's published sessions). The App
  * renders this only for clinicians/admins; RLS enforces every rule
  * server-side regardless.
@@ -356,6 +358,15 @@ function PatientDetail({
           <PatientPassword patientId={patient.patientId} flash={flash} />
         </>
       )}
+
+      <div className="detail-block">
+        <h4>Listening history</h4>
+        <ListeningReport
+          userId={patient.patientId}
+          firstName={patient.name?.trim().split(/\s+/)[0] || patientName(patient)}
+          headingLevel={5}
+        />
+      </div>
 
       <div className="detail-block">
         <h4>Built-in sessions</h4>

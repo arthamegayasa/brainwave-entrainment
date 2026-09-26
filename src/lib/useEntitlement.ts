@@ -14,6 +14,8 @@ export interface AuthEntitlementState {
   configured: boolean;
   loading: boolean;
   signedIn: boolean;
+  /** The signed-in User's id; null when signed out. */
+  userId: string | null;
   /**
    * The signed-in account's email to show, never its internal login email
    * (ADR-018): null for a Username account without a contact email.
@@ -56,7 +58,7 @@ function localRoleOverride(): AccountRole {
 /** Tracks auth session + the user's entitlement + role, reacting to sign-in/out. */
 export function useEntitlement(): AuthEntitlementState {
   const [loading, setLoading] = useState(isPaymentsConfigured);
-  const [signedIn, setSignedIn] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [entitlement, setEntitlement] = useState<Entitlement | null>(null);
   const [link, setLink] = useState<MyLink | null>(null);
@@ -72,7 +74,7 @@ export function useEntitlement(): AuthEntitlementState {
       fetchProfile(),
       fetchMyLink(),
     ]);
-    setSignedIn(user.data.user !== null);
+    setUserId(user.data.user?.id ?? null);
     setEntitlement(ent);
     setProfile(prof);
     setLink(myLink);
@@ -97,7 +99,8 @@ export function useEntitlement(): AuthEntitlementState {
   return {
     configured: isPaymentsConfigured,
     loading,
-    signedIn,
+    signedIn: userId !== null,
+    userId,
     email: profile?.email ?? null,
     accountName: profile?.displayName ?? profile?.email ?? username,
     username,

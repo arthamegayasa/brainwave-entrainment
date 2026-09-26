@@ -10,12 +10,14 @@ import { parseLoginIdentifier } from "../../supabase/functions/_shared/accountRu
 import type { ResolveLoginError } from "../../supabase/functions/_shared/accountRules.ts";
 import { passwordRefusal, SIGN_IN_UNAVAILABLE } from "./signInMessages";
 import { ChangePasswordForm } from "./ChangePasswordForm";
+import { ListeningReport } from "./ListeningReport";
 
 /**
  * AccountSheet (quick-260714-dc3): the single identity surface, opened from
  * the topbar account button. Hosts sign-in (email or Username; ADR-018),
  * profile with plan/role chips, subscription with "Manage plan", the
- * Patient's Clinician (read-only), settings resets, and sign out — the
+ * Patient's Clinician (read-only), the User's own Listening History ("Your
+ * listening"), settings resets, and sign out — the
  * Premium page stays a pure checkout surface.
  */
 
@@ -111,7 +113,7 @@ export function AccountSheet({
           <SignInForm onOpenPrivacy={onOpenPrivacy} />
         )}
 
-        {/* Signed in: profile → subscription → clinician → settings → sign out. */}
+        {/* Signed in: profile → subscription → clinician → listening → password → settings → sign out. */}
         {ent.configured && !ent.loading && ent.signedIn && (
           <>
             <div className="account-section">
@@ -163,6 +165,13 @@ export function AccountSheet({
                 <p className="account-copy">
                   Connected to {ent.link.clinicianName ?? "your clinician"}
                 </p>
+              </div>
+            )}
+
+            {ent.userId && (
+              <div className="account-section">
+                <h3>Your listening</h3>
+                <ListeningReport userId={ent.userId} firstName={null} headingLevel={4} />
               </div>
             )}
 

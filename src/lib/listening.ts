@@ -1,12 +1,18 @@
 import { supabase } from "./supabase";
 import { createListeningQueue, createPlayRecorder } from "../state/listening";
 import type {
+  AudioKind,
   AudioSnapshot,
+  Download,
   DownloadAudio,
   ListeningEnv,
   PendingEntry,
   Play,
+  PlayOutcome,
 } from "../state/listening";
+import { historyTimeZone, streakMayRunEarlier } from "../state/listeningReport";
+import type { ListeningHistory } from "../state/listeningReport";
+import type { Band } from "../audio/presets";
 
 /**
  * Listening History on the server (ADR-017). Plays and Downloads of the
@@ -14,7 +20,8 @@ import type {
  * (src/state/listening.ts) and go to the `plays` / `downloads` tables (0011)
  * right away, or once the device is back online. Signed out, nothing leaves
  * the device. The playback paths reach this module through their thin
- * adapters (src/ui/playAdapters.ts).
+ * adapters (src/ui/playAdapters.ts). `loadListeningHistory` reads a history
+ * back for the report (src/state/listeningReport.ts, src/ui/ListeningReport.tsx).
  */
 
 /**
@@ -214,5 +221,132 @@ export function startListeningSync(): () => void {
     data.subscription.unsubscribe();
     window.removeEventListener("online", flush);
     document.removeEventListener("visibilitychange", onVisible);
+  };
+}
+
+/* ── Reading a Listening History ───────────────────────────────────────── */
+
+interface SnapshotRow {
+  audio_kind: AudioKind;
+  audio_id: string;
+  audio_name: string;
+  audio_emoji: string | null;
+  audio_band: Band | null;
+}
+
+interface PlayRow extends SnapshotRow {
+  id: string;
+  started_at: string;
+  ended_at: string;
+  listened_sec: number;
+  planned_min: number | null;
+  outcome: PlayOutcome;
+  time_zone: string;
+}
+
+interface DownloadRow extends SnapshotRow {
+  audio_kind: "preset" | "custom";
+  id: string;
+  length_min: number;
+  downloaded_at: string;
+  time_zone: string;
+}
+
+const SNAPSHOT_COLUMNS = "audio_kind, audio_id, audio_name, audio_emoji, audio_band";
+const PLAY_COLUMNS = `id, ${SNAPSHOT_COLUMNS}, started_at, ended_at, listened_sec, planned_min, outcome, time_zone`;
+const DOWNLOAD_COLUMNS = `id, ${SNAPSHOT_COLUMNS}, length_min, downloaded_at, time_zone`;
+
+function snapshotFromRow<K extends AudioKind>(row: SnapshotRow & { audio_kind: K }): AudioSnapshot & { kind: K } {
+  return {
+    kind: row.audio_kind,
+    id: row.audio_id,
+    name: row.audio_name,
+    emoji: row.audio_emoji,
+    band: row.audio_band,
+  };
+}
+
+function playFromRow(row: PlayRow): Play {
+  return {
+    id: row.id,
+    audio: snapshotFromRow(row),
+    startedAt: row.started_at,
+    endedAt: row.ended_at,
+    listenedSec: row.listened_sec,
+    plannedMin: row.planned_min,
+    outcome: row.outcome,
+    timeZone: row.time_zone,
+  };
+}
+
+/** Rows per request, within PostgREST's row cap. */
+const PAGE_ROWS = 500;
+/** A 30-day report and the 30 days before it, plus a day for time zones. */
+const REPORT_WINDOW_MS = 61 * 86_400_000;
+
+/**
+ * `userId`'s rows of `table`, newest first, a page at a time until `enough`
+ * is satisfied by the rows so far or none are left.
+ */
+async function newestRows<Row>(
+  table: string,
+  columns: string,
+  timeColumn: keyof Row & string,
+  userId: string,
+  enough: (rows: Row[]) => boolean,
+): Promise<Row[]> {
+  if (!supabase) throw new Error("Listening History needs Supabase");
+  const rows: Row[] = [];
+  for (;;) {
+    let query = supabase
+      .from(table)
+      .select(columns)
+      .eq("user_id", userId)
+      .order(timeColumn, { ascending: false })
+      .limit(PAGE_ROWS);
+    const oldest = rows.at(-1);
+    if (oldest) query = query.lt(timeColumn, oldest[timeColumn]);
+    const { data, error } = await query;
+    if (error) throw error;
+    const page = data as unknown as Row[];
+    rows.push(...page);
+    if (page.length < PAGE_ROWS || enough(rows)) return rows;
+  }
+}
+
+/**
+ * `userId`'s Listening History, as much as the report needs: every Play and
+ * Download of the last 61 days, and earlier Plays while they may lengthen the
+ * current streak. Row-level security decides whose history can be read: one's
+ * own, a linked Patient's for their Clinician, anyone's for the Admin.
+ */
+export async function loadListeningHistory(userId: string, now: number): Promise<ListeningHistory> {
+  const since = now - REPORT_WINDOW_MS;
+  const [playRows, downloadRows] = await Promise.all([
+    newestRows<PlayRow>("plays", PLAY_COLUMNS, "started_at", userId, (rows) => {
+      if (Date.parse(rows[rows.length - 1].started_at) >= since) return false;
+      const plays = rows.map(playFromRow);
+      const timeZone = historyTimeZone({ plays, downloads: [] });
+      return timeZone === null || !streakMayRunEarlier(plays, now, timeZone);
+    }),
+    newestRows<DownloadRow>(
+      "downloads",
+      DOWNLOAD_COLUMNS,
+      "downloaded_at",
+      userId,
+      (rows) => Date.parse(rows[rows.length - 1].downloaded_at) < since,
+    ),
+  ]);
+  return {
+    plays: playRows.map(playFromRow),
+    downloads: downloadRows.map(
+      (row): Download => ({
+        id: row.id,
+        audio: snapshotFromRow(row),
+        lengthMin: row.length_min,
+        downloadedAt: row.downloaded_at,
+        timeZone: row.time_zone,
+      }),
+    ),
   };
 }
