@@ -263,10 +263,6 @@ function App() {
               setAccountOpen(false);
               setView("upgrade");
             }}
-            onOpenLibrary={() => {
-              setAccountOpen(false);
-              setView("library");
-            }}
             onOpenPrivacy={() => {
               setAccountOpen(false);
               setView("privacy");

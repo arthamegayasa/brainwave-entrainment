@@ -8,18 +8,14 @@ import {
   AUDIO_CATEGORIES,
   assignToAllPatients,
   assignToPatient,
-  createInviteCode,
   deleteAudio,
   getHiddenPresets,
   listAssignmentCounts,
   listBank,
-  listInviteCodes,
   listMyPatients,
   listPatientAssignments,
-  revokeInviteCode,
   setPresetHidden,
   unassignFromPatient,
-  unlinkPatient,
   updateAudioMeta,
 } from "../lib/clinician";
 import type {
@@ -28,16 +24,18 @@ import type {
   PatientAssignment,
   PatientLink,
 } from "../lib/clinician";
+import { disconnectPatient, setPremiumGrant } from "../lib/accounts";
 import { NewPatientForm } from "./NewPatientForm";
 import { ChangeUsernameForm } from "./ChangeUsernameForm";
 import { PatientPassword } from "./PatientPassword";
 import { personalUrlPath } from "../../supabase/functions/_shared/accountRules.ts";
 
 /**
- * Clinician Dashboard (D-06): Patients tab (invite codes, linked patients,
- * per-patient preset curation + assignments) and Audio Bank tab (filterable
- * card grid of the clinician's published sessions). The App renders this only
- * for clinicians/admins; RLS enforces every rule server-side regardless.
+ * Clinician Dashboard (D-06): Patients tab (linked patients with their
+ * Premium grant, per-patient preset curation + assignments) and Audio Bank
+ * tab (filterable card grid of the clinician's published sessions). The App
+ * renders this only for clinicians/admins; RLS enforces every rule
+ * server-side regardless.
  */
 
 /** How a Patient reads in the Dashboard: their name, else their email. */
@@ -131,7 +129,6 @@ function PatientsTab({
   patientLimit: number | null;
 }) {
   const [patients, setPatients] = useState<PatientLink[]>([]);
-  const [codes, setCodes] = useState<Array<{ code: string; expiresAt: string }>>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [selected, setSelected] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -139,13 +136,8 @@ function PatientsTab({
 
   const refresh = useCallback(async () => {
     try {
-      const [pts, cds, cnts] = await Promise.all([
-        listMyPatients(),
-        listInviteCodes(),
-        listAssignmentCounts(),
-      ]);
+      const [pts, cnts] = await Promise.all([listMyPatients(), listAssignmentCounts()]);
       setPatients(pts);
-      setCodes(cds);
       setCounts(cnts);
       setError(null);
     } catch {
@@ -157,36 +149,17 @@ function PatientsTab({
     void refresh();
   }, [refresh]);
 
-  const invite = async () => {
-    try {
-      await createInviteCode();
-      await refresh();
-      flash("Invite code created ✓");
-    } catch {
-      flash("Could not create an invite code");
-    }
-  };
-
-  const revoke = async (code: string) => {
-    try {
-      await revokeInviteCode(code);
-      await refresh();
-    } catch {
-      flash("Could not revoke the code");
-    }
-  };
-
-  const unlink = async (patient: PatientLink) => {
+  const disconnect = async (patient: PatientLink) => {
     const label = patientName(patient);
     if (
       !window.confirm(
-        `Disconnect ${label}? They keep the app, but lose your assigned audio and curation.`,
+        `Disconnect ${label}? They keep their account and sign-in, but lose your assigned audio, curation and Premium, and you no longer see their data.`,
       )
     ) {
       return;
     }
     try {
-      await unlinkPatient(patient.patientId);
+      await disconnectPatient(patient.patientId);
       if (selected === patient.patientId) setSelected(null);
       await refresh();
       flash("Patient disconnected");
@@ -196,7 +169,7 @@ function PatientsTab({
   };
 
   // create-patient enforces the limit on the server; here it only hides the
-  // buttons. Invite codes never checked it and keep only this client cap.
+  // button.
   const capped = patientLimit !== null && patients.length >= patientLimit;
   const selectedPatient = patients.find((p) => p.patientId === selected) ?? null;
 
@@ -222,50 +195,10 @@ function PatientsTab({
       </div>
 
       <div className="library-section">
-        <div className="library-section-head">
-          <h2>Invite a patient</h2>
-          {!capped && (
-            <button className="chip" onClick={() => void invite()}>
-              + New invite code
-            </button>
-          )}
-        </div>
-        {!capped && (
-          <p className="library-note">
-            Share this code — your patient enters it in their Library.
-          </p>
-        )}
-        {codes.length > 0 && (
-          <div className="library-list">
-            {codes.map((c) => (
-              <div className="library-item invite-row" key={c.code}>
-                <span className="invite-code">{c.code}</span>
-                <button className="chip small" onClick={() => void copyText(c.code, flash)}>
-                  Copy
-                </button>
-                <span className="invite-expiry">
-                  expires {new Date(c.expiresAt).toLocaleDateString()}
-                </span>
-                <button
-                  className="saved-del"
-                  aria-label={`Revoke code ${c.code}`}
-                  onClick={() => void revoke(c.code)}
-                >
-                  ✕
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div className="library-section">
         <h2>Patients</h2>
         {error && <p className="library-note">{error}</p>}
         {!error && patients.length === 0 && (
-          <p className="library-note">
-            No patients yet — add one with + New patient, or share an invite code.
-          </p>
+          <p className="library-note">No patients yet — add one with + New patient.</p>
         )}
         {patients.length > 0 && (
           <div className="library-list">
@@ -290,7 +223,7 @@ function PatientsTab({
                 <button
                   className="saved-del"
                   aria-label={`Disconnect ${patientName(p)}`}
-                  onClick={() => void unlink(p)}
+                  onClick={() => void disconnect(p)}
                 >
                   ✕
                 </button>
@@ -305,6 +238,7 @@ function PatientsTab({
             flash={flash}
             onAssignmentsChange={() => void refresh()}
             onUsernameChange={() => void refresh()}
+            onPremiumChange={refresh}
           />
         )}
       </div>
@@ -317,11 +251,13 @@ function PatientDetail({
   flash,
   onAssignmentsChange,
   onUsernameChange,
+  onPremiumChange,
 }: {
   patient: PatientLink;
   flash: (msg: string) => void;
   onAssignmentsChange: () => void;
   onUsernameChange: () => void;
+  onPremiumChange: () => Promise<void>;
 }) {
   const [hidden, setHidden] = useState<string[]>([]);
   const [assigned, setAssigned] = useState<PatientAssignment[]>([]);
@@ -401,6 +337,13 @@ function PatientDetail({
   return (
     <div className="patient-detail">
       <h3>{patientName(patient)}</h3>
+
+      <PremiumGrant
+        patientId={patient.patientId}
+        premiumGrant={patient.premiumGrant}
+        flash={flash}
+        onChange={onPremiumChange}
+      />
 
       {patient.username !== null && (
         <>
@@ -492,6 +435,53 @@ function PatientDetail({
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/** The Premium grant on a Patient's Link, which their Clinician or the Admin switches (ADR-014). */
+function PremiumGrant({
+  patientId,
+  premiumGrant,
+  flash,
+  onChange,
+}: {
+  patientId: string;
+  premiumGrant: boolean;
+  flash: (msg: string) => void;
+  onChange: () => Promise<void>;
+}) {
+  const [busy, setBusy] = useState(false);
+
+  const toggle = async (premium: boolean) => {
+    setBusy(true);
+    try {
+      await setPremiumGrant(patientId, premium);
+      await onChange();
+      flash(premium ? "Premium on ✓" : "Premium off");
+    } catch {
+      flash("Could not change Premium — try again later.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="detail-block">
+      <h4>Premium</h4>
+      <label className="preset-check">
+        <input
+          type="checkbox"
+          checked={premiumGrant}
+          disabled={busy}
+          onChange={(e) => void toggle(e.target.checked)}
+        />
+        Premium from you
+      </label>
+      <p className="library-note">
+        Every Premium feature, without a subscription. Their Account says
+        “Premium from your clinician”.
+      </p>
     </div>
   );
 }

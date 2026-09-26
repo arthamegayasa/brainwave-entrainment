@@ -4,6 +4,9 @@ import { fetchEntitlement } from "./payments";
 import type { Entitlement } from "./payments";
 import { fetchProfile } from "./roles";
 import type { Profile } from "./roles";
+import { fetchMyLink } from "./patientLink";
+import type { MyLink } from "./patientLink";
+import { isPremiumUser } from "../state/tier";
 import { hasClinicianPowers, patientLimitOf } from "../../supabase/functions/_shared/accountRules.ts";
 import type { AccountRole } from "../../supabase/functions/_shared/accountRules.ts";
 
@@ -20,6 +23,9 @@ export interface AuthEntitlementState {
   accountName: string | null;
   username: string | null;
   entitlement: Entitlement | null;
+  /** The signed-in User's Link to their Clinician; null when they are not a Patient. */
+  link: MyLink | null;
+  /** An active subscription of their own, or the Premium grant on their Link (ADR-014). */
   isPremium: boolean;
   /** True for clinicians AND admins — admins inherit clinician powers. */
   isClinician: boolean;
@@ -53,20 +59,23 @@ export function useEntitlement(): AuthEntitlementState {
   const [signedIn, setSignedIn] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [entitlement, setEntitlement] = useState<Entitlement | null>(null);
+  const [link, setLink] = useState<MyLink | null>(null);
   const [demoRole] = useState<AccountRole>(() =>
     isPaymentsConfigured ? "user" : localRoleOverride(),
   );
 
   const refresh = useCallback(async () => {
     if (!isPaymentsConfigured || !supabase) return;
-    const [user, ent, prof] = await Promise.all([
+    const [user, ent, prof, myLink] = await Promise.all([
       supabase.auth.getUser(),
       fetchEntitlement(),
       fetchProfile(),
+      fetchMyLink(),
     ]);
     setSignedIn(user.data.user !== null);
     setEntitlement(ent);
     setProfile(prof);
+    setLink(myLink);
     setLoading(false);
   }, []);
 
@@ -80,11 +89,10 @@ export function useEntitlement(): AuthEntitlementState {
   const role = isPaymentsConfigured ? (profile?.role ?? "user") : demoRole;
   const username = profile?.username ?? null;
 
-  // Clinician entitlement counts as premium — a paid clinician gets everything
-  // Premium has (D-04); the extra clinician surface is ROLE-gated below.
-  const isPremium =
-    (entitlement?.tier === "premium" || entitlement?.tier === "clinician") &&
-    entitlement?.status === "active";
+  const isPremium = isPremiumUser({
+    subscription: entitlement,
+    premiumGrant: link?.premiumGrant ?? false,
+  });
 
   return {
     configured: isPaymentsConfigured,
@@ -94,6 +102,7 @@ export function useEntitlement(): AuthEntitlementState {
     accountName: profile?.displayName ?? profile?.email ?? username,
     username,
     entitlement,
+    link,
     isPremium,
     isClinician: hasClinicianPowers(role),
     role,

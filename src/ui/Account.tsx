@@ -3,9 +3,9 @@ import type { FormEvent } from "react";
 import { useEntitlement } from "../lib/useEntitlement";
 import { signInWithEmail, signOut } from "../lib/payments";
 import { AccountError, resolveLogin, signInWithPassword } from "../lib/accounts";
-import { getMyClinician, unlinkMyClinician } from "../lib/patientLink";
 import { resetProgress } from "../state/progress";
 import { resetPrefs } from "../state/prefs";
+import { activeSubscriptionTier } from "../state/tier";
 import { parseLoginIdentifier } from "../../supabase/functions/_shared/accountRules.ts";
 import type { ResolveLoginError } from "../../supabase/functions/_shared/accountRules.ts";
 import { passwordRefusal, SIGN_IN_UNAVAILABLE } from "./signInMessages";
@@ -14,17 +14,15 @@ import { ChangePasswordForm } from "./ChangePasswordForm";
 /**
  * AccountSheet (quick-260714-dc3): the single identity surface, opened from
  * the topbar account button. Hosts sign-in (email or Username; ADR-018),
- * profile with plan/role chips, subscription with "Manage plan", clinician
- * connection status, settings resets, and sign out — the Premium page stays
- * a pure checkout surface.
+ * profile with plan/role chips, subscription with "Manage plan", the
+ * Patient's Clinician (read-only), settings resets, and sign out — the
+ * Premium page stays a pure checkout surface.
  */
 
 interface AccountSheetProps {
   onClose: () => void;
   /** Navigate to the Premium view (the caller closes the sheet). */
   onManagePlan: () => void;
-  /** Navigate to the Library view (the caller closes the sheet). */
-  onOpenLibrary: () => void;
   /** Navigate to the privacy policy (the caller closes the sheet). */
   onOpenPrivacy: () => void;
 }
@@ -36,62 +34,11 @@ function capitalize(s: string): string {
 export function AccountSheet({
   onClose,
   onManagePlan,
-  onOpenLibrary,
   onOpenPrivacy,
 }: AccountSheetProps) {
   const ent = useEntitlement();
   const [note, setNote] = useState<string | null>(null);
-  const [clinician, setClinician] = useState<{ clinicianEmail: string } | null>(
-    null,
-  );
-
-  const signedIn = ent.signedIn;
-
-  // Fetch the linked clinician while signed in. Cancellation guard: a
-  // sign-out mid-flight must not repopulate the previous account's link.
-  useEffect(() => {
-    if (!signedIn) {
-      setClinician(null);
-      return;
-    }
-    let cancelled = false;
-    void getMyClinician()
-      .then((c) => {
-        if (!cancelled) setClinician(c);
-      })
-      .catch(() => {
-        if (!cancelled) setClinician(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [signedIn]);
-
   const flash = (text: string) => setNote(text);
-
-  const disconnect = async () => {
-    if (
-      !window.confirm(
-        "Disconnect from your clinician? Sessions they assigned will no longer appear.",
-      )
-    ) {
-      return;
-    }
-    try {
-      await unlinkMyClinician();
-      setClinician(null);
-      void ent.refresh();
-      // The Library can stay mounted under this sheet with its own clinician
-      // + assigned-audio state — tell it to refetch so it doesn't keep
-      // showing "Connected" with stale, still-playable assigned sessions.
-      window.dispatchEvent(new Event("serenade:clinician-changed"));
-      flash("Disconnected.");
-    } catch (e) {
-      flash(
-        e instanceof Error ? e.message : "Could not disconnect — try again later.",
-      );
-    }
-  };
 
   const handleResetProgress = () => {
     if (
@@ -117,12 +64,11 @@ export function AccountSheet({
     flash("Preferences reset.");
   };
 
-  // Plan chip: the entitlement tier when active, otherwise Free.
-  const planLabel =
-    ent.entitlement?.status === "active" &&
-    (ent.entitlement.tier === "premium" || ent.entitlement.tier === "clinician")
-      ? capitalize(ent.entitlement.tier)
-      : "Free";
+  // Plan chip: the subscription tier when active, else Premium from the
+  // Clinician's grant, otherwise Free.
+  const subscribedTier = activeSubscriptionTier(ent.entitlement);
+  const planLabel = subscribedTier ? capitalize(subscribedTier) : ent.isPremium ? "Premium" : "Free";
+  const premiumFromClinician = ent.link?.premiumGrant === true;
 
   const settingsSection = (
     <div className="account-section">
@@ -188,6 +134,9 @@ export function AccountSheet({
                   <span className="chip small">{capitalize(ent.role)}</span>
                 )}
               </div>
+              {premiumFromClinician && (
+                <p className="account-copy">Premium from your clinician</p>
+              )}
             </div>
 
             <div className="account-section">
@@ -199,44 +148,26 @@ export function AccountSheet({
                 {ent.entitlement?.status === "active" &&
                 ent.entitlement.currentPeriodEnd
                   ? `Active until ${new Date(ent.entitlement.currentPeriodEnd).toLocaleDateString()}`
-                  : "No active subscription — you're on Free."}
+                  : premiumFromClinician
+                    ? "No active subscription."
+                    : "No active subscription — you're on Free."}
               </p>
               <button className="pill-btn" onClick={onManagePlan}>
                 Manage plan
               </button>
             </div>
 
-            {ent.role === "user" && (
+            {ent.link && (
               <div className="account-section">
                 <h3>My clinician</h3>
-                {clinician ? (
-                  <>
-                    <p className="account-copy">
-                      Connected to {clinician.clinicianEmail || "your clinician"}
-                    </p>
-                    <button
-                      className="chip small danger"
-                      onClick={() => void disconnect()}
-                    >
-                      Disconnect
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <p className="account-copy">
-                      Have an invite code from your clinician? Connect from your
-                      Library.
-                    </p>
-                    <button className="pill-btn" onClick={onOpenLibrary}>
-                      Open Library
-                    </button>
-                  </>
-                )}
+                <p className="account-copy">
+                  Connected to {ent.link.clinicianName ?? "your clinician"}
+                </p>
               </div>
             )}
 
             {/* Patients who sign in with a password (ADR-015, ADR-018). */}
-            {clinician && ent.username !== null && <ChangePasswordForm />}
+            {ent.link && ent.username !== null && <ChangePasswordForm />}
 
             {settingsSection}
 

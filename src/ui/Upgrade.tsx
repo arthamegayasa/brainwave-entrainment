@@ -248,7 +248,8 @@ function PlanCheckout({
   }
 
   // Active states: clinician card keys off the ROLE (clinician/admin);
-  // premium card keys off the entitlement (clinician tier counts as premium).
+  // premium card keys off isPremium: an active subscription (the clinician
+  // tier counts) or the Premium grant from the Patient's Clinician.
   const active = plan === "clinician" ? ent.isClinician : ent.isPremium;
   if (active) {
     return (

@@ -8,7 +8,7 @@ import { assignAudio, unassignAudio } from "./audioLibrary";
 import { shownEmail } from "../../supabase/functions/_shared/accountRules.ts";
 
 /**
- * Clinician data layer (quick-260714-a8a): patients, invite codes, Audio Bank,
+ * Clinician data layer (quick-260714-a8a): patients, Audio Bank,
  * per-patient preset visibility, and assignment. Every function throws when
  * Supabase isn't configured — the Dashboard renders only for clinicians on a
  * configured build, and RLS enforces every rule server-side regardless.
@@ -40,6 +40,8 @@ export interface PatientLink {
   /** The email to show; never an internal login email (ADR-018). */
   email: string | null;
   linkedAt: string;
+  /** Whether the Link carries the Premium grant (ADR-014). */
+  premiumGrant: boolean;
 }
 
 export interface PatientAssignment {
@@ -92,11 +94,15 @@ export async function listMyPatients(): Promise<PatientLink[]> {
   const uid = await currentUserId(sb);
   const { data: links, error } = await sb
     .from("patient_links")
-    .select("patient_id, created_at")
+    .select("patient_id, created_at, premium_grant")
     .eq("clinician_id", uid)
     .order("created_at", { ascending: true });
   if (error) throw error;
-  const rows = (links ?? []) as Array<{ patient_id: string; created_at: string }>;
+  const rows = (links ?? []) as Array<{
+    patient_id: string;
+    created_at: string;
+    premium_grant: boolean;
+  }>;
   if (rows.length === 0) return [];
 
   const ids = rows.map((r) => r.patient_id);
@@ -127,55 +133,9 @@ export async function listMyPatients(): Promise<PatientLink[]> {
         ? shownEmail({ loginEmail: profile.email, contactEmail: profile.contact_email })
         : null,
       linkedAt: r.created_at,
+      premiumGrant: r.premium_grant,
     };
   });
-}
-
-/** Create a single-use invite code (DB defaults generate code + 30-day expiry). */
-export async function createInviteCode(): Promise<{ code: string; expiresAt: string }> {
-  const sb = client();
-  const uid = await currentUserId(sb);
-  const { data, error } = await sb
-    .from("invite_codes")
-    .insert({ clinician_id: uid })
-    .select("code, expires_at")
-    .single();
-  if (error) throw error;
-  const row = data as { code: string; expires_at: string };
-  return { code: row.code, expiresAt: row.expires_at };
-}
-
-/** Active (unused, unexpired) invite codes, newest first. */
-export async function listInviteCodes(): Promise<Array<{ code: string; expiresAt: string }>> {
-  const sb = client();
-  const { data, error } = await sb
-    .from("invite_codes")
-    .select("code, expires_at")
-    .is("used_by", null)
-    .gt("expires_at", new Date().toISOString())
-    .order("created_at", { ascending: false });
-  if (error) throw error;
-  return ((data ?? []) as Array<{ code: string; expires_at: string }>).map((r) => ({
-    code: r.code,
-    expiresAt: r.expires_at,
-  }));
-}
-
-/** Revoke an unused invite code. */
-export async function revokeInviteCode(code: string): Promise<void> {
-  const sb = client();
-  const { error } = await sb.from("invite_codes").delete().eq("code", code);
-  if (error) throw error;
-}
-
-/** Sever the link with a patient (RLS restricts to own links). */
-export async function unlinkPatient(patientId: string): Promise<void> {
-  const sb = client();
-  const { error } = await sb
-    .from("patient_links")
-    .delete()
-    .eq("patient_id", patientId);
-  if (error) throw error;
 }
 
 /**

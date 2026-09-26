@@ -123,3 +123,21 @@ export async function resetPassword(accountId: string, password: string): Promis
 export async function changeOwnPassword(password: string): Promise<void> {
   await invoke("change-password", { password });
 }
+
+/**
+ * Switches the Premium grant on a Patient's Link (ADR-014). Refusals arrive
+ * as AccountError with a SetPremiumGrantError code.
+ */
+export async function setPremiumGrant(patientId: string, premium: boolean): Promise<void> {
+  await invoke("set-premium-grant", { patientId, premium });
+}
+
+/**
+ * Ends a Patient's Link (ADR-014): they become a Regular who still signs in
+ * with their Username and password, without the Premium grant, and the
+ * Clinician no longer sees their data. Refusals arrive as AccountError with a
+ * DisconnectPatientError code.
+ */
+export async function disconnectPatient(patientId: string): Promise<void> {
+  await invoke("disconnect-patient", { patientId });
+}

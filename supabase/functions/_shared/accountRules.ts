@@ -38,6 +38,19 @@ export function shownEmail(account: {
   return loginEmail;
 }
 
+/**
+ * The customer details a payment provider (Midtrans) receives for an
+ * account's checkout: the email shown for it, never an internal login email,
+ * and none for a Username account without a contact email.
+ */
+export function checkoutCustomer(account: {
+  loginEmail: string | null;
+  contactEmail: string | null;
+}): { email?: string } {
+  const email = shownEmail(account);
+  return email === null ? {} : { email };
+}
+
 /** The stored form of a typed Username: trimmed, lowercase, without "@". */
 export function normalizeUsername(raw: string): string {
   return raw.trim().replace(/^@/, "").toLowerCase();
@@ -223,6 +236,14 @@ export type NewPatientProblem =
 /** Every refusal the create-patient function answers with (as `{ error }`). */
 export type CreatePatientError = NewPatientProblem | CreatePatientRefusal | UsernameClaimRefusal;
 
+/**
+ * Whether `actor` is the Clinician of an account's Link while they hold the
+ * role: an Inactive Clinician keeps their Links but no power over them.
+ */
+function isOwnClinician(actor: { id: string; role: AccountRole }, clinicianId: string | null): boolean {
+  return actor.role === "clinician" && clinicianId === actor.id;
+}
+
 export type ChangeUsernameRefusal = "not_allowed" | "no_username";
 
 /**
@@ -240,14 +261,43 @@ export function mayChangeUsername(request: {
   };
 }): { ok: true } | { ok: false; reason: ChangeUsernameRefusal } {
   const { actor, account } = request;
-  const ownClinician = actor.role === "clinician" && account.clinicianId === actor.id;
-  if (actor.role !== "admin" && !ownClinician) return { ok: false, reason: "not_allowed" };
+  if (actor.role !== "admin" && !isOwnClinician(actor, account.clinicianId)) {
+    return { ok: false, reason: "not_allowed" };
+  }
   if (account.username === null) return { ok: false, reason: "no_username" };
   return { ok: true };
 }
 
 /** Every refusal the change-username function answers with (as `{ error }`). */
 export type ChangeUsernameError = UsernameRefusal | ChangeUsernameRefusal;
+
+export type LinkRefusal = "not_allowed" | "not_linked";
+
+/**
+ * Who may disconnect a Patient or switch the Premium grant on their Link
+ * (ADR-014): their own Clinician while they hold the role, or the Admin. Never
+ * the Patient: a Link is permanent from their side.
+ */
+export function mayManageLink(request: {
+  actor: { id: string; role: AccountRole };
+  account: {
+    /** The Clinician of the account's Link; null without a Link. */
+    clinicianId: string | null;
+  };
+}): { ok: true } | { ok: false; reason: LinkRefusal } {
+  const { actor, account } = request;
+  if (actor.role !== "admin" && !isOwnClinician(actor, account.clinicianId)) {
+    return { ok: false, reason: "not_allowed" };
+  }
+  if (account.clinicianId === null) return { ok: false, reason: "not_linked" };
+  return { ok: true };
+}
+
+/** Every refusal the disconnect-patient function answers with (as `{ error }`). */
+export type DisconnectPatientError = LinkRefusal;
+
+/** Every refusal the set-premium-grant function answers with (as `{ error }`). */
+export type SetPremiumGrantError = LinkRefusal | "invalid_premium";
 
 /** Where a Clinician's role came from (ADR-014): a subscription, or granted by the Admin. */
 export type ClinicianOrigin = "subscription" | "admin";
@@ -288,9 +338,8 @@ export function mayRevealOrResetPassword(request: {
   if (actor.role === "admin") {
     return keepsPasswordCopy(account) ? { ok: true } : { ok: false, reason: "not_allowed" };
   }
-  const ownClinician = actor.role === "clinician" && account.clinicianId === actor.id;
   // One Clinician must never sign in as another (and see their Patients).
-  if (ownClinician && account.role === "user") return { ok: true };
+  if (isOwnClinician(actor, account.clinicianId) && account.role === "user") return { ok: true };
   return { ok: false, reason: "not_allowed" };
 }
 

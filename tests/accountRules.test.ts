@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   checkNewPatient,
+  checkoutCustomer,
   firstName,
   generatePassword,
   internalLoginEmail,
@@ -9,6 +10,7 @@ import {
   mayChangeUsername,
   mayClaimUsername,
   mayCreatePatient,
+  mayManageLink,
   mayReadPasswordAccessLog,
   mayRevealOrResetPassword,
   normalizeUsername,
@@ -248,6 +250,24 @@ describe("Shown email", () => {
 
   it("shows the login email of a magic-link account", () => {
     expect(shownEmail({ loginEmail: "nadia@mail.com", contactEmail: null })).toBe("nadia@mail.com");
+  });
+});
+
+describe("Checkout customer", () => {
+  const loginEmail = internalLoginEmail("5f0c7c1e-8d1c-4a55-9d3a-2f3c1b0e6a11");
+
+  it("gives the payment provider a Username account's contact email", () => {
+    expect(checkoutCustomer({ loginEmail, contactEmail: "ivan@mail.com" })).toEqual({ email: "ivan@mail.com" });
+  });
+
+  it("gives the payment provider no email for a Username account without a contact email", () => {
+    expect(checkoutCustomer({ loginEmail, contactEmail: null })).toEqual({});
+  });
+
+  it("gives the payment provider a magic-link account's login email", () => {
+    expect(checkoutCustomer({ loginEmail: "nadia@mail.com", contactEmail: null })).toEqual({
+      email: "nadia@mail.com",
+    });
   });
 });
 
@@ -559,5 +579,51 @@ describe("may read the password access log", () => {
     expect(mayReadPasswordAccessLog("admin")).toBe(true);
     expect(mayReadPasswordAccessLog("clinician")).toBe(false);
     expect(mayReadPasswordAccessLog("user")).toBe(false);
+  });
+});
+
+describe("may disconnect a Patient or switch their Premium grant", () => {
+  /** Ivan, a Patient of Clinician A. */
+  const ivan = { clinicianId: "clinician-a" };
+
+  it("lets the owning Clinician manage their Patient's Link", () => {
+    const actor = { id: "clinician-a", role: "clinician" } as const;
+    expect(mayManageLink({ actor, account: ivan })).toEqual({ ok: true });
+  });
+
+  it("lets the Admin manage any Patient's Link", () => {
+    const actor = { id: "admin", role: "admin" } as const;
+    expect(mayManageLink({ actor, account: ivan })).toEqual({ ok: true });
+  });
+
+  it("refuses the Patient themselves, another Clinician and a Clinician who lost the role", () => {
+    const actors = [
+      { id: "ivan-id", role: "user" },
+      { id: "ivan-id", role: "clinician" },
+      { id: "clinician-b", role: "clinician" },
+      { id: "clinician-a", role: "user" },
+    ] as const;
+    for (const actor of actors) {
+      expect(mayManageLink({ actor, account: ivan }), `${actor.id} as ${actor.role}`).toEqual({
+        ok: false,
+        reason: "not_allowed",
+      });
+    }
+  });
+
+  it("tells the Admin when the account has no Link to manage", () => {
+    const actor = { id: "admin", role: "admin" } as const;
+    expect(mayManageLink({ actor, account: { clinicianId: null } })).toEqual({
+      ok: false,
+      reason: "not_linked",
+    });
+  });
+
+  it("refuses a Clinician before saying whether the account has a Link", () => {
+    const actor = { id: "clinician-b", role: "clinician" } as const;
+    expect(mayManageLink({ actor, account: { clinicianId: null } })).toEqual({
+      ok: false,
+      reason: "not_allowed",
+    });
   });
 });

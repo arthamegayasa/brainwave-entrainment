@@ -80,6 +80,10 @@ Tampilan milik User yang berisi Custom Audio yang di-assign kepadanya, Template,
 Akses ke fitur berbayar; didapat lewat langganan, atau dinyalakan Clinician/Admin untuk seorang Patient.
 _Avoid_: VIP, pro
 
+**Premium grant**:
+Premium yang dibawa Link seorang Patient, dinyalakan atau dimatikan Clinician-nya atau Admin; menyala untuk setiap Link baru, ikut saat Transfer, dan berakhir saat Link diputus.
+_Avoid_: premium gratis, akses klinisi
+
 **Play**:
 Satu kali pemutaran satu Preset atau Custom Audio oleh satu User: kapan mulai, kapan berhenti, berapa lama benar-benar didengar, dan apakah selesai.
 _Avoid_: sesi, log

@@ -7,6 +7,7 @@
 // return the Snap token. The webhook is the source of truth for activation.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { checkoutCustomer } from "../_shared/accountRules.ts";
 
 const MIDTRANS_SNAP_URL = "https://app.sandbox.midtrans.com/snap/v1/transactions";
 
@@ -83,6 +84,17 @@ Deno.serve(async (req: Request) => {
 
   const orderId = `${user.id}:${plan}:${period}:${Date.now()}`;
 
+  // Midtrans never gets an internal login email (ADR-018): see checkoutCustomer.
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("contact_email")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  const customer = checkoutCustomer({
+    loginEmail: user.email ?? null,
+    contactEmail: profile?.contact_email ?? null,
+  });
+
   const snapRes = await fetch(MIDTRANS_SNAP_URL, {
     method: "POST",
     headers: {
@@ -95,7 +107,7 @@ Deno.serve(async (req: Request) => {
       item_details: [
         { id: `${plan}-${period}`, price: priced.amount, quantity: 1, name: priced.label },
       ],
-      customer_details: { email: user.email },
+      customer_details: customer,
       credit_card: { secure: true },
     }),
   });
