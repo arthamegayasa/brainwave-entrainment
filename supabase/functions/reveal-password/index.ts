@@ -1,4 +1,4 @@
-// Serenade — reveal an account's current password (#8, ADR-015).
+// SwaraSanti — reveal an account's current password (#8, ADR-015).
 // verify_jwt = true.
 //
 // 1. mayRevealOrResetPassword: the Patient's own Clinician (unless that

@@ -1,4 +1,4 @@
-// Serenade — suggest a free Username for a new Patient's name (ADR-016): the
+// SwaraSanti — suggest a free Username for a new Patient's name (ADR-016): the
 // first name, then first-last, then the first name numbered, skipping every
 // Username an account holds or another account released less than 30 days ago
 // (#7). Only a Clinician or the Admin may ask; the client cannot read other

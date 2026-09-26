@@ -55,7 +55,7 @@ export function Landing({ onEnter, onScience }: LandingProps) {
           <em>one frequency</em> at a time
         </h1>
         <p className="landing-lede">
-          Serenade synthesizes binaural beats, isochronic tones, solfeggio, and
+          SwaraSanti synthesizes binaural beats, isochronic tones, solfeggio, and
           natural atmospheres — then guides them along a frequency curve
           designed for relaxation, sleep, and focus.
         </p>

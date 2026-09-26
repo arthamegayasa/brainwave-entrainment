@@ -1,4 +1,4 @@
-// Serenade — a Clinician disconnects a Patient, or the Admin ends any Link
+// SwaraSanti — a Clinician disconnects a Patient, or the Admin ends any Link
 // (#9, ADR-014). verify_jwt = true.
 //
 // 1. mayManageLink: the Patient's own Clinician while they hold the role, or

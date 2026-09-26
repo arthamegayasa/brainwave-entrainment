@@ -9,7 +9,7 @@ import { useLayoutEffect, useState } from "react";
 type Lang = "id" | "en";
 
 /** Who answers personal-data questions and requests (UU PDP). */
-const DATA_CONTROLLER = { name: "Serenade", email: "arthamail@gmail.com" };
+const DATA_CONTROLLER = { name: "SwaraSanti", email: "arthamail@gmail.com" };
 
 interface Point {
   term: string;
@@ -43,18 +43,18 @@ const POLICY: Record<Lang, PolicyCopy> = {
   id: {
     title: "Kebijakan privasi",
     intro:
-      "Apa yang Serenade catat tentang Anda, siapa yang bisa melihatnya, berapa lama disimpan, dan apa yang bisa Anda minta — dengan bahasa yang sederhana.",
+      "Apa yang SwaraSanti catat tentang Anda, siapa yang bisa melihatnya, berapa lama disimpan, dan apa yang bisa Anda minta — dengan bahasa yang sederhana.",
     effective: "Berlaku sejak 26 September 2026.",
     sections: [
       {
         heading: "Istilah yang kami pakai",
         intro: "Beberapa kata di halaman ini punya arti khusus:",
         points: [
-          { term: "User:", text: "siapa pun yang punya akun Serenade." },
+          { term: "User:", text: "siapa pun yang punya akun SwaraSanti." },
           { term: "Patient:", text: "User yang terhubung ke tepat satu Clinician." },
           {
             term: "Clinician:",
-            text: "profesional yang membimbing pendengaran Patient-nya sendiri di Serenade.",
+            text: "profesional yang membimbing pendengaran Patient-nya sendiri di SwaraSanti.",
           },
           {
             term: "Admin:",
@@ -77,7 +77,7 @@ const POLICY: Record<Lang, PolicyCopy> = {
       },
       {
         heading: "Data yang kami kumpulkan",
-        intro: "Hanya yang dibutuhkan agar Serenade berjalan.",
+        intro: "Hanya yang dibutuhkan agar SwaraSanti berjalan.",
         points: [
           {
             term: "Akun Anda:",
@@ -85,7 +85,7 @@ const POLICY: Record<Lang, PolicyCopy> = {
           },
           {
             term: "Cara Anda masuk:",
-            text: "kebanyakan User masuk lewat tautan login yang dikirim ke email dan tidak punya password di Serenade. Patient yang punya password, dan Clinician yang akunnya dibuat Admin, masuk dengan password — lihat bagian Password di bawah.",
+            text: "kebanyakan User masuk lewat tautan login yang dikirim ke email dan tidak punya password di SwaraSanti. Patient yang punya password, dan Clinician yang akunnya dibuat Admin, masuk dengan password — lihat bagian Password di bawah.",
           },
           {
             term: "Pendengaran Anda:",
@@ -109,7 +109,7 @@ const POLICY: Record<Lang, PolicyCopy> = {
       {
         heading: "Listening History",
         intro:
-          "Saat Anda login — sebagai User mana pun, bukan hanya Patient — Serenade mencatat setiap Play dan setiap Download ke akun Anda. Tidak ada pengaturan untuk mematikannya. Bila Anda memakai Serenade tanpa login, pendengaran Anda hanya tercatat di perangkat ini.",
+          "Saat Anda login — sebagai User mana pun, bukan hanya Patient — SwaraSanti mencatat setiap Play dan setiap Download ke akun Anda. Tidak ada pengaturan untuk mematikannya. Bila Anda memakai SwaraSanti tanpa login, pendengaran Anda hanya tercatat di perangkat ini.",
         points: [
           {
             term: "Setiap Play:",
@@ -132,7 +132,7 @@ const POLICY: Record<Lang, PolicyCopy> = {
             text: "pemutaran di bawah 30 detik dan pemutaran uji di Studio.",
           },
         ],
-        note: "Tujuannya: agar Anda bisa mengikuti kemajuan sendiri, agar Clinician Anda bisa melihat bagaimana pendengaran Anda berjalan dan membimbing Anda, dan agar Admin bisa membantu Anda serta menjalankan Serenade.",
+        note: "Tujuannya: agar Anda bisa mengikuti kemajuan sendiri, agar Clinician Anda bisa melihat bagaimana pendengaran Anda berjalan dan membimbing Anda, dan agar Admin bisa membantu Anda serta menjalankan SwaraSanti.",
       },
       {
         heading: "Siapa yang bisa melihatnya",
@@ -179,7 +179,7 @@ const POLICY: Record<Lang, PolicyCopy> = {
       {
         heading: "Password",
         intro:
-          "Patient yang punya password, dan Clinician yang akunnya dibuat Admin, masuk dengan password — dan password itu bisa dilihat oleh pihak di bawah ini. User lain masuk lewat tautan login di email dan tidak punya password di Serenade.",
+          "Patient yang punya password, dan Clinician yang akunnya dibuat Admin, masuk dengan password — dan password itu bisa dilihat oleh pihak di bawah ini. User lain masuk lewat tautan login di email dan tidak punya password di SwaraSanti.",
         points: [
           {
             term: "Disimpan terenkripsi:",
@@ -201,7 +201,7 @@ const POLICY: Record<Lang, PolicyCopy> = {
         points: [
           {
             term: "Personal URL:",
-            text: "setiap Patient yang punya Username mendapat Personal URL, serenade.com/p/<username>, yang membuka layar password berisi nama depannya. Siapa pun yang membuka atau menebak alamat itu bisa tahu bahwa akunnya ada beserta nama depannya; selebihnya tetap terlindungi password.",
+            text: "setiap Patient yang punya Username mendapat Personal URL, yaitu alamat SwaraSanti diikuti /p/<username>, yang membuka layar password berisi nama depannya. Siapa pun yang membuka atau menebak alamat itu bisa tahu bahwa akunnya ada beserta nama depannya; selebihnya tetap terlindungi password.",
           },
           {
             term: "Mengganti Username:",
@@ -253,7 +253,7 @@ const POLICY: Record<Lang, PolicyCopy> = {
     ],
     contactHeading: "Pengendali data",
     contactIntro:
-      "Pertanyaan dan permintaan tentang data pribadi Anda — termasuk permintaan akses, perbaikan, dan penghapusan — dijawab oleh pengelola Serenade:",
+      "Pertanyaan dan permintaan tentang data pribadi Anda — termasuk permintaan akses, perbaikan, dan penghapusan — dijawab oleh pengelola SwaraSanti:",
     contactNote:
       "Sebutkan nama akun, Username, atau email Anda agar kami bisa menemukan data Anda. Kami menanggapi setiap permintaan dalam batas waktu yang ditetapkan UU PDP.",
     governing:
@@ -262,18 +262,18 @@ const POLICY: Record<Lang, PolicyCopy> = {
   en: {
     title: "Privacy policy",
     intro:
-      "What Serenade records about you, who can see it, how long we keep it, and what you can ask us to do — in plain words.",
+      "What SwaraSanti records about you, who can see it, how long we keep it, and what you can ask us to do — in plain words.",
     effective: "Effective from 26 September 2026.",
     sections: [
       {
         heading: "Words we use",
         intro: "A few words on this page have a precise meaning:",
         points: [
-          { term: "User:", text: "anyone with a Serenade account." },
+          { term: "User:", text: "anyone with a SwaraSanti account." },
           { term: "Patient:", text: "a User connected to exactly one Clinician." },
           {
             term: "Clinician:",
-            text: "a professional who guides their own Patients' listening on Serenade.",
+            text: "a professional who guides their own Patients' listening on SwaraSanti.",
           },
           {
             term: "Admin:",
@@ -296,7 +296,7 @@ const POLICY: Record<Lang, PolicyCopy> = {
       },
       {
         heading: "What we collect",
-        intro: "Only what Serenade needs to work.",
+        intro: "Only what SwaraSanti needs to work.",
         points: [
           {
             term: "Your account:",
@@ -304,7 +304,7 @@ const POLICY: Record<Lang, PolicyCopy> = {
           },
           {
             term: "How you sign in:",
-            text: "most Users sign in with a sign-in link sent to their email and have no password with Serenade. Patients who have a password, and Clinicians whose account the Admin created, sign in with a password — see Passwords below.",
+            text: "most Users sign in with a sign-in link sent to their email and have no password with SwaraSanti. Patients who have a password, and Clinicians whose account the Admin created, sign in with a password — see Passwords below.",
           },
           {
             term: "Your listening:",
@@ -328,7 +328,7 @@ const POLICY: Record<Lang, PolicyCopy> = {
       {
         heading: "Listening History",
         intro:
-          "When you're signed in — as any User, not only Patients — Serenade records every Play and every Download to your account. There is no setting to turn this off. If you use Serenade without signing in, your listening is only recorded on this device.",
+          "When you're signed in — as any User, not only Patients — SwaraSanti records every Play and every Download to your account. There is no setting to turn this off. If you use SwaraSanti without signing in, your listening is only recorded on this device.",
         points: [
           {
             term: "Each Play:",
@@ -351,7 +351,7 @@ const POLICY: Record<Lang, PolicyCopy> = {
             text: "playback shorter than 30 seconds, and test playback in the Studio.",
           },
         ],
-        note: "Why: so you can follow your own progress, so your Clinician can see how your listening is going and guide you, and so the Admin can support you and keep Serenade running.",
+        note: "Why: so you can follow your own progress, so your Clinician can see how your listening is going and guide you, and so the Admin can support you and keep SwaraSanti running.",
       },
       {
         heading: "Who can see it",
@@ -398,7 +398,7 @@ const POLICY: Record<Lang, PolicyCopy> = {
       {
         heading: "Passwords",
         intro:
-          "Patients who have a password, and Clinicians whose account the Admin created, sign in with a password — and that password can be seen by the people below. Everyone else signs in with an emailed sign-in link and has no password with Serenade.",
+          "Patients who have a password, and Clinicians whose account the Admin created, sign in with a password — and that password can be seen by the people below. Everyone else signs in with an emailed sign-in link and has no password with SwaraSanti.",
         points: [
           {
             term: "Stored encrypted:",
@@ -420,7 +420,7 @@ const POLICY: Record<Lang, PolicyCopy> = {
         points: [
           {
             term: "Personal URL:",
-            text: "every Patient with a Username gets a Personal URL, serenade.com/p/<username>, which opens a password screen showing their first name. Anyone who opens or guesses that address can learn that the account exists and its first name; everything else stays behind the password.",
+            text: "every Patient with a Username gets a Personal URL, the SwaraSanti address followed by /p/<username>, which opens a password screen showing their first name. Anyone who opens or guesses that address can learn that the account exists and its first name; everything else stays behind the password.",
           },
           {
             term: "Changing a Username:",
@@ -472,7 +472,7 @@ const POLICY: Record<Lang, PolicyCopy> = {
     ],
     contactHeading: "Data controller",
     contactIntro:
-      "Questions and requests about your personal data — including requests for access, correction and deletion — are answered by Serenade's operator:",
+      "Questions and requests about your personal data — including requests for access, correction and deletion — are answered by SwaraSanti's operator:",
     contactNote:
       "Include your account name, Username or email so we can find your data. We respond to every request within the time limits set by UU PDP.",
     governing:

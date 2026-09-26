@@ -1,4 +1,4 @@
-// Serenade — the password access log, for the Admin only (#8, ADR-015).
+// SwaraSanti — the password access log, for the Admin only (#8, ADR-015).
 // verify_jwt = true.
 //
 // Answers the newest reveals first: who revealed whose password, and when.

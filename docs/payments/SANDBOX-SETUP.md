@@ -1,4 +1,4 @@
-# Midtrans Sandbox — Setup & Test (Serenade)
+# Midtrans Sandbox — Setup & Test (SwaraSanti)
 
 Payment plumbing is **built and deployed**. This file lists the few manual steps
 only you can do (they need your Midtrans + Supabase dashboards + your email), then

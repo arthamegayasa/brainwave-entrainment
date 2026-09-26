@@ -1,4 +1,4 @@
-// Serenade — the Admin creates a Clinician account (#14; ADR-014, ADR-015,
+// SwaraSanti — the Admin creates a Clinician account (#14; ADR-014, ADR-015,
 // ADR-018). verify_jwt = true.
 //
 // 1. Check the form (name, email, password) and "may create a Clinician" (only

@@ -1,4 +1,4 @@
-// Serenade — resolve login (ADR-018). Public (verify_jwt = false): the signed-
+// SwaraSanti — resolve login (ADR-018). Public (verify_jwt = false): the signed-
 // out sign-in form asks which way an identifier signs in before it asks for
 // anything else.
 //

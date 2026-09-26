@@ -131,7 +131,7 @@ export function journeySteps(): Array<{ label: string; done: boolean }> {
   const state = loadProgress();
   const sessions = state.completedSessions.length;
   return [
-    { label: "Discovered Serenade", done: state.discoveredAt !== null },
+    { label: "Discovered SwaraSanti", done: state.discoveredAt !== null },
     { label: "Personalized your goals", done: state.chosenGoals.length > 0 },
     { label: "First session completed", done: sessions >= 1 },
     { label: "3 sessions completed", done: sessions >= 3 },

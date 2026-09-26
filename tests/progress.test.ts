@@ -46,7 +46,7 @@ describe("progress: journey (goal gradient)", () => {
 
   it("exposes the four step labels in order", () => {
     expect(journeySteps().map((s) => s.label)).toEqual([
-      "Discovered Serenade",
+      "Discovered SwaraSanti",
       "Personalized your goals",
       "First session completed",
       "3 sessions completed",

@@ -1,4 +1,4 @@
-// Serenade — the signed-in User changes their own password in Account (#8,
+// SwaraSanti — the signed-in User changes their own password in Account (#8,
 // ADR-015). verify_jwt = true.
 //
 // Patients change their password here, never with the client's own Auth

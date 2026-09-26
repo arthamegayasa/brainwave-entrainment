@@ -1,4 +1,4 @@
-// Serenade — open a Personal URL (ADR-016, ADR-018). Public (verify_jwt =
+// SwaraSanti — open a Personal URL (ADR-016, ADR-018). Public (verify_jwt =
 // false): the signed-out /p/<username> page asks whose Personal URL it is.
 //
 //   Username of a password account

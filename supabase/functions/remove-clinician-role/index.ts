@@ -1,4 +1,4 @@
-// Serenade — the Admin removes someone's Clinician role (#15; ADR-014).
+// SwaraSanti — the Admin removes someone's Clinician role (#15; ADR-014).
 // verify_jwt = true.
 //
 // Body: { accountId, targetId? }. targetId is where their Patients are

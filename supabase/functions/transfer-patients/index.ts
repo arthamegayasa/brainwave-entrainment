@@ -1,4 +1,4 @@
-// Serenade — the Admin Transfers one Patient, or every Patient of a
+// SwaraSanti — the Admin Transfers one Patient, or every Patient of a
 // Clinician, to another Clinician (#15; ADR-014). verify_jwt = true.
 //
 // Body: { patientId, targetId } moves one Patient; { clinicianId, targetId }

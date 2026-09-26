@@ -1,4 +1,4 @@
-// Serenade — the Admin deletes an account (#17; ADR-014, ADR-022).
+// SwaraSanti — the Admin deletes an account (#17; ADR-014, ADR-022).
 // verify_jwt = true.
 //
 // Body: { accountId }.

@@ -1,4 +1,4 @@
-// Serenade — the Admin links an existing User as a Patient (#16; ADR-014,
+// SwaraSanti — the Admin links an existing User as a Patient (#16; ADR-014,
 // ADR-015, ADR-018). verify_jwt = true.
 //
 // Body: { accountId, clinicianId, username?, password? }

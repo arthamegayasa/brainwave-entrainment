@@ -5,7 +5,7 @@ interface Citation {
   url: string;
 }
 
-/** One kind of sound Serenade plays, with the research on it. */
+/** One kind of sound SwaraSanti plays, with the research on it. */
 interface Section {
   heading: string;
   intro: string;
@@ -78,7 +78,7 @@ const SECTIONS: Section[] = [
         ref: "Schumann resonance (7.83 Hz)",
         finding:
           "The Earth-ionosphere electromagnetic resonance is real physics; its correlation with human physiology is very weak.",
-        note: "Serenade plays 7.83 Hz as the beat rate of the Relaxing session, not the electromagnetic resonance itself.",
+        note: "SwaraSanti plays 7.83 Hz as the beat rate of the Relaxing session, not the electromagnetic resonance itself.",
         url: "https://en.wikipedia.org/wiki/Schumann_resonances",
       },
     ],
@@ -110,9 +110,9 @@ export function Science() {
   return (
     <div className="science">
       <header className="science-head">
-        <h1>The science behind Serenade</h1>
+        <h1>The science behind SwaraSanti</h1>
         <p>
-          The research on each kind of sound Serenade plays, with real study
+          The research on each kind of sound SwaraSanti plays, with real study
           citations — including the mixed results.
         </p>
       </header>

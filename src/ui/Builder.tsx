@@ -185,7 +185,7 @@ export function Builder({ onBeforePlay }: BuilderProps) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${name.replace(/[^a-zA-Z0-9]+/g, "-") || "session"}.serenade.json`;
+    a.download = `${name.replace(/[^a-zA-Z0-9]+/g, "-") || "session"}.swarasanti.json`;
     a.click();
     URL.revokeObjectURL(url);
   };

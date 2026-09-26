@@ -1,4 +1,4 @@
-// Serenade — a Patient without a Username gets a Username and password
+// SwaraSanti — a Patient without a Username gets a Username and password
 // (#16; ADR-014, ADR-015, ADR-018). verify_jwt = true.
 //
 // Body: { accountId, username, password }

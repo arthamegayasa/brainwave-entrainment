@@ -45,7 +45,7 @@ function updateMediaSession(cfg: SessionConfig | null, handlers?: { stop: () => 
     }
     navigator.mediaSession.metadata = new MediaMetadata({
       title: `${cfg.preset.emoji} ${cfg.preset.name}`,
-      artist: "Serenade — Healing Audio",
+      artist: "SwaraSanti — Healing Audio",
       album: cfg.preset.tagline,
     });
     navigator.mediaSession.setActionHandler("play", resumeAudio);

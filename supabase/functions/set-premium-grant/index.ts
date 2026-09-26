@@ -1,4 +1,4 @@
-// Serenade — switch the Premium grant on a Patient's Link (#9, ADR-014).
+// SwaraSanti — switch the Premium grant on a Patient's Link (#9, ADR-014).
 // verify_jwt = true.
 //
 // 1. `premium` is true or false.

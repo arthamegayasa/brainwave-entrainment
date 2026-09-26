@@ -50,7 +50,7 @@ import type { Dir, StatusFilter } from "./roster";
 
 /**
  * The Admin's Clinicians & Patients tab (#13; prototype Variant 2 for the
- * Admin): everyone on Serenade in the same table + drawer as the Patients tab,
+ * Admin): everyone on SwaraSanti in the same table + drawer as the Patients tab,
  * with role tabs and counts, Role and Clinician columns, a Clinician filter
  * and removable filter chips. A Clinician row shows their caseload and whether
  * they are an Inactive Clinician; their drawer drills into their Patients and
@@ -701,7 +701,7 @@ export function PeopleTab({ flash }: { flash: (msg: string) => void }) {
 
           <table className="roster-table" id="people-table">
             <caption className="roster-sr">
-              Everyone on Serenade. Column headers sort; select a name to open the details.
+              Everyone on SwaraSanti. Column headers sort; select a name to open the details.
             </caption>
             <thead>
               <tr>

@@ -1,4 +1,4 @@
-// Serenade — change a Username (#7, ADR-016). verify_jwt = true.
+// SwaraSanti — change a Username (#7, ADR-016). verify_jwt = true.
 //
 // 1. mayChangeUsername: the account's own Clinician or the Admin, never the
 //    Patient themselves, and only for an account that has a Username.

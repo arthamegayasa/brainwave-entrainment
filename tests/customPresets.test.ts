@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { sanitizeSession } from "../src/state/customPresets";
 
 /**
- * sanitizeSession is the trust boundary for imported .serenade.json files and
+ * sanitizeSession is the trust boundary for imported .swarasanti.json files and
  * cloud jsonb specs (quick-260707-a47 review findings): it must bound the
  * layer count and guarantee unique layer ids before a spec can reach
  * BuilderEngine.

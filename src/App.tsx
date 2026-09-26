@@ -156,10 +156,10 @@ function App() {
         <button
           className="brand"
           onClick={() => setView("landing")}
-          aria-label="Serenade home"
+          aria-label="SwaraSanti home"
         >
           <span className="mark" aria-hidden />
-          Serenade
+          SwaraSanti
         </button>
         <nav className="topnav">
           {nav.map((item) => (

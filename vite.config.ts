@@ -10,8 +10,8 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["icon-192.png", "icon-512.png"],
       manifest: {
-        name: "Serenade — Healing Audio",
-        short_name: "Serenade",
+        name: "SwaraSanti — Healing Audio",
+        short_name: "SwaraSanti",
         description:
           "Guided audio sessions: binaural beats, isochronic tones, solfeggio, and natural ambience for relaxation, sleep, and focus.",
         lang: "en",
