@@ -9,7 +9,7 @@ import { shownEmail } from "../../supabase/functions/_shared/accountRules.ts";
 import type { AccountRole } from "../../supabase/functions/_shared/accountRules.ts";
 
 /**
- * Clinician data layer (quick-260714-a8a): patients, Audio Bank,
+ * Clinician data layer: patients, Audio Bank,
  * per-patient preset visibility, and assignment. Every function throws when
  * Supabase isn't configured — the Dashboard renders only for clinicians on a
  * configured build, and RLS enforces every rule server-side regardless.

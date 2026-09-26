@@ -10,7 +10,7 @@ async function renderMonaural(): Promise<AudioBuffer> {
   return await ctx.startRendering();
 }
 
-describe("MonauralLayer (ENG-03)", () => {
+describe("MonauralLayer", () => {
   it("outputs identical L and R channels (works on speakers)", async () => {
     const buffer = await renderMonaural();
     const left = buffer.getChannelData(0);

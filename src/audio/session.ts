@@ -15,7 +15,7 @@ export interface SessionConfig {
   preset: Preset;
   /** Minutes, or null for infinite (∞). */
   durationMin: number | null;
-  /** headphone → binaural, speaker → isochronic (PRE-03). */
+  /** headphone → binaural, speaker → isochronic. */
   mode: ListeningMode;
   ambient: AmbientKind | null;
   /** Optional extra pure solfeggio tone layered under the entrainment. */
@@ -51,8 +51,8 @@ export const DEFAULT_VOLUMES: SessionVolumes = {
 /**
  * Orchestrates one guided session (Phase 2 core). All timing runs on the
  * audio clock: the beat curve, end fade, and source stops are scheduled
- * up-front against AudioContext.currentTime (SCH-03) so nothing drifts even
- * when the tab is throttled. Auto-stop is sample-accurate (SCH-04).
+ * up-front against AudioContext.currentTime so nothing drifts even
+ * when the tab is throttled. Auto-stop is sample-accurate.
  */
 export class SessionEngine {
   private readonly ctx: BaseAudioContext;
@@ -119,7 +119,7 @@ export class SessionEngine {
     // rendering, so a timestamp taken first would already lie in the past
     // when sources start — cutting into their fade-ins (audible clicks).
     const startBeat = config.preset.startHz;
-    // Entrainment layer by listening mode (PRE-03).
+    // Entrainment layer by listening mode.
     const entrainment =
       config.mode === "headphone"
         ? createBinauralSessionLayer(this.ctx, config.preset.carrierHz, startBeat)
@@ -148,7 +148,7 @@ export class SessionEngine {
     }
 
     // Master fade-in now; for finite sessions schedule the gentle end fade and
-    // source stops up-front on the audio clock (SCH-04).
+    // source stops up-front on the audio clock.
     fadeIn(this.masterGain.gain, this.volumes.master, t, 2);
     if (this.endTime !== null) {
       const fadeStart = Math.max(t, this.endTime - END_FADE_SEC);
@@ -176,7 +176,7 @@ export class SessionEngine {
     this.endTime = null;
   }
 
-  /** Swap the ambient bed live without interrupting the session (UI-03). */
+  /** Swap the ambient bed live without interrupting the session. */
   setAmbient(kind: AmbientKind | null): void {
     if (!this.config) return;
     // Build before reading the clock (see start()).
@@ -215,7 +215,7 @@ export class SessionEngine {
     return this.config;
   }
 
-  /** The active beat curve (for the session visualization, PWA-04). */
+  /** The active beat curve (for the session visualization). */
   getSchedule(): SessionSchedule | null {
     return this.schedule;
   }

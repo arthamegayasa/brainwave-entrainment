@@ -23,7 +23,7 @@ export const DEMO = {
   monaural: { carrier: 200, beat: 10 },
   solfeggio: { tone: SOLFEGGIO.healing },
   ambient: {
-    // Tuned for label distinctness (QUICK-260714-P5O); pinned by spectral
+    // Tuned for label distinctness; pinned by spectral
     // signature tests in tests/audio/ambient.test.ts — keep them green.
     // ~6.7 s wave period, deep swell; baseGain - lfoDepth > 0 (never negative)
     // and baseGain + lfoDepth <= 1 (no clipping).

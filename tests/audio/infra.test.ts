@@ -46,7 +46,7 @@ describe("test infrastructure (real OfflineAudioContext)", () => {
   });
 });
 
-describe("React purity guard (ENG-07)", () => {
+describe("React purity guard", () => {
   it("src/audio/ contains no React imports", () => {
     const files = collectTsFiles(join(process.cwd(), "src", "audio"));
     expect(files.length).toBeGreaterThanOrEqual(2);
@@ -61,7 +61,7 @@ describe("demo constants contract", () => {
   it("centralizes audition parameters", () => {
     expect(DEMO.binaural.carrier).toBe(200);
     expect(DEMO.binaural.beat).toBe(10);
-    expect(DEMO.isochronic.carrier).toBe(528); // solfeggio-as-carrier (ENG-04 evidence)
+    expect(DEMO.isochronic.carrier).toBe(528); // solfeggio-as-carrier
     expect(DEMO.solfeggio.tone).toBe(528);
     expect(SOLFEGGIO.healing).toBe(528);
   });

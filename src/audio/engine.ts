@@ -25,8 +25,8 @@ const DEFAULT_VOLUME = 0.8;
 
 /**
  * Facade over the Web Audio graph. The AudioContext is injected (never created
- * here) so the engine stays pure TypeScript and unit-testable offline (ENG-07),
- * and so the context can be created/resumed inside a user gesture (UI-08).
+ * here) so the engine stays pure TypeScript and unit-testable offline,
+ * and so the context can be created/resumed inside a user gesture.
  */
 export class AudioEngine {
   private readonly ctx: BaseAudioContext;

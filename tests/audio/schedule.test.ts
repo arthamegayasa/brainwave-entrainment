@@ -3,7 +3,7 @@ import { buildSchedule, beatAt, phaseAt } from "../../src/audio/schedule";
 import { PRESETS, getPreset } from "../../src/audio/presets";
 import { SOLFEGGIO } from "../../src/audio/constants";
 
-describe("buildSchedule (SCH-01)", () => {
+describe("buildSchedule", () => {
   it("shapes ramp-in → hold → ramp-out for return presets", () => {
     const preset = getPreset("deep-meditation"); // 10 → 6, out to 10
     const schedule = buildSchedule(preset, 30 * 60);
@@ -15,7 +15,7 @@ describe("buildSchedule (SCH-01)", () => {
     expect(schedule.endSec).toBe(30 * 60);
   });
 
-  it("sleep preset never ramps back up (SCH-02)", () => {
+  it("sleep preset never ramps back up", () => {
     const preset = getPreset("deep-sleep");
     const schedule = buildSchedule(preset, 45 * 60);
     const last = schedule.points[schedule.points.length - 1];
@@ -32,7 +32,7 @@ describe("buildSchedule (SCH-01)", () => {
     expect(schedule.points[1].time).toBe(15 * 60 * 0.4);
   });
 
-  it("infinite sessions ramp in then hold forever (SCH-04 ∞)", () => {
+  it("infinite sessions ramp in then hold forever", () => {
     const preset = getPreset("focus");
     const schedule = buildSchedule(preset, null);
     expect(schedule.endSec).toBeNull();
@@ -60,7 +60,7 @@ describe("beatAt / phaseAt", () => {
   });
 });
 
-describe("PRESETS integrity (PRE-01, PRE-02)", () => {
+describe("PRESETS integrity", () => {
   it("contains exactly the 8 goal presets", () => {
     expect(PRESETS.map((p) => p.id).sort()).toEqual(
       [

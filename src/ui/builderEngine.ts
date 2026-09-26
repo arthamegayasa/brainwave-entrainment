@@ -2,17 +2,17 @@ import { BuilderEngine } from "../audio/builder";
 import { acquireAudio, releaseAudio } from "./audioContext";
 
 /**
- * Shared BuilderEngine singleton (quick-260707-a47): Studio and Library both
+ * Shared BuilderEngine singleton: Studio and Library both
  * start custom sessions through this module, so only one custom session
  * plays at a time. It runs on the app's shared AudioContext; the engine
- * itself never creates one (ENG-07).
+ * itself never creates one.
  */
 
 let engine: BuilderEngine | null = null;
 /** Watches for a timed session's natural end while no view polls the transport. */
 let endWatch: number | undefined;
 
-/** Call inside the user gesture that starts playback (UI-08). */
+/** Call inside the user gesture that starts playback. */
 export function ensureBuilder(): BuilderEngine {
   const ctx = acquireAudio("builder");
   engine ??= new BuilderEngine(ctx);

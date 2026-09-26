@@ -37,7 +37,7 @@ export function Home({ onStart, onUpgrade }: HomeProps) {
   const [, refresh] = useReducer((n: number) => n + 1, 0);
   const premiumUnlocked = isUnlocked("premiumPresets");
 
-  // Presets a linked clinician hid for this patient (quick-260714-a8a).
+  // Presets a linked clinician hid for this patient.
   // Returns [] standalone/signed-out — zero behavior change there.
   const [hiddenIds, setHiddenIds] = useState<string[]>([]);
   useEffect(() => {
@@ -75,7 +75,7 @@ export function Home({ onStart, onUpgrade }: HomeProps) {
     hiddenIds.includes(preset.id) ? visiblePresets[0] ?? preset : preset;
   const recommended = resolveVisible(getPreset(recoId));
 
-  // Smart default (D-05): one tap starts the recommended session with the
+  // Smart default: one tap starts the recommended session with the
   // user's last-used settings — no sheet, no decisions. Resolve the preset
   // again at click time so a stale render can't start yesterday's window.
   const startRecommended = () => {
@@ -90,7 +90,7 @@ export function Home({ onStart, onUpgrade }: HomeProps) {
     });
   };
 
-  // IKEA effect (D-05): chosen goals come first, in the order they were picked.
+  // IKEA effect: chosen goals come first, in the order they were picked.
   const chosen = progress.chosenGoals;
   const orderedPresets = [
     ...chosen
@@ -249,7 +249,7 @@ interface GoalPickerProps {
   onSkip: () => void;
 }
 
-/** IKEA-effect goal picker (D-05): multi-select of visible goals, skippable. */
+/** IKEA-effect goal picker: multi-select of visible goals, skippable. */
 function GoalPicker({ presets, initial, onChoose, onSkip }: GoalPickerProps) {
   const [selection, setSelection] = useState<string[]>(initial);
 

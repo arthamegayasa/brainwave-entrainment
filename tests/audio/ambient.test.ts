@@ -66,7 +66,7 @@ function coefficientOfVariation(values: number[]): number {
   return Math.sqrt(variance) / mean;
 }
 
-describe("Ambient layers (ENG-05)", () => {
+describe("Ambient layers", () => {
   it("all four kinds render non-silent without clipping", async () => {
     for (const kind of KINDS) {
       const data = await renderAmbient(kind);
@@ -101,11 +101,11 @@ describe("Ambient layers (ENG-05)", () => {
 });
 
 /**
- * Spectral signature regression tests (QUICK-260714-P5O): pin every
+ * Spectral signature regression tests: pin every
  * AmbientKind to its sonic identity so future DEMO.ambient tuning cannot
  * silently make labels lie (e.g. "Rain sounds like Ocean").
  */
-describe("Ambience spectral signatures (QUICK-260714-P5O)", () => {
+describe("Ambience spectral signatures", () => {
   it("ZCR ordering: rain (bright hiss) > wind (mid whoosh) > ocean (low rumble)", async () => {
     const zcrRain = countZeroCrossings(await renderAmbient("rain"));
     const zcrWind = countZeroCrossings(await renderAmbient("wind"));

@@ -341,7 +341,7 @@ export function Builder({ onBeforePlay }: BuilderProps) {
 }
 
 /**
- * Clinician publish panel (D-06): saves the current Studio design to the
+ * Clinician publish panel: saves the current Studio design to the
  * clinician's Audio Bank with category + notes; assignment to patients
  * happens in the Dashboard. Admins additionally publish shared templates.
  * Rendered only when isClinician AND Supabase is configured; RLS blocks

@@ -32,7 +32,7 @@ function layer(partial: Partial<BuilderLayerSpec>): BuilderLayerSpec {
   };
 }
 
-describe("BuilderEngine (BLD-01, BLD-03)", () => {
+describe("BuilderEngine", () => {
   afterEach(() => vi.restoreAllMocks());
 
   it.each([1, 2])("keeps mixed layers within full scale on both channels (noise seed %i)", async (seed) => {
@@ -83,7 +83,7 @@ describe("BuilderEngine (BLD-01, BLD-03)", () => {
   });
 });
 
-describe("findRelated (BLD-02)", () => {
+describe("findRelated", () => {
   it("suggests octaves, fifth, and harmonics for 200 Hz", () => {
     const suggestions = findRelated(200);
     const hzList = suggestions.map((s) => s.hz);
@@ -113,7 +113,7 @@ describe("findRelated (BLD-02)", () => {
   });
 });
 
-describe("custom preset storage (BLD-04)", () => {
+describe("custom preset storage", () => {
   // Minimal in-memory localStorage for the node test environment.
   beforeEach(() => {
     const store = new Map<string, string>();

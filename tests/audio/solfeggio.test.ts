@@ -5,7 +5,7 @@ import { AudioEngine } from "../../src/audio/engine";
 import { DEMO, SOLFEGGIO } from "../../src/audio/constants";
 import { countZeroCrossings } from "./helpers";
 
-describe("SolfeggioLayer (ENG-04)", () => {
+describe("SolfeggioLayer", () => {
   it("plays a pure 528 Hz tone", async () => {
     const ctx = new OfflineAudioContext(1, 44100, 44100);
     const layer = createSolfeggioLayer(ctx as unknown as BaseAudioContext, 528);

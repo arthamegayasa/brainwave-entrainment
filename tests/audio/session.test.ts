@@ -17,7 +17,7 @@ const FAST_PRESET: Preset = {
   carrierHz: 200,
 };
 
-describe("SessionEngine (SCH-01..04, PRE-03)", () => {
+describe("SessionEngine", () => {
   afterEach(() => vi.restoreAllMocks());
 
   it.each([1, 2])("bounds a tone and ambience mix on both channels (noise seed %i)", async (seed) => {
@@ -81,7 +81,7 @@ describe("SessionEngine (SCH-01..04, PRE-03)", () => {
     expect(maxAbs(left)).toBeGreaterThan(0.01);
   });
 
-  it("finite session auto-stops with fade — tail is silent (SCH-04)", async () => {
+  it("finite session auto-stops with fade — tail is silent", async () => {
     const ctx = new OfflineAudioContext(2, 88200, 44100); // 2 s render
     const engine = new SessionEngine(ctx as unknown as BaseAudioContext);
     engine.start({
@@ -97,7 +97,7 @@ describe("SessionEngine (SCH-01..04, PRE-03)", () => {
     expect(maxAbs(tail)).toBeLessThan(0.002);
   });
 
-  it("ambient can be swapped live without stopping the session (UI-03)", async () => {
+  it("ambient can be swapped live without stopping the session", async () => {
     const ctx = new OfflineAudioContext(2, 88200, 44100);
     const engine = new SessionEngine(ctx as unknown as BaseAudioContext);
     engine.start({

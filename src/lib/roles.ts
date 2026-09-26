@@ -3,7 +3,7 @@ import { shownEmail } from "../../supabase/functions/_shared/accountRules.ts";
 import type { AccountRole } from "../../supabase/functions/_shared/accountRules.ts";
 
 /**
- * Three-role system (quick-260714-a8a): clinicians manage patients + an Audio
+ * Three-role system: clinicians manage patients + an Audio
  * Bank; admins inherit clinician powers plus template publishing. "Patient"
  * and "Regular" derive from Links, not from the role.
  */

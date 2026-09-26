@@ -4,7 +4,7 @@ import type { CustomSession } from "../audio/builder";
 import { sanitizeSession } from "../state/customPresets";
 
 /**
- * Cloud audio library (quick-260707-a47, extended quick-260714-a8a):
+ * Cloud audio library:
  * clinicians and admins publish Studio sessions — admins as shared templates,
  * clinicians into their Audio Bank for patient assignment; users read what
  * RLS lets them see. Every `spec` jsonb read from the cloud is UNTRUSTED and
@@ -19,7 +19,7 @@ export interface CloudAudio {
   spec: CustomSession;
   isTemplate: boolean;
   createdAt: string;
-  /** Audio Bank metadata (quick-260714-a8a) — optional for older callers. */
+  /** Audio Bank metadata — optional for older callers. */
   category?: string;
   notes?: string | null;
 }

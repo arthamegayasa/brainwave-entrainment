@@ -37,16 +37,16 @@
 - **Ramp beat = ramp satu AudioParam**: arsitektur isochronic LFO→WaveShaper dipilih agar Phase 2 bisa ramp beat Hz (lfo.frequency) kontinu. Binaural/monaural: beat di oscillator kanan/B.
 - **Untrusted JSON import**: semua nilai preset yang di-import di-clamp ke rentang aman (freq 20-1500, gain 0-1, name ≤ 60 char) — import = untrusted input.
 
-## Implementation Learnings (quick-260707-a47, 2026-07-07)
+## Implementation Learnings (behavioral design + roles, 2026-07-07)
 
 - **Trust boundary cloud spec**: setiap `spec` JSONB dari `custom_audios` WAJIB lewat `sanitizeSession` sebelum menyentuh BuilderEngine — sama seperti JSON import. Sanitizer juga membatasi jumlah layer (cap 12; tiap layer = node audio + noise buffer nyata → vektor exhaustion) dan me-regenerate layer id duplikat (BuilderEngine key `live` Map by id; duplikat = layer orphan yang `stop()` tidak bisa jangkau).
 - **Dua engine audio = satu pasang telinga**: SessionEngine (preset) dan BuilderEngine (custom) tidak saling tahu. Eksklusivitas ditegakkan di App: `handleStart` memanggil `stopBuilderPlayback()`, dan Library/Builder menerima `onBeforePlay` yang menghentikan sesi preset. Transport custom-audio dilacak module-level (`nowPlaying` di builderEngine.ts) agar remount view merestorasi tombol Stop; `getNowPlaying()` self-heal kasus timed session yang berakhir natural (engine.isRunning tidak pernah turun sendiri).
 - **Aritmetika minggu/hari lokal: selalu setDate(), jangan +N×24 jam ms** — DST fall-back membuat minggu lokal 169 jam; penambahan milidetik tetap mendarat 1 jam meleset dan menjatuhkan data di jam terakhir Minggu.
 - **State berbasis waktu di React**: nilai turunan waktu (mis. `recommendedPresetId`) harus di-refresh via interval + `visibilitychange`, dan di-resolve ulang di click handler — PWA tab bisa hidup berjam-jam tanpa remount.
-- **Kredit sesi timed**: stempel waktu completion memakai scheduled end (`startEpoch + durasi`), bukan waktu callback poll — tab yang di-suspend semalaman jangan mengkredit sesi tidur ke pagi berikutnya. Sejak quick-260925-r7d `session.start()` sinkron (tidak menunggu `resume()`), jadi tidak ada celah await di mana natural-end sesi lama bisa menyalip ref preset baru.
+- **Kredit sesi timed**: stempel waktu completion memakai scheduled end (`startEpoch + durasi`), bukan waktu callback poll — tab yang di-suspend semalaman jangan mengkredit sesi tidur ke pagi berikutnya. Sejak 2026-09-25 `session.start()` sinkron (tidak menunggu `resume()`), jadi tidak ada celah await di mana natural-end sesi lama bisa menyalip ref preset baru.
 - **`serenade.role.override` hanya untuk mode standalone**: saat `.env.local` berisi VITE_SUPABASE_*, override diabaikan (server profile menang) — dev env repo ini SUDAH configured, jadi menguji override butuh menjalankan tanpa env tersebut.
 
-## Implementation Learnings (quick-260714-a8a, 2026-07-14)
+## Implementation Learnings (clinician platform, 2026-07-14)
 
 - **Multi-tenant RLS — batasi kolom, bukan hanya baris**: policy `FOR ALL ... created_by = auth.uid()` melindungi kepemilikan baris, TAPI kolom sensitif (mis. `is_template` yang membuat audio kelihatan app-wide) harus dibatasi di `WITH CHECK` — kalau tidak, klinisi bisa PATCH `is_template=true` via PostgREST dan inject konten global. Gate UI (tombol admin-only) tidak cukup; klien bisa hit REST langsung.
 - **Orphan lintas-tabel saat link diputus**: `template_visibility`/`audio_assignments` tidak FK ke `patient_links`, dan policy klinisi butuh link EKSIS di USING-nya — jadi begitu link dihapus, tak seorang pun bisa membersihkan orphan (preset tetap hidden selamanya, akses audio tetap ada). Solusi: `AFTER DELETE` trigger (security definer) yang meng-cascade apa yang skema tak bisa ekspresikan.
@@ -57,15 +57,15 @@
 - **Konsistensi band**: `preset.band` (kurItorial) harus === `bandForHz(targetHz)` (derivasi) — kalau tidak, frekuensi sama tampil beda label antara Home dan Audio Bank. Dijaga test invarian atas semua preset.
 - **Deploy edge function via MCP**: pertahankan `verify_jwt` per-function (create-transaction true, webhook false — webhook auth via signature SHA-512, bukan JWT).
 
-## Implementation Learnings (quick-260714-dc3 + df1, 2026-07-14)
+## Implementation Learnings (Account sheet + Audio Bank MP3 export, 2026-07-14)
 
-- **State single-flight yang harus selamat dari remount**: state React per-komponen hilang saat tab/view berganti — untuk operasi berat berjalan-lama (render MP3 ~1GB), flag single-flight WAJIB module-level dan di-guard di handler-nya sendiri (bukan hanya atribut `disabled`), dengan listener yang me-re-sync instance komponen yang sedang mounted. Sejak quick-260925-k3m ekspor MP3 memakai satu store app-wide (`src/ui/mp3Export.ts`, `runMp3Export`) untuk Audio Bank DAN preset — dua render paralel = dua buffer ~1.3 GB.
+- **State single-flight yang harus selamat dari remount**: state React per-komponen hilang saat tab/view berganti — untuk operasi berat berjalan-lama (render MP3 ~1GB), flag single-flight WAJIB module-level dan di-guard di handler-nya sendiri (bukan hanya atribut `disabled`), dengan listener yang me-re-sync instance komponen yang sedang mounted. Sejak 2026-09-25 ekspor MP3 memakai satu store app-wide (`src/ui/mp3Export.ts`, `runMp3Export`) untuk Audio Bank DAN preset — dua render paralel = dua buffer ~1.3 GB.
 - **Dua permukaan UI yang memutasi data yang sama** (Account sheet vs Library untuk koneksi klinisi): sheet overlay tidak meng-unmount view di bawahnya — sinkronkan via `window.dispatchEvent(new Event("serenade:clinician-changed"))` + listener yang mem-bump dependency effect. Pola ringan tanpa store global. Contoh ini sudah tidak ada sejak #9: Patient tidak lagi memutus Link sendiri, dan Clinician-nya kini dibaca `useEntitlement` (`link`).
 - **Field entitlement yang tidak pernah di-clear**: webhook revoke tidak menghapus `current_period_end` — SETIAP tampilan status langganan harus key pada `status === 'active'`, bukan keberadaan tanggal.
 - **PWA service worker menahan shell lama pasca-deploy**: verifikasi live pasca-deploy harus cek hash bundle dari server (curl, tanpa SW) sebelum menyimpulkan dari browser — atau unregister SW + clear caches + reload. User nyata mendapat update setelah reload berikutnya (workbox default).
 - **Ekspor MP3 dari engine sintesis**: BuilderEngine context-agnostic → render `OfflineAudioContext` (44.1kHz stereo) lalu encode `@breezystack/lamejs` 320kbps per blok 1152 sample dengan yield event-loop; fork breezystack dipakai karena lamejs asli pecah di bundler modern ('MPEGMode is not defined'). Sanitasi nama file: strip dash pinggir + fallback — nama full non-ASCII menghasilkan "-.mp3".
 
-## Implementation Learnings (quick-260925-r7d, 2026-09-25)
+## Implementation Learnings (cross-device audio, 2026-09-25)
 
 - **Satu AudioContext, dimiliki UI glue**: `src/ui/audioContext.ts` (`acquireAudio(owner)` / `releaseAudio(owner)`) — SessionEngine & BuilderEngine berbagi satu context. Panggil `acquireAudio` SINKRON di dalam gesture; jangan `await ctx.resume()` (di iOS bisa tidak pernah settle → tombol Start mati). Engine boleh menjadwal di clock yang sedang pause: semuanya berbunyi saat context `running`.
 - **Interupsi = pause di tempat**: semua timing di audio clock, jadi telepon/alarm/lock screen membekukan sesi di posisinya. Retry `resume()` pada `statechange`, `visibilitychange`, `pageshow`, `focus`, dan setiap `pointerdown`/`keydown`/`touchend` (capture); banner "Resume audio" hanya bila device menahan pause setelah pernah `running`, atau start belum `running` setelah grace 1.5 s (tanpa grace, transisi normal suspended→running akan mem-flash banner).
@@ -74,7 +74,7 @@
 - **Seeding `Math.random` di render besar**: `vi.spyOn(Math, "random")` merekam setiap panggilan — buffer noise 192 kHz = jutaan panggilan → OOM worker vitest. Swap langsung `Math.random = seededRandom(n)` + restore di `finally`.
 - **Bangun graph dulu, baru baca `currentTime`**: pembuatan noise buffer memakan waktu main-thread (puluhan ms di device lemah) sementara audio thread terus jalan; timestamp yang diambil lebih dulu sudah lewat saat source start → fade-in terpotong (klik), terutama swap ambience live dan edit layer Studio.
 
-## Implementation Learnings (quick-260925-k3m, 2026-09-25)
+## Implementation Learnings (pause + preset MP3 export, 2026-09-25)
 
 - **Pause = `ctx.suspend()`**: semua timing di audio clock, jadi suspend membekukan ramp, fade, dan akhir sesi tepat di tempat. Flag `userPaused` di `audioContext.ts` WAJIB membuat auto-resume (gesture/visibility/statechange) dan banner "Resume audio" diam — tanpa itu tap berikutnya di mana pun langsung membatalkan pause. Lock screen: Media Session `pause`/`play` → `pauseAudio`/`resumeAudio`, `playbackState` mengikuti.
 - **Waktu selesai dari audio clock**: `endedAt = now − (elapsed − durasi)` saat poll mendeteksi akhir. Menggantikan `startEpoch + durasi` yang salah begitu ada pause/interupsi, dan tetap kebal terhadap poll yang di-throttle berjam-jam.

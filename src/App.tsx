@@ -124,7 +124,7 @@ function App() {
     if (session.state.active) session.stop();
   };
 
-  // Dashboard + Studio appear in the nav only for clinicians/admins (D-06).
+  // Dashboard + Studio appear in the nav only for clinicians/admins.
   const nav: Array<{ id: View; label: string }> = [
     { id: "home", label: "Sessions" },
     { id: "library", label: "Library" },
@@ -233,7 +233,7 @@ function App() {
             onBeforePlay={handleCustomAudioStarts}
           />
         )}
-        {/* Non-clinicians landing on dashboard/studio get the Library (D-06 fallback). */}
+        {/* Non-clinicians landing on dashboard/studio get the Library (fallback). */}
         {view === "dashboard" &&
           (ent.isClinician ? (
             <Dashboard />

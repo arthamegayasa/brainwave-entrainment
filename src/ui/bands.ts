@@ -17,7 +17,7 @@ export const BAND_LABELS: Record<Band, string> = {
 };
 
 /**
- * Map a beat frequency to its brainwave band (quick-260714-a8a). Boundaries
+ * Map a beat frequency to its brainwave band. Boundaries
  * 4 / 8 / 13 / 30 belong to the HIGHER band, matching the documented mapping:
  * delta <4, theta 4–8, alpha 8–13, beta 13–30, gamma 30+.
  */

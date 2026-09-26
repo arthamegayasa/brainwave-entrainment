@@ -16,7 +16,7 @@ async function renderIsochronic(beat: number): Promise<Float32Array> {
   return buffer.getChannelData(0);
 }
 
-describe("IsochronicLayer (ENG-02)", () => {
+describe("IsochronicLayer", () => {
   it("pulses EXACTLY beat Hz times per second (double-pulse guard)", async () => {
     const data = await renderIsochronic(10);
     const env = envelope(data, Math.floor(44100 * 0.002)); // ~2ms smoothing
@@ -42,7 +42,7 @@ describe("IsochronicLayer (ENG-02)", () => {
     expect(minBetween).toBeLessThan(0.01);
   });
 
-  it("is click-free (raised-cosine envelope, ENG-06)", async () => {
+  it("is click-free (raised-cosine envelope)", async () => {
     const data = await renderIsochronic(10);
     expect(maxDelta(data)).toBeLessThan(0.15);
   });

@@ -13,7 +13,7 @@ import { ChangePasswordForm } from "./ChangePasswordForm";
 import { ListeningReport } from "./ListeningReport";
 
 /**
- * AccountSheet (quick-260714-dc3): the single identity surface, opened from
+ * AccountSheet: the single identity surface, opened from
  * the topbar account button. Hosts sign-in (email or Username; ADR-018),
  * profile with plan/role chips, subscription with "Manage plan", the
  * Patient's Clinician (read-only), the User's own Listening History ("Your

@@ -1,6 +1,6 @@
 import { SOLFEGGIO } from "./constants";
 
-/** A harmonically related frequency suggestion (BLD-02). */
+/** A harmonically related frequency suggestion. */
 export interface FreqSuggestion {
   hz: number;
   /** Indonesian relation label shown in the UI. */

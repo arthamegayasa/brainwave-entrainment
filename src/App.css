@@ -1497,7 +1497,7 @@ body:has(.sheet-backdrop) .scene-art * {
   color: var(--ink-faint);
 }
 
-/* ── Behavioral design (quick-260707-a47) ───────────────────────────── */
+/* ── Behavioral design ──────────────────────────────────────────────── */
 
 /* Recommended-now hero card (smart defaults) */
 .reco-card {
@@ -1889,7 +1889,7 @@ body:has(.sheet-backdrop) .scene-art * {
   border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--line));
 }
 
-/* ── Clinician dashboard (quick-260714-a8a) ─────────────────────────── */
+/* ── Clinician dashboard ────────────────────────────────────────────── */
 
 .dashboard {
   padding-bottom: 3rem;
@@ -3323,7 +3323,7 @@ body:has(.sheet-backdrop) .scene-art * {
   width: 100%;
 }
 
-/* ── Patient linking + 3-tier plans (quick-260714-a8a) ──────────────── */
+/* ── Patient linking + 3-tier plans ─────────────────────────────────── */
 
 /* "My clinician" in the Library */
 .my-clinician {
@@ -3359,7 +3359,7 @@ body:has(.sheet-backdrop) .scene-art * {
   }
 }
 
-/* ── Account button + sheet (quick-260714-dc3) ──────────────────────── */
+/* ── Account button + sheet ─────────────────────────────────────────── */
 
 /* Circular topbar button: person icon signed out, email initial signed in */
 .account-btn {
@@ -3463,7 +3463,7 @@ body:has(.sheet-backdrop) .scene-art * {
   background: rgba(229, 140, 140, 0.08);
 }
 
-/* ── Audio Bank MP3 export panel (quick-260714-df1) ─────────────────── */
+/* ── Audio Bank MP3 export panel ────────────────────────────────────── */
 
 .bank-download {
   display: flex;
