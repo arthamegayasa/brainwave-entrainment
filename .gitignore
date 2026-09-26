@@ -16,6 +16,11 @@ dist-ssr
 test-results/
 playwright-report/
 
+# Supabase CLI local state
+supabase/.branches
+supabase/.temp
+supabase/.env.keys
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -149,6 +149,8 @@ tests/                   Audio render assertions and state tests
 supabase/
   migrations/            Account, library, role, and clinician data schemas
   functions/             Transaction creation and payment webhook
+  tests/database/        pgTAP tests of the database access rules
+  config.toml            Local Supabase CLI stack
 docs/
   images/                Original diagrams and real product screenshots
   payments/              Integration design and historical sandbox notes
@@ -184,6 +186,7 @@ Read the [payment architecture](docs/payments/PAYMENTS-ARCHITECTURE.md) before c
 | `npm run build` | Type-check, build the app, and generate the PWA service worker. |
 | `npm run preview` | Serve the production build locally. |
 | `npm run test:e2e` | Build, then run the Playwright end-to-end suite against `vite preview` (first run: `npx playwright install chromium`). |
+| `npx supabase test db` | Run the pgTAP database access-rule tests against the local Supabase stack (see [Database access rules](#database-access-rules)). |
 
 The unit suite checks rendered signals, pulse counts, fades, scheduling, layer behavior, sample-rate-independent ambience, preset and Audio Bank MP3 export, imported-session validation, and local state. The end-to-end suite drives the production build in Chromium: start, pause, resume, and end a session; device interruptions with and without a required tap; a full 15-minute preset MP3 download; and the Premium plan layout at phone, tablet, and desktop widths. At the documentation refresh, **120 unit tests across 17 files** and **8 end-to-end tests** passed, and the production build completed.
 
@@ -198,6 +201,30 @@ For contributions, keep audio logic in `src/audio`, keep preset constants centra
 - PWA installation and offline caching should be checked using the production build served over HTTPS or localhost. Backend operations remain online features.
 - Mobile operating systems may suspend browser audio in the background. Media Session controls improve integration but do not guarantee uninterrupted playback on iOS.
 - There is no dedicated lint command in the current package scripts. The build includes TypeScript checking.
+
+### Database access rules
+
+The pgTAP suite in [`supabase/tests/database`](supabase/tests/database) checks who can read what in the database: for example, that a Clinician never sees another Clinician's Links or Patients. It runs against a local Supabase stack built from [`supabase/migrations`](supabase/migrations), never against a hosted project. It needs Docker; the Supabase CLI runs through `npx`.
+
+```bash
+npx supabase db start   # local Postgres with every migration applied
+npx supabase test db    # run the suite
+npx supabase stop       # stop the stack (add --no-backup to discard its data)
+```
+
+Pass a file to run just that test, for example `npx supabase test db supabase/tests/database/anon_access.test.sql`. After changing a migration, `npx supabase db reset` rebuilds the local database from scratch. CI runs the same start and test steps in its own `database` job, which fails on any failing test. CI pins the CLI version with `SUPABASE_CLI` in [`checks.yml`](.github/workflows/checks.yml); run `npx` with that same package spec, for example `npx supabase@2.118.0 test db`, to reproduce a CI result exactly.
+
+Each test file runs in one transaction that ends in `rollback`, so files are independent. A file starts with `begin;` and `\ir fixtures.psql`, which adds these helpers for that transaction. Users are referred to by a label that is unique within the file (a fixture label only, not a Username):
+
+| Helper | Purpose |
+| --- | --- |
+| `tests.create_user(label, role)` | Create a User (`auth.users` row and profile). Role `user` (default), `clinician`, or `admin`. |
+| `tests.link(clinician, patient)` | Create the Link between a Clinician and a Patient. |
+| `tests.act_as(label)` | Continue as that signed-in User: the `authenticated` role with their JWT claims. |
+| `tests.act_as_anon()` | Continue as a signed-out visitor (`anon`). `reset role` returns to the database owner. |
+| `tests.user_id(label)` | The User's id, for expected results. An unknown label raises an error. |
+
+Keep new test files in `supabase/tests/database`, next to the fixture.
 
 ## Science and scope
 

@@ -34,3 +34,23 @@ jobs:
       - name: End-to-end tests
         # Runs against the build above via `vite preview` (playwright.config.ts).
         run: npx playwright test
+
+  database:
+    # pgTAP suite (supabase/tests) against a fresh local database built from
+    # supabase/migrations. Local stack only: never links a hosted project.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      SUPABASE_CLI: supabase@2.118.0
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+      - name: Start local database
+        # Applies every migration to an empty database; fails on any error.
+        run: npx --yes "$SUPABASE_CLI" db start
+      - name: Database access rules (pgTAP)
+        run: npx --yes "$SUPABASE_CLI" test db
