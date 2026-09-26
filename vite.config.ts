@@ -32,6 +32,9 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ["**/*.{js,css,html,woff,woff2,png,svg}"],
+        // Every navigation opens the app shell, so the installed PWA serves a
+        // Personal URL (/p/<username>) like the host's rewrite in vercel.json.
+        navigateFallback: "index.html",
       },
     }),
   ],

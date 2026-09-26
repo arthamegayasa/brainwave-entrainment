@@ -1,12 +1,14 @@
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
-import type { NewPatientInput } from "../../supabase/functions/_shared/accountRules.ts";
+import type {
+  NewPatientInput,
+  PersonalUrlError,
+} from "../../supabase/functions/_shared/accountRules.ts";
 
 /**
- * Account server functions (ADR-014, ADR-018): resolve-login, suggest-username
- * and create-patient. Each authorizes on the server through the shared
- * Account rules module; a refusal arrives as an AccountError carrying the
- * function's error code (e.g. "username_taken").
+ * Account server functions (ADR-014, ADR-016, ADR-018). Each authorizes on
+ * the server through the shared Account rules module; a refusal arrives as an
+ * AccountError carrying the function's error code (e.g. "username_taken").
  */
 
 export class AccountError extends Error {
@@ -43,6 +45,27 @@ export async function signInWithPassword(loginEmail: string, password: string): 
   if (!supabase) throw new Error("Accounts not configured");
   const { error } = await supabase.auth.signInWithPassword({ email: loginEmail, password });
   if (error) throw error;
+}
+
+/** Whose Personal URL it is: the first name to greet and the login email. */
+export interface PersonalUrlLogin {
+  firstName: string | null;
+  loginEmail: string;
+}
+
+/**
+ * The account a Personal URL opens, or null when no account has that Username
+ * (the page shows "Link not found"). Any other failure throws, so an offline
+ * device never reads as "not found".
+ */
+export async function openPersonalUrl(username: string): Promise<PersonalUrlLogin | null> {
+  try {
+    return await invoke<PersonalUrlLogin>("personal-url", { username });
+  } catch (err) {
+    const notFound: PersonalUrlError = "not_found";
+    if (err instanceof AccountError && err.code === notFound) return null;
+    throw err;
+  }
 }
 
 /** A free Username for a new Patient's name; null when the name gives none. */

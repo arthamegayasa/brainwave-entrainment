@@ -1,6 +1,5 @@
-// Request plumbing for the account server functions (create-patient,
-// suggest-username, resolve-login). Deno-only (jsr import, Deno.serve,
-// Deno.env), so it lives outside _shared: the app shares only
+// Request plumbing for the account server functions. Deno-only (jsr import,
+// Deno.serve, Deno.env), so it lives outside _shared: the app shares only
 // _shared/accountRules.ts with the functions.
 
 import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";

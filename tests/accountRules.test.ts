@@ -1,13 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
   checkNewPatient,
+  firstName,
   generatePassword,
   internalLoginEmail,
   isValidUsername,
   mayCreatePatient,
   normalizeUsername,
   parseLoginIdentifier,
+  parsePersonalUrlPath,
   patientLimitOf,
+  personalUrlPath,
   shownEmail,
   suggestUsername,
   usernameStem,
@@ -234,5 +237,41 @@ describe("Shown email", () => {
 
   it("shows the login email of a magic-link account", () => {
     expect(shownEmail({ loginEmail: "nadia@mail.com", contactEmail: null })).toBe("nadia@mail.com");
+  });
+});
+
+describe("Personal URL path", () => {
+  it("opens the Username in /p/<username>, in any case and with a trailing slash", () => {
+    expect(parsePersonalUrlPath("/p/ivan")).toEqual({ username: "ivan" });
+    expect(parsePersonalUrlPath("/p/Ivan-Moon/")).toEqual({ username: "ivan-moon" });
+  });
+
+  it("is the path a Clinician copies for a Username", () => {
+    expect(parsePersonalUrlPath(personalUrlPath("ivan-moon"))).toEqual({ username: "ivan-moon" });
+  });
+
+  it("leaves every other path to the app", () => {
+    for (const path of ["/", "/privacy", "/pricing", "/pa/ivan", "/index.html"]) {
+      expect(parsePersonalUrlPath(path), path).toBeNull();
+    }
+  });
+
+  it("opens a /p path without a valid Username as a Personal URL nobody owns", () => {
+    for (const path of ["/p", "/p/", "/p/iv", "/p/ivan/extra", "/p/ivan%20moon", "/p/ivan_moon"]) {
+      expect(parsePersonalUrlPath(path), path).toEqual({ username: null });
+    }
+  });
+});
+
+describe("First name on a Personal URL", () => {
+  it("is the first word of the name, never the rest", () => {
+    expect(firstName("Ivan Moon")).toBe("Ivan");
+    expect(firstName("  Siti   Nurhaliza binti Tarudin ")).toBe("Siti");
+    expect(firstName("Budi")).toBe("Budi");
+  });
+
+  it("is absent without a name", () => {
+    expect(firstName(null)).toBeNull();
+    expect(firstName("   ")).toBeNull();
   });
 });

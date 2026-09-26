@@ -29,6 +29,7 @@ import type {
   PatientLink,
 } from "../lib/clinician";
 import { NewPatientForm } from "./NewPatientForm";
+import { personalUrlPath } from "../../supabase/functions/_shared/accountRules.ts";
 
 /**
  * Clinician Dashboard (D-06): Patients tab (invite codes, linked patients,
@@ -40,6 +41,16 @@ import { NewPatientForm } from "./NewPatientForm";
 /** How a Patient reads in the Dashboard: their name, else their email. */
 function patientName(patient: PatientLink): string {
   return patient.name ?? patient.email ?? "Unnamed patient";
+}
+
+/** Copies text for the Clinician to paste elsewhere, and says whether it worked. */
+async function copyText(text: string, flash: (msg: string) => void): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(text);
+    flash("Copied ✓");
+  } catch {
+    flash("Could not copy — select it manually");
+  }
 }
 
 const BANDS: readonly Band[] = ["delta", "theta", "alpha", "beta", "gamma"];
@@ -154,15 +165,6 @@ function PatientsTab({
     }
   };
 
-  const copy = async (code: string) => {
-    try {
-      await navigator.clipboard.writeText(code);
-      flash("Copied ✓");
-    } catch {
-      flash("Could not copy — select the code manually");
-    }
-  };
-
   const revoke = async (code: string) => {
     try {
       await revokeInviteCode(code);
@@ -236,7 +238,7 @@ function PatientsTab({
             {codes.map((c) => (
               <div className="library-item invite-row" key={c.code}>
                 <span className="invite-code">{c.code}</span>
-                <button className="chip small" onClick={() => void copy(c.code)}>
+                <button className="chip small" onClick={() => void copyText(c.code, flash)}>
                   Copy
                 </button>
                 <span className="invite-expiry">
@@ -391,9 +393,29 @@ function PatientDetail({
     }
   };
 
+  const personalUrl =
+    patient.username === null
+      ? null
+      : `${window.location.origin}${personalUrlPath(patient.username)}`;
+
   return (
     <div className="patient-detail">
       <h3>{patientName(patient)}</h3>
+
+      {personalUrl && (
+        <div className="detail-block">
+          <h4>Personal URL</h4>
+          <div className="save-row">
+            <span className="personal-url-address">{personalUrl}</span>
+            <button className="chip small" onClick={() => void copyText(personalUrl, flash)}>
+              Copy link
+            </button>
+          </div>
+          <p className="library-note">
+            Your patient opens this address and types their password.
+          </p>
+        </div>
+      )}
 
       <div className="detail-block">
         <h4>Built-in sessions</h4>

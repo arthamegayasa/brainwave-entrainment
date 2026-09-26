@@ -174,7 +174,7 @@ cp .env.example .env.local
 
 Frontend `VITE_*` values are included in the browser bundle. Server credentials belong in the backend, never in these variables or in Git.
 
-The connected system also needs the schemas in [`supabase/migrations`](supabase/migrations), appropriate roles and access policies, Auth redirect settings, and the Edge Functions in [`supabase/functions`](supabase/functions): checkout and the payment webhook, plus `create-patient`, `suggest-username` and `resolve-login` for Clinician-created Patient accounts that sign in with a Username and password ([ADR-018](DECISIONS.md)). Environment variables alone do not provision these services. Locally, `npx supabase functions serve` runs them against the local stack.
+The connected system also needs the schemas in [`supabase/migrations`](supabase/migrations), appropriate roles and access policies, Auth redirect settings, and the Edge Functions in [`supabase/functions`](supabase/functions): checkout and the payment webhook, plus `create-patient`, `suggest-username`, `resolve-login` and `personal-url` for Clinician-created Patient accounts that sign in with a Username and password, from the homepage or their Personal URL `/p/<username>` ([ADR-016](DECISIONS.md), [ADR-018](DECISIONS.md)). Environment variables alone do not provision these services. Locally, `npx supabase functions serve` runs them against the local stack.
 
 Read the [payment architecture](docs/payments/PAYMENTS-ARCHITECTURE.md) before changing checkout. The [sandbox notes](docs/payments/SANDBOX-SETUP.md) describe an earlier configured environment; substitute your own project and verify its current settings. They are not evidence of a working payment deployment for a fresh clone. Preset feature gating still needs integration with server entitlements before it can be treated as a production paywall.
 
@@ -190,7 +190,7 @@ Read the [payment architecture](docs/payments/PAYMENTS-ARCHITECTURE.md) before c
 | `npm run test:e2e` | Build, then run the Playwright end-to-end suite against `vite preview` (first run: `npx playwright install chromium`). |
 | `npx supabase test db` | Run the pgTAP database access-rule tests against the local Supabase stack (see [Database access rules](#database-access-rules)). |
 
-The unit suite checks rendered signals, pulse counts, fades, scheduling, layer behavior, sample-rate-independent ambience, preset and Audio Bank MP3 export, imported-session validation, and local state. The end-to-end suite drives the production build in Chromium: start, pause, resume, and end a session; device interruptions with and without a required tap; a full 15-minute preset MP3 download; and the Premium plan layout at phone, tablet, and desktop widths. At the documentation refresh, **120 unit tests across 17 files** and **8 end-to-end tests** passed, and the production build completed.
+The unit suite checks rendered signals, pulse counts, fades, scheduling, layer behavior, sample-rate-independent ambience, preset and Audio Bank MP3 export, imported-session validation, and local state. The end-to-end suite drives the production build in Chromium: start, pause, resume, and end a session; device interruptions with and without a required tap; a full 15-minute preset MP3 download; the Premium plan layout at phone, tablet, and desktop widths; and a Personal URL deep link. At the documentation refresh, **157 unit tests across 18 files** and **9 end-to-end tests** passed, and the production build completed.
 
 For contributions, keep audio logic in `src/audio`, keep preset constants centralized, and include a focused test for behavior changes. Run the test suite and production build before opening a pull request. Implementation decisions and gotchas are recorded in [DECISIONS.md](DECISIONS.md) and [KNOWLEDGE.md](KNOWLEDGE.md).
 
@@ -201,6 +201,7 @@ For contributions, keep audio logic in `src/audio`, keep preset constants centra
 - Ambient noise is synthesized with sample-rate-independent constants, so the same ambience has the same level and tone at 22.05, 44.1, 48, 96, or 192 kHz.
 - If the device pauses audio mid-session (call, alarm, another app), the session holds its place on the audio clock. Serenade retries automatically and shows **Resume audio** when the browser requires a tap.
 - PWA installation and offline caching should be checked using the production build served over HTTPS or localhost. Backend operations remain online features.
+- Personal URLs (`/p/<username>`) are the app's only path-based entry; every other view is in-app state. The host must serve `index.html` for `/p/*` (the rewrite in [`vercel.json`](vercel.json) does this on Vercel), and the service worker answers every navigation with the app shell, so an installed PWA opens them too.
 - Mobile operating systems may suspend browser audio in the background. Media Session controls improve integration but do not guarantee uninterrupted playback on iOS.
 - There is no dedicated lint command in the current package scripts. The build includes TypeScript checking.
 

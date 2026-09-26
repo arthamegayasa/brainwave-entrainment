@@ -148,6 +148,13 @@ export type CreatePatientError = NewPatientProblem | CreatePatientRefusal | "use
 /** Every refusal the resolve-login endpoint answers with (as `{ error }`). */
 export type ResolveLoginError = "invalid_identifier" | "unknown_username";
 
+/**
+ * The personal-url endpoint's only refusal: no account opens at that Username.
+ * An invalid and an unknown Username get the same answer, so it never hints
+ * whether a Username ever existed.
+ */
+export type PersonalUrlError = "not_found";
+
 /** The "+ New patient" fields as typed; `email` is "" when left blank. */
 export interface NewPatientInput {
   name: string;
@@ -196,6 +203,34 @@ export function parseLoginIdentifier(raw: string): LoginIdentifier | null {
   }
   const username = normalizeUsername(trimmed);
   return isValidUsername(username) ? { kind: "username", username } : null;
+}
+
+/** The path of a Username's Personal URL (ADR-016): "/p/<username>". */
+export function personalUrlPath(username: string): string {
+  return `/p/${username}`;
+}
+
+/**
+ * Reads a path as a Personal URL: "/p/Ivan/" opens the Username "ivan". Null
+ * for a path outside /p, which the app handles as before. A /p path that
+ * names no valid Username still opens the Personal URL page, with a null
+ * Username: the page shows "Link not found", exactly as for an unknown one.
+ */
+export function parsePersonalUrlPath(pathname: string): { username: string | null } | null {
+  const match = /^\/p(?:\/(.*))?$/.exec(pathname);
+  if (match === null) return null;
+  const username = normalizeUsername((match[1] ?? "").replace(/\/$/, ""));
+  return { username: isValidUsername(username) ? username : null };
+}
+
+/**
+ * The name a Personal URL greets its owner with: the first word of their
+ * name, never the rest, since ADR-016 makes only the first name public. Null
+ * without a name.
+ */
+export function firstName(name: string | null): string | null {
+  const first = (name ?? "").trim().split(/\s+/)[0];
+  return first.length > 0 ? first : null;
 }
 
 // Short Indonesian words a Clinician can dictate over the phone: 64 × 64

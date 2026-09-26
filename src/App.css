@@ -1871,6 +1871,15 @@
   margin: 0 0 0.4rem;
 }
 
+.personal-url-address {
+  align-self: center;
+  min-width: 0;
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: 0.85rem;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
 .preset-checks {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
@@ -2184,4 +2193,54 @@
 .setup-download .pill-btn:disabled {
   opacity: 0.5;
   cursor: default;
+}
+
+/* ── Personal URL page (/p/<username>) ───────────────────────────────── */
+
+.personal-url {
+  max-width: 400px;
+  margin: clamp(1.5rem, 8vh, 4.5rem) auto 3rem;
+  text-align: center;
+  animation: fade-in 0.4s ease both;
+}
+
+.personal-url h1 {
+  font-size: clamp(1.8rem, 6vw, 2.4rem);
+  margin: 0;
+}
+
+.personal-url-text {
+  color: var(--ink-dim);
+  margin: 0.6rem 0 0;
+}
+
+/* Layout only: .form-error colours the text. */
+.personal-url-alert {
+  margin: 0.8rem 0 0;
+}
+
+.personal-url .start-btn.compact {
+  margin-top: 1.4rem;
+}
+
+.personal-url-form {
+  display: flex;
+  flex-direction: column;
+}
+
+.personal-url-form .text-input {
+  flex: none;
+  margin-top: 1.4rem;
+  padding: 0.8rem 0.9rem;
+  font-size: 1rem;
+}
+
+.personal-url-form .start-btn {
+  margin-top: 0.8rem;
+}
+
+.personal-url-form .start-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+  transform: none;
 }

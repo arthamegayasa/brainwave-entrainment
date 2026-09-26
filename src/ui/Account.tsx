@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
-import { isAuthError } from "@supabase/supabase-js";
 import { useEntitlement } from "../lib/useEntitlement";
 import { signInWithEmail, signOut } from "../lib/payments";
 import { AccountError, resolveLogin, signInWithPassword } from "../lib/accounts";
@@ -9,6 +8,7 @@ import { resetProgress } from "../state/progress";
 import { resetPrefs } from "../state/prefs";
 import { parseLoginIdentifier } from "../../supabase/functions/_shared/accountRules.ts";
 import type { ResolveLoginError } from "../../supabase/functions/_shared/accountRules.ts";
+import { passwordRefusal, SIGN_IN_UNAVAILABLE } from "./signInMessages";
 
 /**
  * AccountSheet (quick-260714-dc3): the single identity surface, opened from
@@ -263,7 +263,6 @@ const SIGN_IN_ERRORS: Partial<Record<string, string>> = {
   unknown_username: "No account uses that username.",
   invalid_identifier: "Enter your email or username.",
 } satisfies Record<ResolveLoginError, string>;
-const SIGN_IN_UNAVAILABLE = "Sign-in is unavailable right now — try again later.";
 
 /**
  * Email-or-Username sign-in. The resolve-login endpoint says how the account
@@ -322,12 +321,8 @@ function SignInForm({ onOpenPrivacy }: { onOpenPrivacy: () => void }) {
     } catch (err) {
       if (err instanceof AccountError) {
         setMsg(SIGN_IN_ERRORS[err.code] ?? SIGN_IN_UNAVAILABLE);
-      } else if (isAuthError(err) && err.code === "invalid_credentials") {
-        setMsg("Wrong password — try again.");
-      } else if (isAuthError(err) && err.status === 429) {
-        setMsg("Too many attempts — wait a moment and try again.");
       } else {
-        setMsg(err instanceof Error ? err.message : "Could not sign in");
+        setMsg(passwordRefusal(err) ?? (err instanceof Error ? err.message : "Could not sign in"));
       }
     } finally {
       setBusy(false);

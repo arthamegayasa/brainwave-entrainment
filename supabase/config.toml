@@ -394,7 +394,7 @@ verify_jwt = false
 
 # Account functions (#5, ADR-018): creating a Patient and suggesting a Username
 # need a signed-in Clinician or Admin; resolve-login serves the signed-out
-# sign-in form.
+# sign-in form, and personal-url the signed-out Personal URL page (#6).
 [functions.create-patient]
 verify_jwt = true
 
@@ -402,6 +402,9 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.resolve-login]
+verify_jwt = false
+
+[functions.personal-url]
 verify_jwt = false
 
 [analytics]
