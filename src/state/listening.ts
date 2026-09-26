@@ -185,18 +185,48 @@ export interface QueueStorage {
   setItem(key: string, value: string): void;
 }
 
+/**
+ * What `send` throws when a request failed: the HTTP `status` it got (0 when
+ * no answer came) and the server's error `code`.
+ */
+export class SendError extends Error {
+  readonly status: number;
+  readonly code: string;
+
+  constructor(status: number, code: string, message: string) {
+    super(message);
+    this.name = "SendError";
+    this.status = status;
+    this.code = code;
+  }
+}
+
+/** A Play or Download the server rejected for good, set aside on the device with its HTTP status and error code. */
+export interface RejectedEntry {
+  entry: PendingEntry;
+  status: number;
+  code: string;
+}
+
 export interface ListeningQueue {
   /** Keep a Play or Download on the device until a flush delivers it. */
   enqueue(entry: PendingEntry): void;
   /**
-   * Send the User's pending entries. Flushes run one at a time, an entry
-   * leaves the device only once the server has it, and a failed send keeps
-   * it, with the same id, for the next flush. Never rejects.
+   * Send the User's pending entries. Flushes run one at a time, and an entry
+   * leaves the queue only once the server has it or has rejected it for good.
+   * A failure that a retry can fix keeps it, with the same id, for the next
+   * flush; a rejected entry goes to the rejected store and never blocks the
+   * rest. Never rejects.
    */
   flush(userId: string): Promise<void>;
+  /** The entries the server rejected for good, oldest first; they are never sent again. */
+  rejected(): RejectedEntry[];
 }
 
 const QUEUE_KEY = "serenade.listening.queue.v1";
+const REJECTED_KEY = "serenade.listening.rejected.v1";
+/** The rejected store keeps the latest rejections only, so it never crowds the queue out of storage. */
+const MAX_REJECTED = 50;
 
 function entryId(entry: PendingEntry): string {
   return "play" in entry ? entry.play.id : entry.download.id;
@@ -215,63 +245,126 @@ function isPendingEntry(value: unknown): value is PendingEntry {
   );
 }
 
+function isRejectedEntry(value: unknown): value is RejectedEntry {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "entry" in value &&
+    isPendingEntry(value.entry) &&
+    "status" in value &&
+    typeof value.status === "number" &&
+    "code" in value &&
+    typeof value.code === "string"
+  );
+}
+
+/**
+ * 4xx answers a retry can fix: 401 while the session refreshes, 408 (timed
+ * out) and 429 (rate limited).
+ */
+const RETRYABLE_4XX = [401, 408, 429];
+
+/** Whether the server rejected the request for good: any other 4xx. */
+function isPermanent(error: unknown): error is SendError {
+  return (
+    error instanceof SendError &&
+    error.status >= 400 &&
+    error.status < 500 &&
+    !RETRYABLE_4XX.includes(error.status)
+  );
+}
+
 /**
  * The offline queue: Plays and Downloads wait in `storage` (localStorage),
  * so they survive a reload, until `send` delivers them. `storage` null keeps
- * them in memory for this visit only.
+ * them in memory for this visit only. `send` throws a SendError with the HTTP
+ * status it got: a 4xx other than 401, 408 and 429 sets the entries aside,
+ * and anything else it throws is retried on the next flush.
  */
 export function createListeningQueue(opts: {
   storage: QueueStorage | null;
   send: (entries: PendingEntry[]) => Promise<void>;
 }): ListeningQueue {
   const { storage, send } = opts;
-  let memory: PendingEntry[] = [];
+  const memory: Record<string, unknown[]> = {};
   /** The latest flush: the next one runs after it, so flushes never overlap. */
   let lastFlush = Promise.resolve();
 
-  function read(): PendingEntry[] {
-    if (!storage) return memory;
+  function readList<T>(key: string, isItem: (value: unknown) => value is T): T[] {
+    if (!storage) return (memory[key] ?? []).filter(isItem);
     try {
-      const parsed: unknown = JSON.parse(storage.getItem(QUEUE_KEY) ?? "[]");
-      return Array.isArray(parsed) ? parsed.filter(isPendingEntry) : [];
+      const parsed: unknown = JSON.parse(storage.getItem(key) ?? "[]");
+      return Array.isArray(parsed) ? parsed.filter(isItem) : [];
     } catch {
       return [];
     }
   }
 
-  function write(entries: PendingEntry[]): void {
+  function writeList(key: string, items: unknown[]): void {
     if (!storage) {
-      memory = entries;
+      memory[key] = items;
       return;
     }
     try {
-      storage.setItem(QUEUE_KEY, JSON.stringify(entries));
+      storage.setItem(key, JSON.stringify(items));
     } catch {
       /* storage full or blocked: the entry is lost, playback is unaffected */
     }
   }
 
-  async function sendPending(userId: string): Promise<void> {
-    const batch = read().filter((e) => e.userId === userId);
-    if (batch.length === 0) return;
+  const read = () => readList(QUEUE_KEY, isPendingEntry);
+  const readRejected = () => readList(REJECTED_KEY, isRejectedEntry);
+
+  /** Take `done` out of the queue; entries queued while a request was in flight stay. */
+  function remove(done: PendingEntry[]): void {
+    const ids = new Set(done.map(entryId));
+    writeList(QUEUE_KEY, read().filter((e) => !ids.has(entryId(e))));
+  }
+
+  function setAside(entry: PendingEntry, error: SendError): void {
+    const rejection: RejectedEntry = { entry, status: error.status, code: error.code };
+    writeList(REJECTED_KEY, [...readRejected(), rejection].slice(-MAX_REJECTED));
+    remove([entry]);
+  }
+
+  /**
+   * Deliver `entries` together or, when the server rejects them for good,
+   * one at a time, so only the entries it rejects are set aside and the rest
+   * are delivered. Whether every entry was settled (delivered or set aside):
+   * false when a failure that a retry can fix stopped it, and what was not
+   * settled stays queued for the next flush, with the same ids.
+   */
+  async function settle(entries: PendingEntry[]): Promise<boolean> {
     try {
-      await send(batch);
-    } catch {
-      return; // still queued; the next flush re-sends the same ids
+      await send(entries);
+    } catch (error) {
+      if (!isPermanent(error)) return false;
+      if (entries.length === 1) {
+        setAside(entries[0], error);
+        return true;
+      }
+      for (const entry of entries) {
+        if (!(await settle([entry]))) return false;
+      }
+      return true;
     }
-    const sent = new Set(batch.map(entryId));
-    // Re-read: entries queued while the request was in flight stay.
-    write(read().filter((e) => !sent.has(entryId(e))));
+    remove(entries);
+    return true;
   }
 
   return {
     enqueue(entry) {
-      write([...read(), entry]);
+      writeList(QUEUE_KEY, [...read(), entry]);
     },
 
     flush(userId) {
-      lastFlush = lastFlush.then(() => sendPending(userId));
+      lastFlush = lastFlush.then(async () => {
+        const batch = read().filter((e) => e.userId === userId);
+        if (batch.length > 0) await settle(batch);
+      });
       return lastFlush;
     },
+
+    rejected: readRejected,
   };
 }

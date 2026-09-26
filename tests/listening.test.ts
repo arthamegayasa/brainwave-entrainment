@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { createListeningQueue, createPlayRecorder } from "../src/state/listening";
+import { createListeningQueue, createPlayRecorder, SendError } from "../src/state/listening";
 import type { AudioSnapshot, PendingEntry, Play, QueueStorage } from "../src/state/listening";
 
 const SLEEPING: AudioSnapshot = {
@@ -170,19 +170,25 @@ function memoryStorage(): QueueStorage {
 /**
  * The server end of the sender: remembers every request it received, stores
  * rows by id like the database (a re-sent id is ignored), and can be told to
- * fail the next request, either before storing (offline) or after (the
- * response was lost), or to hold its answer until the test releases it.
+ * fail the next request, either before storing (offline, or an HTTP error
+ * status) or after (the response was lost), or to hold its answer until the
+ * test releases it. A row it rejects for good fails every request carrying
+ * it, and such a request stores nothing, like one INSERT of many rows.
  */
 function fakeServer() {
   const requests: string[][] = [];
   const rows = new Map<string, PendingEntry>();
-  let failure: "offline" | "lost response" | null = null;
+  const rejections = new Map<string, SendError>();
+  let failure: "offline" | "lost response" | number | null = null;
   let held: { arrived: () => void; answered: Promise<void> } | null = null;
   return {
     requests,
     rows,
-    failNext(kind: "offline" | "lost response") {
+    failNext(kind: "offline" | "lost response" | number) {
       failure = kind;
+    },
+    reject(id: string, status: number, code: string) {
+      rejections.set(id, new SendError(status, code, `rejected ${id}`));
     },
     holdNext() {
       let arrived = () => {};
@@ -196,16 +202,19 @@ function fakeServer() {
       const hold = held;
       failure = null;
       held = null;
-      requests.push(entries.map((e) => ("play" in e ? e.play.id : e.download.id)));
+      const ids = entries.map((e) => ("play" in e ? e.play.id : e.download.id));
+      requests.push(ids);
       if (hold) {
         hold.arrived();
         await hold.answered;
       }
       if (kind === "offline") throw new Error("Failed to fetch");
-      for (const e of entries) {
-        const id = "play" in e ? e.play.id : e.download.id;
-        if (!rows.has(id)) rows.set(id, e);
-      }
+      if (typeof kind === "number") throw new SendError(kind, "", `HTTP ${kind}`);
+      const rejected = ids.find((id) => rejections.has(id));
+      if (rejected) throw rejections.get(rejected);
+      entries.forEach((e, i) => {
+        if (!rows.has(ids[i])) rows.set(ids[i], e);
+      });
       if (kind === "lost response") throw new Error("Failed to fetch");
     },
   };
@@ -282,5 +291,77 @@ describe("offline queue", () => {
     await queue.flush("budi");
 
     expect(server.requests).toEqual([["p2"], ["p1"]]);
+  });
+
+  it.each([400, 403])(
+    "sets aside a Play the server rejects for good (%i), with its error code; later Plays sync and it is never sent again",
+    async (status) => {
+      const storage = memoryStorage();
+      const server = fakeServer();
+      server.reject("p1", status, "23514");
+      const queue = createListeningQueue({ storage, send: server.send });
+      queue.enqueue({ userId: "ayu", play: aPlay("p1") });
+      queue.enqueue({ userId: "ayu", play: aPlay("p2") });
+
+      await queue.flush("ayu");
+
+      expect([...server.rows.keys()]).toEqual(["p2"]);
+      expect(queue.rejected()).toEqual([{ entry: { userId: "ayu", play: aPlay("p1") }, status, code: "23514" }]);
+
+      const sentBefore = server.requests.length;
+      const afterReload = createListeningQueue({ storage, send: server.send });
+      afterReload.enqueue({ userId: "ayu", play: aPlay("p3") });
+      await afterReload.flush("ayu");
+      await afterReload.flush("ayu");
+
+      expect(server.requests.slice(sentBefore)).toEqual([["p3"]]);
+      expect([...server.rows.keys()]).toEqual(["p2", "p3"]);
+      expect(afterReload.rejected()).toEqual([
+        { entry: { userId: "ayu", play: aPlay("p1") }, status, code: "23514" },
+      ]);
+    },
+  );
+
+  it.each([0, 401, 408, 429, 500])(
+    "keeps a Play after a failure a retry can fix (%i) and delivers it once on the next flush",
+    async (status) => {
+      const server = fakeServer();
+      const queue = createListeningQueue({ storage: memoryStorage(), send: server.send });
+      queue.enqueue({ userId: "ayu", play: aPlay("p1") });
+
+      server.failNext(status);
+      await queue.flush("ayu");
+      await queue.flush("ayu");
+      await queue.flush("ayu");
+
+      expect(server.requests).toEqual([["p1"], ["p1"]]);
+      expect([...server.rows.keys()]).toEqual(["p1"]);
+      expect(queue.rejected()).toEqual([]);
+    },
+  );
+
+  it("a failure a retry can fix while the rejected Play is being singled out sets nothing aside; the next flush does", async () => {
+    const server = fakeServer();
+    server.reject("p1", 400, "23514");
+    const queue = createListeningQueue({ storage: memoryStorage(), send: server.send });
+    queue.enqueue({ userId: "ayu", play: aPlay("p1") });
+    queue.enqueue({ userId: "ayu", play: aPlay("p2") });
+
+    const rejectedBatch = server.holdNext();
+    const flushing = queue.flush("ayu");
+    await rejectedBatch.request;
+    server.failNext("offline");
+    rejectedBatch.answer();
+    await flushing;
+
+    expect(queue.rejected()).toEqual([]);
+    expect(server.rows.size).toBe(0);
+
+    await queue.flush("ayu");
+    await queue.flush("ayu");
+
+    expect(server.requests).toEqual([["p1", "p2"], ["p1"], ["p1", "p2"], ["p1"], ["p2"]]);
+    expect([...server.rows.keys()]).toEqual(["p2"]);
+    expect(queue.rejected()).toEqual([{ entry: { userId: "ayu", play: aPlay("p1") }, status: 400, code: "23514" }]);
   });
 });

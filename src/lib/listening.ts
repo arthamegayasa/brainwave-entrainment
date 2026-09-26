@@ -1,5 +1,5 @@
 import { supabase } from "./supabase";
-import { createListeningQueue, createPlayRecorder } from "../state/listening";
+import { createListeningQueue, createPlayRecorder, SendError } from "../state/listening";
 import type {
   AudioKind,
   AudioSnapshot,
@@ -58,10 +58,16 @@ function snapshotColumns(audio: AudioSnapshot) {
 /**
  * Insert the entries; a re-sent id conflicts and is ignored, so a retry after
  * a lost response never makes a second row. Throws when the server did not
- * take them (offline, signed out), which keeps them queued.
+ * take them (offline, signed out, rejected), with the HTTP status, so the
+ * queue keeps them or sets aside the ones no retry can fix.
  */
 async function send(entries: PendingEntry[]): Promise<void> {
   if (!supabase) throw new Error("Listening History needs Supabase");
+  // A flush sends one User's entries. Under another User's session the
+  // server would reject them for good (403), though they are fine: keep
+  // them queued until their User is signed in again.
+  const { data } = await supabase.auth.getSession();
+  if (data.session?.user.id !== entries[0]?.userId) throw new Error("Signed in as another User");
   const plays = entries.flatMap((e) =>
     "play" in e
       ? [
@@ -99,10 +105,11 @@ async function send(entries: PendingEntry[]): Promise<void> {
   ];
   for (const [table, rows] of tables) {
     if (rows.length === 0) continue;
-    const { error } = await supabase
+    const { error, status } = await supabase
       .from(table)
       .upsert(rows, { onConflict: "id", ignoreDuplicates: true });
-    if (error) throw error;
+    // A 4xx body that is not PostgREST's JSON (a proxy's page) carries no code.
+    if (error) throw new SendError(status, error.code ?? "", error.message);
   }
 }
 
