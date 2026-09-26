@@ -69,7 +69,7 @@ Koleksi Custom Audio milik satu Clinician.
 Custom Audio yang dipublikasikan Admin untuk semua User.
 
 **Assignment**:
-Keputusan Clinician membuat satu Custom Audio tampil untuk satu Patient.
+Keputusan membuat satu Custom Audio tampil di Library satu User: oleh Clinician untuk Patient-nya sendiri, atau oleh Admin untuk User mana pun.
 
 **Library**:
 Tampilan milik User yang berisi Custom Audio yang di-assign kepadanya, Template, dan sesi Studio yang ia simpan sendiri.
