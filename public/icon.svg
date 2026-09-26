@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="sky" x2="0" y2="1">
+      <stop stop-color="#0d1b2b"/>
+      <stop offset=".63" stop-color="#33515d"/>
+      <stop offset="1" stop-color="#ae897f"/>
+    </linearGradient>
+    <radialGradient id="halo" cx=".58" cy=".43" r=".48">
+      <stop stop-color="#f3c4a5" stop-opacity=".54"/>
+      <stop offset="1" stop-color="#f3c4a5" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="sun" cx=".35" cy=".3" r=".8">
+      <stop stop-color="#fff7e7"/>
+      <stop offset=".7" stop-color="#f4dec5"/>
+      <stop offset="1" stop-color="#e8bca5" stop-opacity=".6"/>
+    </radialGradient>
+    <linearGradient id="water" x2="0" y2="1">
+      <stop stop-color="#718186"/>
+      <stop offset=".38" stop-color="#2c4955"/>
+      <stop offset="1" stop-color="#102533"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#sky)"/>
+  <rect width="512" height="512" fill="url(#halo)"/>
+  <circle cx="300" cy="204" r="83" fill="url(#sun)"/>
+  <path d="M0 335 C93 320 126 277 198 298 S320 345 385 319 S477 306 512 313 L512 512 L0 512Z" fill="#314e58"/>
+  <path d="M0 361 C143 352 301 354 512 358 L512 512 L0 512Z" fill="url(#water)"/>
+  <path d="M0 363 Q256 354 512 364" fill="none" stroke="#f5dcc3" stroke-opacity=".54" stroke-width="3"/>
+  <path d="M185 403 Q294 398 385 403 M219 425 Q300 421 370 425 M164 448 Q290 445 405 448 M210 474 Q319 470 387 474" fill="none" stroke="#f4d6c0" stroke-opacity=".29" stroke-width="3" stroke-linecap="round"/>
+  <path d="M0 399 C77 376 109 361 162 351 C108 378 68 425 0 441Z M512 384 C448 361 408 349 370 346 C423 372 444 417 512 435Z" fill="#122b36"/>
+  <circle cx="114" cy="125" r="2" fill="#e7efec" opacity=".6"/>
+  <circle cx="394" cy="119" r="1.5" fill="#e7efec" opacity=".5"/>
+</svg>

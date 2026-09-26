@@ -4,6 +4,7 @@ import type { SessionApi } from "./useSession";
 import type { SessionVolumes } from "../audio/session";
 import { BAND_COLORS, formatClock } from "./bands";
 import { SessionViz } from "./SessionViz";
+import { SceneArt } from "./SceneArt";
 import { sessionsThisWeek, weeklyStreakDots } from "../state/progress";
 
 const AMBIENTS: (AmbientKind | null)[] = [null, "rain", "ocean", "wind", "brown"];
@@ -39,9 +40,7 @@ export function SessionComplete({ presetName, onDone }: SessionCompleteProps) {
   return (
     <section className="session-complete">
       <div className="complete-card">
-        <span className="complete-emoji" aria-hidden>
-          🌿
-        </span>
+        <SceneArt sceneId="complete" variant="complete" />
         <h2>{presetName} complete</h2>
         <p className="complete-count">Session #{count} this week</p>
         <div className="streak-dots" aria-label="Sessions this week, Monday to Sunday">
@@ -75,6 +74,17 @@ export function Player({ session, onExit }: PlayerProps) {
     progress.remainingSec === null
       ? formatClock(progress.elapsedSec)
       : formatClock(progress.remainingSec);
+  // How far the beat has travelled from its start toward the target, straight
+  // from the engine: the scene deepens while descending presets ease down and
+  // warms while ascending ones lift, and returns as a closing ramp rises back.
+  const journey = Math.min(1, Math.max(0,
+    (progress.currentBeatHz - preset.startHz) / (preset.targetHz - preset.startHz)));
+  const descending = preset.targetHz < preset.startHz;
+  // Only this overlay's opacity changes per tick; the scene below never re-styles.
+  const shadeStyle = {
+    background: descending ? "#040912" : "#ffcf9c",
+    opacity: (journey * (descending ? 0.45 : 0.18)).toFixed(2),
+  };
 
   return (
     <section
@@ -85,11 +95,15 @@ export function Player({ session, onExit }: PlayerProps) {
         {preset.emoji} {preset.name}
       </h2>
 
-      <div className="orb-wrap" aria-hidden>
-        <div className="orb-halo" />
-        <div className="orb" />
-        <div className="orb-ring" />
-        <div className="timer">{timer}</div>
+      <div className="player-stage" data-parallax>
+        <SceneArt sceneId={preset.id} variant="player" />
+        <span className="scene-shade" style={shadeStyle} />
+        <div className="orb-wrap" aria-hidden>
+          <div className="orb-halo" />
+          <div className="orb" />
+          <div className="orb-ring" />
+          <div className="timer">{timer}</div>
+        </div>
       </div>
 
       <div className="phase-label">
