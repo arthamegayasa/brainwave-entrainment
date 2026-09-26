@@ -28,6 +28,7 @@ import type {
   PatientAssignment,
   PatientLink,
 } from "../lib/clinician";
+import { NewPatientForm } from "./NewPatientForm";
 
 /**
  * Clinician Dashboard (D-06): Patients tab (invite codes, linked patients,
@@ -36,8 +37,10 @@ import type {
  * for clinicians/admins; RLS enforces every rule server-side regardless.
  */
 
-/** Soft patient cap — past this, hide the invite button. */
-const PATIENT_CAP = 30;
+/** How a Patient reads in the Dashboard: their name, else their email. */
+function patientName(patient: PatientLink): string {
+  return patient.name ?? patient.email ?? "Unnamed patient";
+}
 
 const BANDS: readonly Band[] = ["delta", "theta", "alpha", "beta", "gamma"];
 
@@ -93,7 +96,11 @@ export function Dashboard() {
         </button>
       </div>
 
-      {tab === "patients" ? <PatientsTab flash={flash} /> : <BankTab flash={flash} />}
+      {tab === "patients" ? (
+        <PatientsTab flash={flash} patientLimit={ent.patientLimit} />
+      ) : (
+        <BankTab flash={flash} />
+      )}
 
       {notice && <div className="notice">{notice}</div>}
     </section>
@@ -102,12 +109,20 @@ export function Dashboard() {
 
 /* ── Patients tab ─────────────────────────────────────────────────────── */
 
-function PatientsTab({ flash }: { flash: (msg: string) => void }) {
+function PatientsTab({
+  flash,
+  patientLimit,
+}: {
+  flash: (msg: string) => void;
+  /** Most Patients this Clinician may have; null means no limit (the Admin). */
+  patientLimit: number | null;
+}) {
   const [patients, setPatients] = useState<PatientLink[]>([]);
   const [codes, setCodes] = useState<Array<{ code: string; expiresAt: string }>>([]);
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [selected, setSelected] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -158,7 +173,7 @@ function PatientsTab({ flash }: { flash: (msg: string) => void }) {
   };
 
   const unlink = async (patient: PatientLink) => {
-    const label = patient.email ?? "this patient";
+    const label = patientName(patient);
     if (
       !window.confirm(
         `Disconnect ${label}? They keep the app, but lose your assigned audio and curation.`,
@@ -176,11 +191,32 @@ function PatientsTab({ flash }: { flash: (msg: string) => void }) {
     }
   };
 
-  const capped = patients.length >= PATIENT_CAP;
+  // create-patient enforces the limit on the server; here it only hides the
+  // buttons. Invite codes never checked it and keep only this client cap.
+  const capped = patientLimit !== null && patients.length >= patientLimit;
   const selectedPatient = patients.find((p) => p.patientId === selected) ?? null;
 
   return (
     <div className="dash-patients">
+      <div className="library-section">
+        <div className="library-section-head">
+          <h2>Add a patient</h2>
+          {!capped && !creating && (
+            <button className="chip" onClick={() => setCreating(true)}>
+              + New patient
+            </button>
+          )}
+        </div>
+        {capped && (
+          <p className="library-note">
+            Patient limit reached ({patientLimit}) — contact us to expand.
+          </p>
+        )}
+        {creating && (
+          <NewPatientForm onCreated={() => void refresh()} onClose={() => setCreating(false)} />
+        )}
+      </div>
+
       <div className="library-section">
         <div className="library-section-head">
           <h2>Invite a patient</h2>
@@ -190,11 +226,7 @@ function PatientsTab({ flash }: { flash: (msg: string) => void }) {
             </button>
           )}
         </div>
-        {capped ? (
-          <p className="library-note">
-            Patient limit reached ({PATIENT_CAP}) — contact us to expand.
-          </p>
-        ) : (
+        {!capped && (
           <p className="library-note">
             Share this code — your patient enters it in their Library.
           </p>
@@ -228,7 +260,7 @@ function PatientsTab({ flash }: { flash: (msg: string) => void }) {
         {error && <p className="library-note">{error}</p>}
         {!error && patients.length === 0 && (
           <p className="library-note">
-            No patients yet — create an invite code above and share it.
+            No patients yet — add one with + New patient, or share an invite code.
           </p>
         )}
         {patients.length > 0 && (
@@ -244,17 +276,16 @@ function PatientsTab({ flash }: { flash: (msg: string) => void }) {
                     setSelected(selected === p.patientId ? null : p.patientId)
                   }
                 >
-                  <span className="library-item-name">
-                    {p.email ?? p.patientId}
-                  </span>
+                  <span className="library-item-name">{patientName(p)}</span>
                   <span className="library-item-tagline">
+                    {p.username && `@${p.username} · `}
                     linked {new Date(p.linkedAt).toLocaleDateString()} ·{" "}
                     {counts[p.patientId] ?? 0} assigned
                   </span>
                 </button>
                 <button
                   className="saved-del"
-                  aria-label={`Disconnect ${p.email ?? "patient"}`}
+                  aria-label={`Disconnect ${patientName(p)}`}
                   onClick={() => void unlink(p)}
                 >
                   ✕
@@ -362,7 +393,7 @@ function PatientDetail({
 
   return (
     <div className="patient-detail">
-      <h3>{patient.email ?? "Patient"}</h3>
+      <h3>{patientName(patient)}</h3>
 
       <div className="detail-block">
         <h4>Built-in sessions</h4>
@@ -739,7 +770,7 @@ function BankCard({
               <option value="all">All patients</option>
               {patients.map((p) => (
                 <option key={p.patientId} value={p.patientId}>
-                  {p.email ?? p.patientId}
+                  {patientName(p)}
                 </option>
               ))}
             </select>

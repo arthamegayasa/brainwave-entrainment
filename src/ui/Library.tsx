@@ -66,7 +66,7 @@ export function Library({ onSignIn, onBeforePlay }: LibraryProps) {
   const [linkBusy, setLinkBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const signedIn = ent.configured && ent.email !== null;
+  const signedIn = ent.signedIn;
 
   // The Account sheet can disconnect the clinician while this view stays
   // mounted underneath it — it dispatches this event so we refetch instead of

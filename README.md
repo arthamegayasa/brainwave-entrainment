@@ -148,7 +148,9 @@ src/
 tests/                   Audio render assertions and state tests
 supabase/
   migrations/            Account, library, role, and clinician data schemas
-  functions/             Transaction creation and payment webhook
+  functions/             Payment and account Edge Functions
+    _shared/             Account rules shared by the app and the functions
+    _server/             Request helpers for the account functions (Deno only)
   tests/database/        pgTAP tests of the database access rules
   config.toml            Local Supabase CLI stack
 docs/
@@ -172,7 +174,7 @@ cp .env.example .env.local
 
 Frontend `VITE_*` values are included in the browser bundle. Server credentials belong in the backend, never in these variables or in Git.
 
-The connected system also needs the schemas in [`supabase/migrations`](supabase/migrations), appropriate roles and access policies, Auth redirect settings, and the two Edge Functions in [`supabase/functions`](supabase/functions). Environment variables alone do not provision these services.
+The connected system also needs the schemas in [`supabase/migrations`](supabase/migrations), appropriate roles and access policies, Auth redirect settings, and the Edge Functions in [`supabase/functions`](supabase/functions): checkout and the payment webhook, plus `create-patient`, `suggest-username` and `resolve-login` for Clinician-created Patient accounts that sign in with a Username and password ([ADR-018](DECISIONS.md)). Environment variables alone do not provision these services. Locally, `npx supabase functions serve` runs them against the local stack.
 
 Read the [payment architecture](docs/payments/PAYMENTS-ARCHITECTURE.md) before changing checkout. The [sandbox notes](docs/payments/SANDBOX-SETUP.md) describe an earlier configured environment; substitute your own project and verify its current settings. They are not evidence of a working payment deployment for a fresh clone. Preset feature gating still needs integration with server entitlements before it can be treated as a production paywall.
 
@@ -224,6 +226,7 @@ Each test file runs in one transaction that ends in `rollback`, so files are ind
 | `tests.assign(audio, user)` | Create the Assignment of that Custom Audio to that User. |
 | `tests.act_as(label)` | Continue as that signed-in User: the `authenticated` role with their JWT claims. |
 | `tests.act_as_anon()` | Continue as a signed-out visitor (`anon`). `reset role` returns to the database owner. |
+| `tests.act_as_service_role()` | Continue as the server functions do (`service_role`). |
 | `tests.user_id(label)` | The User's id, for expected results. An unknown label raises an error. |
 | `tests.custom_audio_id(label)` | The Custom Audio's id, for expected results. An unknown label raises an error. |
 

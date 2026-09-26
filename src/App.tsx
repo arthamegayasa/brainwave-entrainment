@@ -160,8 +160,8 @@ function App() {
           aria-label="Account"
           onClick={() => setAccountOpen((v) => !v)}
         >
-          {ent.email ? (
-            ent.email.charAt(0).toUpperCase()
+          {ent.signedIn && ent.accountName ? (
+            ent.accountName.charAt(0).toUpperCase()
           ) : (
             <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden>
               <circle cx="12" cy="8" r="4" />

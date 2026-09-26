@@ -5,6 +5,7 @@ import type { Band } from "../audio/presets";
 import { sanitizeSession } from "../state/customPresets";
 import { bandForHz } from "../ui/bands";
 import { assignAudio, unassignAudio } from "./audioLibrary";
+import { shownEmail } from "../../supabase/functions/_shared/accountRules.ts";
 
 /**
  * Clinician data layer (quick-260714-a8a): patients, invite codes, Audio Bank,
@@ -33,6 +34,10 @@ export type AudioCategory = (typeof AUDIO_CATEGORIES)[number];
 
 export interface PatientLink {
   patientId: string;
+  /** The Patient's name (profile display name); null for older Links. */
+  name: string | null;
+  username: string | null;
+  /** The email to show; never an internal login email (ADR-018). */
   email: string | null;
   linkedAt: string;
 }
@@ -76,10 +81,11 @@ function coerceCategory(value: string | null | undefined): AudioCategory {
 }
 
 /**
- * Linked patients with their emails. patient_links FKs point at auth.users,
- * NOT profiles, so PostgREST embedded joins are unavailable — two-step fetch:
- * links first (RLS scopes to own rows), then the linked patients' profiles
- * (the profiles policy lets clinicians read exactly those rows).
+ * Linked patients with their names, Usernames and emails. patient_links FKs
+ * point at auth.users, NOT profiles, so PostgREST embedded joins are
+ * unavailable — two-step fetch: links first (RLS scopes to own rows), then
+ * the linked patients' profiles (the profiles policy lets clinicians read
+ * exactly those rows).
  */
 export async function listMyPatients(): Promise<PatientLink[]> {
   const sb = client();
@@ -96,20 +102,33 @@ export async function listMyPatients(): Promise<PatientLink[]> {
   const ids = rows.map((r) => r.patient_id);
   const { data: profiles, error: profErr } = await sb
     .from("profiles")
-    .select("user_id, email")
+    .select("user_id, email, display_name, username, contact_email")
     .in("user_id", ids);
   if (profErr) throw profErr;
-  const emailById = new Map(
-    ((profiles ?? []) as Array<{ user_id: string; email: string | null }>).map(
-      (p) => [p.user_id, p.email],
-    ),
+  const profileById = new Map(
+    (
+      (profiles ?? []) as Array<{
+        user_id: string;
+        email: string | null;
+        display_name: string | null;
+        username: string | null;
+        contact_email: string | null;
+      }>
+    ).map((p) => [p.user_id, p]),
   );
 
-  return rows.map((r) => ({
-    patientId: r.patient_id,
-    email: emailById.get(r.patient_id) ?? null,
-    linkedAt: r.created_at,
-  }));
+  return rows.map((r) => {
+    const profile = profileById.get(r.patient_id);
+    return {
+      patientId: r.patient_id,
+      name: profile?.display_name ?? null,
+      username: profile?.username ?? null,
+      email: profile
+        ? shownEmail({ loginEmail: profile.email, contactEmail: profile.contact_email })
+        : null,
+      linkedAt: r.created_at,
+    };
+  });
 }
 
 /** Create a single-use invite code (DB defaults generate code + 30-day expiry). */

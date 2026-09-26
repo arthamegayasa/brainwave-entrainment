@@ -392,6 +392,18 @@ verify_jwt = true
 [functions.midtrans-webhook]
 verify_jwt = false
 
+# Account functions (#5, ADR-018): creating a Patient and suggesting a Username
+# need a signed-in Clinician or Admin; resolve-login serves the signed-out
+# sign-in form.
+[functions.create-patient]
+verify_jwt = true
+
+[functions.suggest-username]
+verify_jwt = true
+
+[functions.resolve-login]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 54327

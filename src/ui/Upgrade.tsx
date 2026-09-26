@@ -257,7 +257,7 @@ function PlanCheckout({
           {plan === "clinician" ? "Clinician active ✓" : "Premium active ✓"}
         </button>
         <p className="plan-note">
-          Signed in as {ent.email}
+          Signed in as {ent.accountName}
           {ent.entitlement?.currentPeriodEnd
             ? ` · renews ${new Date(ent.entitlement.currentPeriodEnd).toLocaleDateString()}`
             : ""}
@@ -268,7 +268,7 @@ function PlanCheckout({
   }
 
   // Signed out → the Account sheet owns the sign-in form (shared).
-  if (!ent.email) {
+  if (!ent.signedIn) {
     return (
       <>
         <button className="start-btn compact" onClick={onSignIn}>
@@ -327,7 +327,7 @@ function PlanCheckout({
         {busy ? "Starting…" : `Subscribe — ${priceLabel}`}
       </button>
       {msg && <p className="plan-note">{msg}</p>}
-      <p className="plan-note">Signed in as {ent.email}.</p>
+      <p className="plan-note">Signed in as {ent.accountName}.</p>
     </>
   );
 }
