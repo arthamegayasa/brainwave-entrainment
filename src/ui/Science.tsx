@@ -71,14 +71,14 @@ const SECTIONS: Section[] = [
         ref: "Solfeggio (e.g. 528 Hz) — Akimoto et al. (2018), Health (SCIRP)",
         finding:
           "A small study (n=9) reported 528 Hz music lowered cortisol compared to 440 Hz tuning.",
-        note: "The origin of solfeggio is modern folklore (proposed by Joseph Puleo in the 1990s), not ancient tradition. Tiny sample, low-impact journal, not replicated. 'DNA repair' claims are baseless.",
+        note: "The origin of solfeggio is modern folklore (proposed by Joseph Puleo in the 1990s), not ancient tradition. Tiny sample, low-impact journal, not replicated.",
         url: "https://www.scirp.org/journal/paperinformation?paperid=87146",
       },
       {
         ref: "Schumann resonance (7.83 Hz)",
         finding:
           "The Earth-ionosphere electromagnetic resonance is real physics; its correlation with human physiology is very weak.",
-        note: "Claims of 'aligning the brain / healing' are wellness speculation, not this app's mechanism.",
+        note: "Serenade plays 7.83 Hz as the beat rate of the Relaxing session, not the electromagnetic resonance itself.",
         url: "https://en.wikipedia.org/wiki/Schumann_resonances",
       },
     ],

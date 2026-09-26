@@ -277,7 +277,7 @@ function App() {
       </Suspense>
 
       <footer className="foot">
-        A relaxation &amp; meditation tool — not a medical device.{" "}
+        A relaxation &amp; meditation tool.{" "}
         <button className="link-btn" onClick={() => setView("science")}>
           Learn the science
         </button>{" "}
