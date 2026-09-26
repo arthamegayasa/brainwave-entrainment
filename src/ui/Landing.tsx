@@ -98,13 +98,14 @@ export function Landing({ onEnter, onScience }: LandingProps) {
       </section>
 
       <section className="landing-honesty">
-        <h2>Our claims are honest</h2>
+        <h2>Grounded in research</h2>
         <p>
-          Calming music and sound are proven to aid relaxation. Binaural beats
-          show promising results for anxiety in early research — but the
-          "brainwave entrainment" mechanism itself hasn't been consistently
-          proven. We present all of it as it is, with real study citations —
-          including the ones with mixed results.
+          Our audio is grounded in published research on how sound can
+          influence brain activity and well-being. Studies have shown that
+          calming music can support relaxation, while auditory stimulation,
+          including binaural beats, may help reduce anxiety and improve focus.
+          We provide citations to the studies behind our audio so you can
+          explore the evidence yourself.
         </p>
         <button className="pill-btn" onClick={onScience}>
           Read the research summary →
