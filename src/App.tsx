@@ -50,14 +50,16 @@ function App() {
   // path; every other view lives in state.
   const [personalUrl] = useState(() => parsePersonalUrlPath(window.location.pathname));
   const [view, setView] = useState<View>(personalUrl === null ? "landing" : "personal");
-  const [completed, setCompleted] = useState<{ presetName: string } | null>(null);
+  /** The completion card, shown in the view where its Play was chosen until dismissed. */
+  const [completed, setCompleted] = useState<{ name: string; view: "home" | "library" } | null>(
+    null,
+  );
   const [accountOpen, setAccountOpen] = useState(false);
   const viewRef = useRef(view);
   viewRef.current = view;
   const ent = useEntitlement();
   const session = useSession();
   const play = useNowPlaying();
-  const presetPlaying = play?.audio.kind === "preset";
   /** Where ⌄ and Back return: the view the Player was opened from. */
   const playerFrom = useRef<View>("home");
 
@@ -78,17 +80,19 @@ function App() {
     }
   }, [view]);
 
-  // A Preset Play that ends naturally, or is ended from the Player, returns
-  // to Sessions; the completion card shows when it counts as a completed
-  // session. Now Playing has already credited the weekly streak.
+  // A Play that ends naturally, or is ended from the Player, returns to where
+  // it was chosen: Sessions for a Preset, the Library for Custom Audio. The
+  // completion card shows when it counts as a completed session; Now Playing
+  // has already credited the weekly streak.
   useEffect(
     () =>
       subscribeNowPlaying((event) => {
         if (event.type !== "stop" && event.type !== "end") return;
         const { audio, naturalEnd, completedAt } = event.ending;
-        if (audio.kind !== "preset" || (!naturalEnd && viewRef.current !== "player")) return;
-        if (completedAt) setCompleted({ presetName: audio.name });
-        setView("home");
+        if (!naturalEnd && viewRef.current !== "player") return;
+        const chosenIn = audio.kind === "preset" ? "home" : "library";
+        setCompleted(completedAt ? { name: audio.name, view: chosenIn } : null);
+        setView(chosenIn);
       }),
     [],
   );
@@ -110,8 +114,7 @@ function App() {
   };
 
   // The running Play follows the User through the app, except on its own
-  // Player and on Landing. Custom Audio opens its Library until the Player
-  // can show it (#41).
+  // Player and on Landing.
   const miniPlayer = play !== null && view !== "player" && view !== "landing";
 
   // Dashboard + Studio appear in the nav only for clinicians/admins.
@@ -129,7 +132,9 @@ function App() {
   ];
 
   const navCurrent = (id: View): boolean => {
-    if (id === "home") return view === "home" || view === "player" || view === "landing";
+    // The Player belongs to the tab its Play was chosen in.
+    if (view === "player") return id === (play?.audio.kind === "preset" ? "home" : "library");
+    if (id === "home") return view === "home" || view === "landing";
     if (id === "library")
       return (
         view === "library" ||
@@ -140,9 +145,24 @@ function App() {
 
   const goUpgrade = () => setView("upgrade");
 
+  const completionCard = completed && (
+    <SessionComplete
+      name={completed.name}
+      doneLabel={completed.view === "home" ? "Back to sessions" : "Back to Library"}
+      onDone={() => setCompleted(null)}
+    />
+  );
+  const library = (
+    <Library
+      onSignIn={() => setAccountOpen(true)}
+      onBeforePlay={stopPlay}
+      onOpenPlayer={openPlayer}
+    />
+  );
+
   return (
     <div
-      className={`shell${view === "player" && presetPlaying ? " shell-player" : ""}${
+      className={`shell${view === "player" && play !== null ? " shell-player" : ""}${
         miniPlayer ? " shell-mini-player" : ""
       }`}
     >
@@ -186,15 +206,12 @@ function App() {
         <Landing onEnter={() => setView("home")} onScience={() => setView("science")} />
       )}
       {view === "home" &&
-        (completed ? (
-          <SessionComplete
-            presetName={completed.presetName}
-            onDone={() => setCompleted(null)}
-          />
+        (completed?.view === "home" ? (
+          completionCard
         ) : (
           <Home onStart={handleStart} onUpgrade={goUpgrade} />
         ))}
-      {view === "player" && presetPlaying && (
+      {view === "player" && play !== null && (
         <Player session={session} onMinimize={minimizePlayer} />
       )}
       <Suspense fallback={null}>
@@ -205,31 +222,10 @@ function App() {
             onLeave={() => setView("landing")}
           />
         )}
-        {view === "library" && (
-          <Library
-            onSignIn={() => setAccountOpen(true)}
-            onBeforePlay={stopPlay}
-          />
-        )}
+        {view === "library" && (completed?.view === "library" ? completionCard : library)}
         {/* Non-clinicians landing on dashboard/studio get the Library (fallback). */}
-        {view === "dashboard" &&
-          (ent.isClinician ? (
-            <Dashboard />
-          ) : (
-            <Library
-              onSignIn={() => setAccountOpen(true)}
-              onBeforePlay={stopPlay}
-            />
-          ))}
-        {view === "studio" &&
-          (ent.isClinician ? (
-            <Builder onBeforePlay={stopPlay} />
-          ) : (
-            <Library
-              onSignIn={() => setAccountOpen(true)}
-              onBeforePlay={stopPlay}
-            />
-          ))}
+        {view === "dashboard" && (ent.isClinician ? <Dashboard /> : library)}
+        {view === "studio" && (ent.isClinician ? <Builder onBeforePlay={stopPlay} /> : library)}
         {view === "science" && <Science />}
         {view === "privacy" && <Privacy />}
         {view === "upgrade" && (
@@ -265,9 +261,7 @@ function App() {
         </button>
       </footer>
 
-      {miniPlayer && (
-        <MiniPlayer onOpen={presetPlaying ? openPlayer : () => setView("library")} />
-      )}
+      {miniPlayer && <MiniPlayer onOpen={openPlayer} />}
     </div>
   );
 }
