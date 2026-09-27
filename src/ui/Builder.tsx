@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { isEntrainment } from "../audio/builder";
 import type {
   BuilderCurve,
@@ -23,7 +23,12 @@ import {
   setBuilderItem,
   stopBuilderPlayback,
 } from "./builderEngine";
-import { setMediaPresentation } from "./audioContext";
+import {
+  isAudioBlocked,
+  resumeAudio,
+  setMediaPresentation,
+  subscribeAudio,
+} from "./audioContext";
 import { useEntitlement } from "../lib/useEntitlement";
 import { isPaymentsConfigured } from "../lib/supabase";
 import {
@@ -103,6 +108,9 @@ export function Builder({ onBeforePlay }: BuilderProps) {
   const [playing, setPlaying] = useState(
     () => getBuilderItem() === STUDIO_PREVIEW_ID,
   );
+  // A preview is not a Play, so no Mini-player shows it: its own transport
+  // asks for the tap when the device holds the audio (a call, another app).
+  const held = useSyncExternalStore(subscribeAudio, isAudioBlocked);
   const [elapsed, setElapsed] = useState(0);
   const [remaining, setRemaining] = useState<number | null>(null);
   const [name, setName] = useState("My Custom Session");
@@ -233,6 +241,11 @@ export function Builder({ onBeforePlay }: BuilderProps) {
               <span className="transport-time">
                 {remaining === null ? formatClock(elapsed) : formatClock(remaining)}
               </span>
+              {held && (
+                <button className="start-btn compact player-held" onClick={resumeAudio}>
+                  <span aria-hidden>▶ </span>Tap to resume
+                </button>
+              )}
               <button className="pill-btn stop" onClick={handleStop}>
                 ■ Stop
               </button>

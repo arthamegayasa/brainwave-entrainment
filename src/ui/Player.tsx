@@ -8,6 +8,7 @@ import { SessionViz } from "./SessionViz";
 import { SceneArt } from "./SceneArt";
 import { pauseAudio, resumeAudio } from "./audioContext";
 import { stopPlay, useNowPlaying, usePlayProgress } from "./nowPlaying";
+import { useBackLayer } from "./backNavigation";
 import { sessionsThisWeek, weeklyStreakDots } from "../state/progress";
 
 const AMBIENTS: (AmbientKind | null)[] = [null, "rain", "ocean", "wind", "brown"];
@@ -80,13 +81,35 @@ function FrequencyValue({ label, hz }: { label: string; hz: number }) {
   );
 }
 
+interface PlayToggleProps {
+  className: string;
+  /** The User paused the running Play. */
+  paused: boolean;
+  /** The device holds the audio until a tap. */
+  held: boolean;
+}
+
+/** Pause/Play for the running Play in the Player and the Mini-player; it pulses "Tap to resume" while the device holds the audio. */
+export function PlayToggle({ className, paused, held }: PlayToggleProps) {
+  return (
+    <button className={`${className}${held ? " player-held" : ""}`}
+      aria-label={held ? "Tap to resume" : paused ? "Resume Play" : "Pause Play"}
+      onClick={paused || held ? resumeAudio : pauseAudio}>
+      <span aria-hidden>{paused || held ? "▶" : "❚❚"}</span>
+      {held && <small>Tap to resume</small>}
+    </button>
+  );
+}
+
 interface PlayerProps {
   /** The running Preset Play's ambient and mixer. */
   session: SessionApi;
+  /** ⌄: shrink into the Mini-player; the Play keeps playing. */
+  onMinimize: () => void;
 }
 
 /** The running Preset Play, as Now Playing shows it. */
-export function Player({ session }: PlayerProps) {
+export function Player({ session, onMinimize }: PlayerProps) {
   const play = useNowPlaying();
   const progress = usePlayProgress();
   const [sheet, setSheet] = useState<PlayerSheet>(null);
@@ -99,6 +122,8 @@ export function Player({ session }: PlayerProps) {
   const [activity, setActivity] = useState(0);
   const paused = play?.paused ?? false;
   const held = play?.held ?? false;
+  // Back closes the open sheet before it minimizes the Player.
+  useBackLayer(sheet !== null, () => setSheet(null));
 
   useEffect(() => {
     const update = () => setVisible(document.visibilityState === "visible");
@@ -178,7 +203,7 @@ export function Player({ session }: PlayerProps) {
       onKeyDown={reveal}
     >
       <header className="player-header player-fading">
-        <span className="player-minimize" aria-hidden="true">⌄</span>
+        <button className="player-icon player-minimize" aria-label="Minimize Player" onClick={onMinimize}>⌄</button>
         <h2 className="session-name">{audio.emoji} {audio.name}</h2>
         <div className="player-menu-wrap" ref={menuRef}>
           <button className="player-icon" aria-label="More options" aria-expanded={menuOpen}
@@ -222,12 +247,7 @@ export function Player({ session }: PlayerProps) {
 
       <div className="player-controls player-fading">
         <button className="player-icon" aria-label="Ambient" onClick={() => setSheet("ambient")}>♫</button>
-        <button className={`player-play${held ? " player-held" : ""}`}
-          aria-label={held ? "Tap to resume" : paused ? "Resume Play" : "Pause Play"}
-          onClick={paused || held ? resumeAudio : pauseAudio}>
-          <span aria-hidden>{paused || held ? "▶" : "❚❚"}</span>
-          {held && <small>Tap to resume</small>}
-        </button>
+        <PlayToggle className="player-play" paused={paused} held={held} />
         <button className="player-icon" aria-label="Mixer" onClick={() => setSheet("mixer")}>☷</button>
       </div>
       <button className="player-mode player-fading" onClick={() => setSheet("frequencies")}>

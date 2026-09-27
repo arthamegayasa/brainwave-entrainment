@@ -1,5 +1,5 @@
 import { expect } from "@playwright/test";
-import type { Page } from "@playwright/test";
+import type { Locator, Page } from "@playwright/test";
 
 declare global {
   interface Window {
@@ -131,4 +131,34 @@ export async function setUpPreset(page: Page, name: string, length: string): Pro
 export async function endPlay(page: Page): Promise<void> {
   await page.getByRole("button", { name: "More options" }).click();
   await page.getByRole("menuitem", { name: "End session" }).click();
+}
+
+/** A saved Studio session, as an exported .swarasanti.json file. */
+const EVENING_THETA = {
+  version: 1,
+  id: "evening-theta",
+  name: "Evening Theta",
+  curve: { startHz: 10, targetHz: 6, endHz: null, rampInMin: 5, rampOutMin: 0 },
+  layers: [
+    {
+      id: "layer-1",
+      type: "binaural",
+      carrierHz: 200,
+      beatMode: "follow",
+      fixedBeatHz: 6,
+      gain: 0.6,
+    },
+  ],
+  createdAt: "2026-09-20T10:00:00.000Z",
+};
+
+/** Import Evening Theta into the Library and return its row. */
+export async function importSession(page: Page): Promise<Locator> {
+  await page.getByRole("button", { name: "Library", exact: true }).click();
+  await page.locator('input[type="file"]').setInputFiles({
+    name: "evening-theta.swarasanti.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(EVENING_THETA)),
+  });
+  return page.locator(".library-item", { hasText: "Evening Theta" });
 }

@@ -139,7 +139,7 @@ test("keyboard focus reveals dimmed Player controls before activation", async ({
   await page.clock.runFor(6500);
   await expect(page.locator(".player-header")).toHaveCSS("opacity", "0");
   await page.keyboard.press("Tab");
-  await expect(page.getByRole("button", { name: "More options" })).toBeFocused();
+  await expect(page.getByRole("button", { name: "Minimize Player" })).toBeFocused();
   await expect(page.locator(".player-header")).toHaveCSS("opacity", "1");
 });
 

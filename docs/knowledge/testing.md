@@ -11,6 +11,7 @@ Vitest (`tests/`), Playwright (`e2e/`), pgTAP (`supabase/tests/database`), dan s
 
 - **E2E audio di Playwright**: Chromium headless menjalankan AudioContext (bisu). `addInitScript` yang men-subclass `window.AudioContext` merekam instance untuk membaca `state`; interupsi device disimulasikan dengan `ctx.suspend()` + override `ctx.resume` yang reject (browser yang minta gesture), lalu `Reflect.deleteProperty(ctx, "resume")` memulihkan method prototype. Service worker di-block agar cache PWA tidak bocor antar-test.
 - **Waktu dengar di E2E = audio clock**: `page.clock` memalsukan jam dinding dan timer, tapi tidak `AudioContext.currentTime`, sumber semua waktu dengar dan kredit. Untuk "5 menit terdengar" pakai `advanceAudioClock(page, 301)` (offset getter `currentTime` di subclass `recordAudioContexts`); engine juga membaca offset itu, jadi penjadwalan sesudahnya bergeser ke masa depan, cukup untuk menguji UI dan kredit, bukan sampel audio.
+- **Android Back di E2E = `page.goBack()`**: entri `pushState` Player dan sheet ikut dilalui `goBack()`/`goForward()` (navigasi dalam dokumen yang sama). Layer yang ditutup di layar menghapus entrinya lewat `history.go(-n)` yang async: tunggu `waitForFunction(() => history.state === null)` sebelum `goForward()`, kalau tidak Forward bisa jalan sebelum Back-nya selesai.
 
 ## Database (pgTAP & stack lokal)
 

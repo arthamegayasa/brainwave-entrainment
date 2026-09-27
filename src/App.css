@@ -1,9 +1,10 @@
 /* ── Shell ───────────────────────────────────────────────────────────── */
 
 .shell {
+  --shell-pad: clamp(1rem, 3vw, 2.5rem);
   max-width: 1080px;
   margin: 0 auto;
-  padding: clamp(1rem, 3vw, 2.5rem);
+  padding: var(--shell-pad);
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -534,12 +535,6 @@ body:has(.sheet-backdrop) .scene-art * {
   text-align: center;
 }
 
-.player-minimize {
-  font-size: 2rem;
-  text-align: center;
-  color: var(--ink-dim);
-}
-
 .player-menu-wrap { position: relative; }
 .player-icon {
   width: 3rem;
@@ -550,6 +545,7 @@ body:has(.sheet-backdrop) .scene-art * {
   font-size: 1.25rem;
 }
 .player-icon:hover, .player-icon:focus-visible { border-color: var(--accent); }
+.player-minimize { font-size: 1.6rem; line-height: 1; padding-bottom: 0.35rem; color: var(--ink-dim); }
 .player-menu {
   position: absolute;
   right: 0;
@@ -690,6 +686,92 @@ body:has(.sheet-backdrop) .scene-art * {
   text-align: center;
 }
 
+/* ── Mini-player ─────────────────────────────────────────────────────── */
+
+/* Fixed above the safe-area inset; the shell keeps room so it never hides
+   the footer or a view's last row. Sheets (z 40) cover it. */
+:root {
+  --mini-player-clearance: calc(5.5rem + env(safe-area-inset-bottom));
+}
+
+.shell-mini-player {
+  padding-bottom: calc(var(--shell-pad) + var(--mini-player-clearance));
+}
+
+.mini-player {
+  position: fixed;
+  left: 50%;
+  bottom: calc(0.75rem + env(safe-area-inset-bottom));
+  z-index: 30;
+  width: min(560px, calc(100% - 1.5rem));
+  translate: -50% 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.55rem 0.45rem 0.45rem;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: #121624;
+  box-shadow: 0 14px 40px #0009;
+}
+
+.mini-player-open {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  text-align: left;
+  border-radius: 10px;
+}
+
+.mini-player-scene {
+  width: 3rem;
+  height: 3rem;
+  flex: none;
+  object-fit: cover;
+  border-radius: 10px;
+}
+
+.mini-player-text {
+  min-width: 0;
+  display: grid;
+}
+
+.mini-player-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-weight: 600;
+}
+
+.mini-player-status {
+  font-size: 0.8rem;
+  color: var(--ink-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.mini-player-play {
+  min-width: 3rem;
+  height: 3rem;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #08121e;
+  font-weight: 700;
+}
+.mini-player-play.player-held { padding-inline: 1rem; }
+.mini-player-play small { font-size: 0.8rem; white-space: nowrap; }
+
+/* A Dashboard notice rises above the Mini-player instead of hiding behind it. */
+body:has(.mini-player) .dash-notice {
+  bottom: var(--mini-player-clearance);
+}
+
 /* ── Footer ──────────────────────────────────────────────────────────── */
 
 .foot {
@@ -728,8 +810,17 @@ body:has(.sheet-backdrop) .scene-art * {
 
 .builder-transport {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.8rem;
+}
+
+.builder-transport button {
+  white-space: nowrap;
+}
+
+.builder-transport .start-btn.player-held {
+  padding-inline: 1.1rem;
 }
 
 .transport-time {
@@ -1378,25 +1469,6 @@ body:has(.sheet-backdrop) .scene-art * {
   font-size: 0.9rem;
   text-align: center;
   margin-bottom: 1.6rem;
-}
-
-/* The device paused the shared AudioContext mid-playback (call, alarm, lock). */
-.audio-paused {
-  position: sticky;
-  top: 0.75rem;
-  z-index: 30;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.8rem 1.2rem;
-  margin-bottom: 1.4rem;
-  padding: 0.9rem 1.1rem;
-  border: 1px solid color-mix(in srgb, var(--band-alpha) 40%, transparent);
-  border-radius: var(--radius);
-  /* Opaque: it sticks over the player's timer while the page scrolls. */
-  background: color-mix(in srgb, var(--band-alpha) 12%, var(--bg));
-  font-size: 0.9rem;
 }
 
 .plans {

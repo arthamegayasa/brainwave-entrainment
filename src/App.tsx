@@ -3,10 +3,11 @@ import "@fontsource/fraunces/600.css";
 import "@fontsource/albert-sans/400.css";
 import "@fontsource/albert-sans/600.css";
 import "./App.css";
-import { lazy, Suspense, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Landing } from "./ui/Landing";
 import { Home } from "./ui/Home";
 import { Player, SessionComplete } from "./ui/Player";
+import { MiniPlayer } from "./ui/MiniPlayer";
 
 // Dynamic on purpose: views off the pick-a-goal-and-listen path are
 // code-split, so the first load only ships what starting a session needs.
@@ -25,7 +26,7 @@ const AccountSheet = lazy(() =>
 import { useSession } from "./ui/useSession";
 import { stopBuilderPlayback } from "./ui/builderEngine";
 import { stopPlay, subscribeNowPlaying, useNowPlaying } from "./ui/nowPlaying";
-import { isAudioBlocked, resumeAudio, subscribeAudio } from "./ui/audioContext";
+import { useBackLayer } from "./ui/backNavigation";
 import type { SessionConfig } from "./audio/session";
 import { useEntitlement } from "./lib/useEntitlement";
 import { loadProgress } from "./state/progress";
@@ -54,9 +55,11 @@ function App() {
   const viewRef = useRef(view);
   viewRef.current = view;
   const ent = useEntitlement();
-  const audioBlocked = useSyncExternalStore(subscribeAudio, isAudioBlocked);
   const session = useSession();
-  const presetPlaying = useNowPlaying()?.audio.kind === "preset";
+  const play = useNowPlaying();
+  const presetPlaying = play?.audio.kind === "preset";
+  /** Where ⌄ and Back return: the view the Player was opened from. */
+  const playerFrom = useRef<View>("home");
 
   // Journey step 1 (goal gradient): discovering the app counts immediately.
   useEffect(() => {
@@ -90,12 +93,26 @@ function App() {
     [],
   );
 
+  const openPlayer = () => {
+    if (viewRef.current !== "player") playerFrom.current = viewRef.current;
+    setView("player");
+  };
+
+  /** The Player shrinks into the Mini-player; the Play keeps playing. */
+  const minimizePlayer = () => setView(playerFrom.current);
+  useBackLayer(view === "player", minimizePlayer);
+
   const handleStart = (config: SessionConfig) => {
     stopBuilderPlayback(); // one pair of ears: custom audio and Studio previews stop first
     setCompleted(null);
     session.start(config);
-    setView("player");
+    openPlayer();
   };
+
+  // The running Play follows the User through the app, except on its own
+  // Player and on Landing. Custom Audio opens its Library until the Player
+  // can show it (#41).
+  const miniPlayer = play !== null && view !== "player" && view !== "landing";
 
   // Dashboard + Studio appear in the nav only for clinicians/admins.
   const nav: Array<{ id: View; label: string }> = [
@@ -124,7 +141,11 @@ function App() {
   const goUpgrade = () => setView("upgrade");
 
   return (
-    <div className={`shell${view === "player" && presetPlaying ? " shell-player" : ""}`}>
+    <div
+      className={`shell${view === "player" && presetPlaying ? " shell-player" : ""}${
+        miniPlayer ? " shell-mini-player" : ""
+      }`}
+    >
       <header className="topbar">
         <button
           className="brand"
@@ -139,11 +160,7 @@ function App() {
             <button
               key={item.id}
               className={navCurrent(item.id) ? "current" : ""}
-              onClick={() =>
-                setView(
-                  item.id === "home" && presetPlaying ? "player" : item.id,
-                )
-              }
+              onClick={() => setView(item.id)}
             >
               {item.label}
             </button>
@@ -165,18 +182,6 @@ function App() {
         </button>
       </header>
 
-      {audioBlocked && view !== "player" && (
-        <div className="audio-paused" role="alert">
-          <span>
-            Your device paused the audio — a call, alarm, or another app took
-            over. Your session is waiting where it stopped.
-          </span>
-          <button className="start-btn compact" onClick={resumeAudio}>
-            Resume audio
-          </button>
-        </div>
-      )}
-
       {view === "landing" && (
         <Landing onEnter={() => setView("home")} onScience={() => setView("science")} />
       )}
@@ -189,7 +194,9 @@ function App() {
         ) : (
           <Home onStart={handleStart} onUpgrade={goUpgrade} />
         ))}
-      {view === "player" && presetPlaying && <Player session={session} />}
+      {view === "player" && presetPlaying && (
+        <Player session={session} onMinimize={minimizePlayer} />
+      )}
       <Suspense fallback={null}>
         {view === "personal" && personalUrl !== null && (
           <PersonalUrl
@@ -257,6 +264,10 @@ function App() {
           Privacy policy
         </button>
       </footer>
+
+      {miniPlayer && (
+        <MiniPlayer onOpen={presetPlaying ? openPlayer : () => setView("library")} />
+      )}
     </div>
   );
 }
