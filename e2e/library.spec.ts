@@ -3,6 +3,7 @@ import type { Locator, Page } from "@playwright/test";
 import {
   advanceAudioClock,
   audioStates,
+  endPlay,
   openSessions,
   recordAudioContexts,
   setUpPreset,
@@ -58,7 +59,7 @@ async function startPreset(page: Page): Promise<void> {
 async function completePreset(page: Page): Promise<Locator> {
   await startPreset(page);
   await advanceAudioClock(page, 301);
-  await page.getByRole("button", { name: /End Session/ }).click();
+  await endPlay(page);
   return page.getByText(/^Session #\d+ this week$/);
 }
 
@@ -132,6 +133,7 @@ test("a wall-clock jump is not listening: the timer and credit follow the audio 
   // when a frozen page thaws, but the audio clock only moved in real time.
   await page.clock.fastForward("10:00");
   await expect(page.locator(".timer")).toHaveText(/^14:\d\d$/);
-  await page.getByRole("button", { name: /End Session/ }).click();
+  await page.locator(".player-stage").click(); // reveal controls after inactivity
+  await endPlay(page);
   await expect(page.getByRole("heading", { name: /Choose your goal/ })).toBeVisible();
 });

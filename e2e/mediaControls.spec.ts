@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
-import { advanceAudioClock, audioStates, openSessions, recordAudioContexts, setUpPreset } from "./helpers";
+import { advanceAudioClock, audioStates, endPlay, openSessions, recordAudioContexts, setUpPreset } from "./helpers";
 
 type MediaAction = "play" | "pause" | "stop";
 interface RecordedMedia {
@@ -116,7 +116,7 @@ test("device audio-focus loss holds a Play until resumed from Media controls", a
   const held = await page.locator(".timer").textContent();
   await page.waitForTimeout(600);
   await expect(page.locator(".timer")).toHaveText(held ?? "");
-  await expect(page.getByRole("alert")).toContainText("Your device paused the audio");
+  await expect(page.getByRole("button", { name: "Tap to resume" })).toBeVisible();
   await page.evaluate(() => window.__mediaControls.invoke("play"));
   await expect.poll(() => audioStates(page)).toEqual(["running"]);
   await expect(page.locator(".timer")).not.toHaveText(held ?? "");
@@ -145,10 +145,10 @@ test("a rejected media resume keeps the Play held until a User gesture succeeds"
   });
   await expect.poll(() => audioStates(page)).toEqual(["suspended"]);
   await page.evaluate(() => window.__mediaControls.invoke("play"));
-  await expect(page.getByRole("alert")).toContainText("Your device paused the audio");
+  await expect(page.getByRole("button", { name: "Tap to resume" })).toBeVisible();
   await expect.poll(() => audioStates(page)).toEqual(["suspended"]);
   await page.evaluate(() => Reflect.deleteProperty(window.__mediaControls.element!, "play"));
-  await page.getByRole("button", { name: "Resume audio" }).click();
+  await page.getByRole("button", { name: "Tap to resume" }).click();
   await expect.poll(() => audioStates(page)).toEqual(["running"]);
   await expect.poll(() => page.evaluate(() => window.__mediaControls.element?.paused)).toBe(false);
 });
@@ -166,14 +166,14 @@ test("audio-focus loss still holds the next Play after ending a prior Play", asy
   await setUpPreset(page, "Meditating", "15 min");
   await page.getByRole("button", { name: "Start Session" }).click();
   await expect.poll(() => page.evaluate(() => window.__mediaControls.element?.paused)).toBe(false);
-  await page.getByRole("button", { name: /End Session/ }).click();
+  await endPlay(page);
   await setUpPreset(page, "Meditating", "15 min");
   await page.getByRole("button", { name: "Start Session" }).click();
   await expect.poll(() => audioStates(page)).toEqual(["running"]);
   await expect.poll(() => page.evaluate(() => window.__mediaControls.element?.paused)).toBe(false);
   await page.evaluate(() => window.__mediaControls.element?.pause());
   await expect.poll(() => audioStates(page)).toEqual(["suspended"]);
-  await expect(page.getByRole("alert")).toContainText("Your device paused the audio");
+  await expect(page.getByRole("button", { name: "Tap to resume" })).toBeVisible();
 });
 
 test("Studio preview exposes Media controls and pauses from the OS", async ({ page }) => {

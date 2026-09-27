@@ -20,6 +20,13 @@ Gotcha React, CSS, dan PWA di `src/ui/` dan `src/state/`.
 - **Card rows di container query**: `.roster-table td { display: block }` (0,1,1) mengalahkan `.roster-c-plays { display: none }` (0,1,0) di query yang sama — sembunyikan kolom dengan `.roster-table .roster-c-…`. Prototype punya bug yang sama.
 - **Drawer di atas notifikasi**: drawer di-portal ke `#root` (z-index 90 di stacking context `#root`), jadi notifikasi Dashboard (`.dash-notice`, fixed, z 95) tetap terlihat saat drawer terbuka.
 
+## Preset Player
+
+- At widths up to 760 px, `.shell-player` owns one `100dvh` viewport with safe-area padding; only its top navigation and footer disappear. The Scene flexes to the space left after the header, 40 px Beat curve, phase, and transport. Desktop retains the usual shell.
+- The Player's Ambient, Mixer, and frequency details share the existing `.sheet-backdrop`/`.sheet` bottom-sheet pattern. Frequency values read from Now Playing: Headphones left = Carrier, right = Carrier + live Beat; Speaker tone = Carrier, pulse = live Beat. The ⌄ is visual only until Mini-player navigation lands in #40.
+- Keep screen on is opt-in per mounted Player. The Screen Wake Lock is released on User pause, device hold, hidden page, and Player unmount (including End session); a visible playing page requests it again. Browsers without the API show an unavailable message rather than blocking audio.
+- The 6-second controls fade uses wall-clock inactivity only for UI, never for Play duration; the timer remains dimmed. Pausing, a device hold, or keyboard focus restores controls. The ⋯ menu closes on outside tap or after toggling Keep screen on, so it cannot pin the controls awake.
+
 ## Build, PWA & unduhan
 
 - **Code-split**: `React.lazy` untuk export bernama butuh `.then((m) => ({ default: m.X }))`; view di luar jalur pilih-goal-lalu-dengar + encoder lamejs (164.5 kB) dimuat saat dipakai. Chunk utama 554.7 → 338.3 kB (gzip 170 → 98.5). supabase-js masih di chunk utama karena `lib/supabase.ts` membuat client saat module load — memindahkannya butuh API client async di 7 modul `lib/`.

@@ -16,10 +16,11 @@ for (const mode of ["Headphones", "Speaker"] as const) {
     await expect.poll(() => page.evaluate(() => document.querySelector("audio")?.paused)).toBe(false);
     expect(pageErrors).toEqual([]);
     await expect(page.locator(".player")).toBeVisible();
-    await page.locator(".player-panels").getByText("Frequency details").click();
+    await page.getByRole("button", { name: /Frequency details/ }).click();
     await page.waitForTimeout(1800); // full fade-in and at least one complete FFT frame
-    const carrier = Number((await page.locator(".freq-grid .v").nth(1).textContent())?.split(" ")[0]);
-    const beat = Number((await page.locator(".freq-grid .v").first().textContent())?.split(" ")[0]);
+    const values = page.getByRole("dialog", { name: "Frequency details" }).locator(".freq-grid .v");
+    const carrier = Number((await values.first().textContent())?.split(" ")[0]);
+    const beat = Number((await values.nth(mode === "Headphones" ? 2 : 1).textContent())?.split(" ")[0]);
     const target = [carrier, carrier + (mode === "Headphones" ? beat : 0)];
     const measured = await liveFrequencies(page, target);
     for (const channel of [0, 1]) {
