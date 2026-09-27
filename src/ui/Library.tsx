@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { DURATIONS_MIN } from "../audio/presets";
 import type { CustomSession } from "../audio/builder";
 import { listAssignedAudios } from "../lib/audioLibrary";
 import type { CloudAudio } from "../lib/audioLibrary";
@@ -14,6 +13,7 @@ import {
 import type { AudioSnapshot } from "../state/listening";
 import { loadPrefs, savePrefs } from "../state/prefs";
 import { BAND_COLORS, bandForHz } from "./bands";
+import { DurationRow } from "./DurationRow";
 import { startLibraryPlay, stopPlay, useNowPlaying } from "./nowPlaying";
 
 /**
@@ -70,21 +70,7 @@ function DurationSheet({ audio, onClose, onStart }: DurationSheetProps) {
         <div className="sheet-head">
           <h2>{audio.name}</h2>
         </div>
-        <div className="field">
-          <div className="label">Duration</div>
-          <div className="chips">
-            {DURATIONS_MIN.map((d) => (
-              <button
-                key={d ?? "inf"}
-                className={`chip ${durationMin === d ? "selected" : ""}`}
-                aria-pressed={durationMin === d}
-                onClick={() => setDurationMin(d)}
-              >
-                {d === null ? "∞" : `${d} min`}
-              </button>
-            ))}
-          </div>
-        </div>
+        <DurationRow value={durationMin} onChange={setDurationMin} />
         <button className="start-btn" onClick={() => onStart(durationMin)}>
           Start Session
         </button>
