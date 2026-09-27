@@ -16,6 +16,8 @@ import {
   saveCustomSession,
 } from "../state/customPresets";
 import { formatClock } from "./bands";
+import { ScenePicker } from "./ScenePicker";
+import { sceneOf } from "./scenes";
 import {
   ensureBuilder,
   getBuilderEngine,
@@ -85,6 +87,17 @@ const DEFAULT_CURVE: BuilderCurve = {
   rampOutMin: 5,
 };
 
+/** The Studio preview's Media controls: not a Play, shown with the Scene picked now. */
+function previewMedia(sceneId: string | undefined) {
+  return {
+    title: "Studio preview",
+    scene: sceneOf({ sceneId }),
+    durationSec: null,
+    position: () => 0,
+    stop: stopBuilderPlayback,
+  };
+}
+
 const DURATIONS: (number | null)[] = [15, 30, 45, 60, null];
 
 /** Item id the Studio preview claims on the shared engine. */
@@ -114,6 +127,8 @@ export function Builder({ onBeforePlay }: BuilderProps) {
   const [elapsed, setElapsed] = useState(0);
   const [remaining, setRemaining] = useState<number | null>(null);
   const [name, setName] = useState("My Custom Session");
+  /** The Scene the designer picked; none until they pick (the default shows). */
+  const [sceneId, setSceneId] = useState<string | undefined>();
   const [saved, setSaved] = useState<CustomSession[]>(() => listCustomSessions());
   const [notice, setNotice] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -144,19 +159,18 @@ export function Builder({ onBeforePlay }: BuilderProps) {
     e.stop();
     e.start(layers, curve, durationMin);
     setBuilderItem(STUDIO_PREVIEW_ID);
-    setMediaPresentation({
-      title: "Studio preview",
-      scene: "deep-meditation",
-      durationSec: null,
-      position: () => 0,
-      stop: stopBuilderPlayback,
-    });
+    setMediaPresentation(previewMedia(sceneId));
     setPlaying(true);
   };
 
   const handleStop = () => {
     stopBuilderPlayback();
     setPlaying(false);
+  };
+
+  const pickScene = (picked: string | undefined) => {
+    setSceneId(picked);
+    if (getBuilderItem() === STUDIO_PREVIEW_ID) setMediaPresentation(previewMedia(picked));
   };
 
   const patchLayer = (id: string, patch: Partial<BuilderLayerSpec>) => {
@@ -185,6 +199,7 @@ export function Builder({ onBeforePlay }: BuilderProps) {
     name,
     curve,
     layers,
+    sceneId,
     createdAt: new Date().toISOString(),
   });
 
@@ -206,12 +221,17 @@ export function Builder({ onBeforePlay }: BuilderProps) {
     URL.revokeObjectURL(url);
   };
 
+  /** Show a saved or imported session's design in the Studio. */
+  const loadSession = (session: CustomSession) => {
+    setName(session.name);
+    setCurve(session.curve);
+    setLayers(session.layers);
+    setSceneId(session.sceneId);
+  };
+
   const handleImportFile = async (file: File) => {
     try {
-      const imported = importSessionJSON(await file.text());
-      setName(imported.name);
-      setCurve(imported.curve);
-      setLayers(imported.layers);
+      loadSession(importSessionJSON(await file.text()));
       flash("Preset imported ✓");
     } catch (err) {
       flash(err instanceof Error ? err.message : "Import failed");
@@ -219,9 +239,7 @@ export function Builder({ onBeforePlay }: BuilderProps) {
   };
 
   const loadSaved = (session: CustomSession) => {
-    setName(session.name);
-    setCurve(session.curve);
-    setLayers(session.layers);
+    loadSession(session);
     flash("Preset loaded ✓");
   };
 
@@ -290,6 +308,8 @@ export function Builder({ onBeforePlay }: BuilderProps) {
               </button>
             ))}
           </div>
+
+          <ScenePicker value={sceneId} onChange={pickScene} />
 
           <div className="builder-section-title">Save &amp; Share</div>
           <div className="save-row">

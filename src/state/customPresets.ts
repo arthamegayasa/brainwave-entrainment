@@ -1,4 +1,5 @@
 import type { BuilderLayerSpec, CustomSession } from "../audio/builder";
+import { isPickableScene } from "../ui/scenes";
 
 /**
  * Custom preset persistence: localStorage + JSON export/import.
@@ -104,6 +105,9 @@ export function sanitizeSession(value: unknown): CustomSession | null {
       rampOutMin: clamp(Number(curve.rampOutMin), 0, 30),
     },
     layers,
+    // Only a pickable Scene is kept: without one the default shows, and it
+    // stays absent so the spec follows whatever the default becomes.
+    ...(isPickableScene(v.sceneId) && { sceneId: v.sceneId }),
     createdAt:
       typeof v.createdAt === "string" ? v.createdAt : new Date().toISOString(),
   };

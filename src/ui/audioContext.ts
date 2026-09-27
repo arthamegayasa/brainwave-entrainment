@@ -17,6 +17,7 @@
  */
 
 import { createSilentWav } from "../audio/silentWav";
+import { scenePainting } from "./scenes";
 
 /** Who is playing: a preset session or custom (Studio/Library) audio. */
 export type AudioOwner = "session" | "builder";
@@ -175,7 +176,7 @@ export function setMediaPresentation(info: NonNullable<typeof mediaInfo>): void 
     navigator.mediaSession.metadata = new MediaMetadata({
       title: info.title,
       artist: "SwaraSanti",
-      artwork: [{ src: `/scenes/${info.scene}-768.webp`, sizes: "768x512", type: "image/webp" }],
+      artwork: [{ src: scenePainting(info.scene, 768), sizes: "768x512", type: "image/webp" }],
     });
     navigator.mediaSession.setActionHandler("play", resumeAudio);
     navigator.mediaSession.setActionHandler("pause", pauseAudio);

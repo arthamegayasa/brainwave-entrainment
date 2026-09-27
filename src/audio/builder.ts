@@ -43,6 +43,11 @@ export interface CustomSession {
   name: string;
   curve: BuilderCurve;
   layers: BuilderLayerSpec[];
+  /**
+   * The Scene its designer chose (a pickable id, src/ui/scenes.ts); absent
+   * means the default Scene, whichever it is when shown (see sceneOf).
+   */
+  sceneId?: string;
   createdAt: string;
 }
 

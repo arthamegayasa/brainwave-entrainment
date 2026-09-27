@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { sanitizeSession } from "../src/state/customPresets";
+import {
+  exportSessionJSON,
+  importSessionJSON,
+  sanitizeSession,
+} from "../src/state/customPresets";
+import { sceneOf } from "../src/ui/scenes";
 
 /**
  * sanitizeSession is the trust boundary for imported .swarasanti.json files and
@@ -63,5 +68,38 @@ describe("sanitizeSession duplicate layer ids", () => {
   it("leaves already-unique ids untouched", () => {
     const result = sanitizeSession(spec([validLayer("a"), validLayer("b")]));
     expect(result!.layers.map((l) => l.id)).toEqual(["a", "b"]);
+  });
+});
+
+describe("sanitizeSession Scene", () => {
+  /** The Meditating Scene, the default until #45 paints Brainwave Ribbons. */
+  const DEFAULT = "deep-meditation";
+
+  it("keeps a pickable Scene id", () => {
+    const result = sanitizeSession({ ...spec([validLayer("a")]), sceneId: "anxiety-relief" });
+    expect(sceneOf(result!)).toBe("anxiety-relief");
+  });
+
+  it("shows the default Scene for a spec without one, or with an unknown or unpickable one", () => {
+    for (const sceneId of [undefined, null, 7, "", "no-such-scene", "landing", "complete"]) {
+      const result = sanitizeSession({ ...spec([validLayer("a")]), sceneId });
+      expect(sceneOf(result!)).toBe(DEFAULT);
+    }
+  });
+
+  it("keeps the Scene through export and import", () => {
+    const session = sanitizeSession({ ...spec([validLayer("a")]), sceneId: "creativity" })!;
+    expect(sceneOf(importSessionJSON(exportSessionJSON(session)))).toBe("creativity");
+  });
+
+  // Absent means "the default, whichever it is": a spec without a choice must
+  // not come back with today's default written in, or it would never follow
+  // a new default.
+  it("stores no Scene for a spec without a choice, through export and import", () => {
+    for (const sceneId of [undefined, "no-such-scene"]) {
+      const session = sanitizeSession({ ...spec([validLayer("a")]), sceneId })!;
+      const exported = exportSessionJSON(importSessionJSON(exportSessionJSON(session)));
+      expect(JSON.parse(exported)).not.toHaveProperty("sceneId");
+    }
   });
 });

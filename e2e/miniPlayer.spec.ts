@@ -5,6 +5,7 @@ import {
   audioStates,
   importSession,
   openSessions,
+  openStudio,
   playFromLibrary,
   recordAudioContexts,
   setUpPreset,
@@ -183,9 +184,7 @@ test("a device-held Studio preview offers Tap to resume in its transport, withou
 }) => {
   await recordAudioContexts(page);
   await openSessions(page);
-  await page.evaluate(() => localStorage.setItem("serenade.role.override", "clinician"));
-  await page.reload();
-  await page.getByRole("button", { name: "Studio", exact: true }).click();
+  await openStudio(page);
   const transport = page.locator(".builder-transport");
   await transport.getByRole("button", { name: /Play/ }).click();
   await expect.poll(() => audioStates(page)).toEqual(["running"]);

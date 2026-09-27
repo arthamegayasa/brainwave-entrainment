@@ -399,7 +399,10 @@ export async function listEveryBank(): Promise<AudioBank[]> {
   );
 }
 
-/** Update Audio Bank metadata (name / tagline / category / notes). */
+/**
+ * Update Audio Bank metadata (name / tagline / category / notes) and, for
+ * Change Scene, the stored spec carrying the new Scene id.
+ */
 export async function updateAudioMeta(
   id: string,
   patch: {
@@ -407,6 +410,7 @@ export async function updateAudioMeta(
     goalTagline?: string | null;
     category?: AudioCategory;
     notes?: string | null;
+    spec?: CustomSession;
   },
 ): Promise<void> {
   const sb = client();
@@ -415,6 +419,7 @@ export async function updateAudioMeta(
   if (patch.goalTagline !== undefined) update.goal_tagline = patch.goalTagline;
   if (patch.category !== undefined) update.category = patch.category;
   if (patch.notes !== undefined) update.notes = patch.notes;
+  if (patch.spec !== undefined) update.spec = patch.spec;
   const { error } = await sb.from("custom_audios").update(update).eq("id", id);
   if (error) throw error;
 }

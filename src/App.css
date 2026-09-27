@@ -1134,6 +1134,98 @@ body:has(.mini-player) .dash-notice {
   color: #ffb3b3;
 }
 
+/* Scene picker (Studio, Audio Bank edit): painting thumbnails grouped as
+   Nature and Science. The radio covers its whole card, so taps land on it. */
+.scene-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  min-width: 0;
+  margin: 0.6rem 0 0;
+  padding: 0;
+  border: none;
+}
+
+.scene-picker-legend {
+  padding: 0;
+  margin-bottom: 0.8rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+.scene-picker-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.scene-picker-group-name {
+  font-size: 0.8rem;
+  color: var(--ink-dim);
+}
+
+.scene-picker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(6.5rem, 1fr));
+  gap: 0.5rem;
+}
+
+.scene-option {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.3rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg-raised);
+  font-size: 0.8rem;
+  color: var(--ink-dim);
+}
+
+.scene-option input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.scene-option:has(input:checked) {
+  border-color: var(--accent);
+  color: var(--ink);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.scene-option:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.scene-option img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+/* A badge over the default's painting, still part of its radio's name. */
+.scene-option-default {
+  position: absolute;
+  top: 0.6rem;
+  left: 0.6rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: rgba(11, 14, 23, 0.72);
+  color: var(--ink);
+  font-size: 0.68rem;
+}
+
 /* ── Footer link ─────────────────────────────────────────────────────── */
 
 .link-btn {
@@ -2057,6 +2149,14 @@ body:has(.mini-player) .dash-notice {
   border-radius: 12px;
   background: color-mix(in srgb, var(--ink) 4%, transparent);
   border: 1px solid var(--line);
+}
+
+.library-item-scene {
+  width: 2.75rem;
+  height: 2.75rem;
+  flex: none;
+  object-fit: cover;
+  border-radius: 8px;
 }
 
 .library-item-info {
