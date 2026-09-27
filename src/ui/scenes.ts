@@ -102,6 +102,26 @@ export const SCENE_SPECS: Record<string, SceneSpec> = {
     rays: "down", rayTarget: [1120, 560],
     particles: "pollen", particleBox: [260, 470, 1276, 520],
   },
+  "neuron-grove": {
+    ...CARD, tint: "#4d583b", glow: "#ffcf7d", light: [1165, 133, 90], mist: 820,
+    particles: "motes", particleBox: [300, 350, 1000, 500],
+  },
+  "synapse-light": {
+    ...CARD, tint: "#173634", glow: "#fff3b7", light: [784, 333, 60], mist: 700,
+    particles: "motes", particleBox: [420, 120, 760, 480],
+  },
+  "mind-constellation": {
+    ...CARD, tint: "#19323b", glow: "#ffe6bf", light: [636, 238, 50], mist: 760,
+    stars: 690, meteor: true,
+  },
+  "sound-to-mind": {
+    ...CARD, tint: "#3d4539", glow: "#ffcb81", light: [770, 350, 90], mist: 800,
+    rays: "burst", particles: "motes", particleBox: [0, 520, 1536, 400],
+  },
+  "brainwave-ribbons": {
+    ...CARD, tint: "#24414b", glow: "#ffeec9", light: [804, 471, 80], mist: 700,
+    stars: 330, aurora: true,
+  },
 };
 
 /** How the Scene picker groups Scenes: painted places, or calm scientific illustrations. */
@@ -130,14 +150,18 @@ export const PICKABLE_SCENES: readonly PickableScene[] = [
   { id: "deep-ocean", group: "Nature", label: "Deep Ocean" },
   { id: "nebula", group: "Nature", label: "Nebula" },
   { id: "lavender-field", group: "Nature", label: "Lavender Field" },
+  { id: "neuron-grove", group: "Science", label: "Neuron Grove" },
+  { id: "synapse-light", group: "Science", label: "Synapse Light" },
+  { id: "mind-constellation", group: "Science", label: "Mind Constellation" },
+  { id: "sound-to-mind", group: "Science", label: "Sound to Mind" },
+  { id: "brainwave-ribbons", group: "Science", label: "Brainwave Ribbons" },
 ];
 
 /**
- * The Scene of Custom Audio whose designer chose none: for now the Meditating
- * Scene. Specs store no id for it, so changing the default here moves every
- * such Custom Audio along.
+ * The Scene of Custom Audio whose designer chose none. Specs store no id for
+ * it, so changing the default here moves every such Custom Audio along.
  */
-export const DEFAULT_SCENE = "deep-meditation";
+export const DEFAULT_SCENE = "brainwave-ribbons";
 
 export function isPickableScene(id: unknown): id is string {
   return PICKABLE_SCENES.some((scene) => scene.id === id);
