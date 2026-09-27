@@ -43,6 +43,8 @@ const listeners = new Set<() => void>();
 let media: HTMLAudioElement | null = null;
 let silentUrl: string | null = null;
 let mediaHeld = false;
+/** Web Audio was interrupted while the media element was still playing. */
+let contextPausedMedia = false;
 let mediaAttempt = 0;
 let ignoredPauses = 0;
 let mediaInfo: {
@@ -95,11 +97,23 @@ function onMediaPause(): void {
   notify();
 }
 
+function onMediaPlay(): void {
+  if (!mediaHeld || userPaused || owners.size === 0) return;
+  // Some devices restore the element themselves after a call. Restart the
+  // suspended audio clock too; if a gesture is required, the hold returns.
+  mediaHeld = false;
+  startGrace();
+  tryResume();
+  setMediaState();
+  notify();
+}
+
 function ensureMedia(): HTMLAudioElement {
   if (!media) {
     media = document.createElement("audio");
     media.loop = true;
     media.addEventListener("pause", onMediaPause);
+    media.addEventListener("play", onMediaPlay);
     media.style.display = "none";
     document.body.append(media);
   }
@@ -127,12 +141,17 @@ function playMedia(): void {
 function clearMedia(): void {
   mediaInfo = null;
   mediaAttempt++;
+  contextPausedMedia = false;
   if (media) {
-    if (!media.paused) ignoredPauses++;
+    media.removeEventListener("pause", onMediaPause);
+    media.removeEventListener("play", onMediaPlay);
     media.pause();
     media.removeAttribute("src");
     media.load();
+    media.remove();
+    media = null;
   }
+  ignoredPauses = 0;
   if (silentUrl) URL.revokeObjectURL(silentUrl);
   silentUrl = null;
   mediaHeld = false;
@@ -184,9 +203,22 @@ function tryResume(): void {
 }
 
 function onStateChange(): void {
-  if (ctx?.state === "running" && owners.size > 0) ranSincePlay = true;
-  // A paused context while playing: an interruption that just ended can often
-  // be resumed without a gesture, so try at once.
+  if (ctx?.state === "running" && owners.size > 0) {
+    ranSincePlay = true;
+    if (contextPausedMedia && !userPaused && !mediaHeld) {
+      contextPausedMedia = false;
+      playMedia();
+    }
+  } else if (owners.size > 0 && ranSincePlay && !userPaused && !mediaHeld && media && !media.paused) {
+    // A context-only device interruption must not leave the OS element
+    // playing silence while the audible Play is held.
+    contextPausedMedia = true;
+    mediaAttempt++;
+    ignoredPauses++;
+    media.pause();
+  }
+  // Retry the context without a gesture if possible; only its running state
+  // may restart a media element we paused for this interruption.
   if (document.visibilityState === "visible") tryResume();
   notify();
   setMediaState();
@@ -268,6 +300,7 @@ export function releaseAudio(owner: AudioOwner): void {
 export function pauseAudio(): void {
   if (!ctx || owners.size === 0) return;
   userPaused = true;
+  contextPausedMedia = false;
   mediaAttempt++;
   if (media && !media.paused) ignoredPauses++;
   media?.pause();
@@ -280,6 +313,7 @@ export function pauseAudio(): void {
 export function resumeAudio(): void {
   userPaused = false;
   mediaHeld = false;
+  contextPausedMedia = false;
   if (ctx && owners.size > 0) {
     startGrace();
     declarePlaybackSession();
