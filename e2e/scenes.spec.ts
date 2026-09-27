@@ -31,6 +31,19 @@ async function exported(download: Promise<Download>): Promise<Record<string, unk
   return JSON.parse(readFileSync(await (await download).path(), "utf8"));
 }
 
+/** The running Play shows `sceneId` in the Player and Media controls, then in the Mini-player once minimized. */
+async function expectPlayingScene(page: Page, sceneId: string): Promise<void> {
+  await expect(page.locator(".player .scene-art")).toHaveAttribute("data-scene", sceneId);
+  expect(await page.evaluate(() => window.__mediaControls.metadata?.artwork[0]?.src)).toMatch(
+    new RegExp(`/scenes/${sceneId}-768\\.webp$`),
+  );
+  await page.getByRole("button", { name: "Minimize Player" }).click();
+  await expect(page.getByRole("complementary", { name: "Mini-player" }).locator("img")).toHaveAttribute(
+    "src",
+    `/scenes/${sceneId}-768.webp`,
+  );
+}
+
 test("a Scene picked in the Studio shows in the Library, the Player, the Mini-player, and Media controls", async ({
   page,
 }) => {
@@ -55,16 +68,7 @@ test("a Scene picked in the Studio shows in the Library, the Player, the Mini-pl
   await expect(row.locator("img")).toHaveAttribute("src", "/scenes/neuron-grove-768.webp");
 
   await playFromLibrary(page, row, "15 min");
-  await expect(page.locator(".player .scene-art")).toHaveAttribute("data-scene", "neuron-grove");
-  expect(await page.evaluate(() => window.__mediaControls.metadata?.artwork[0]?.src)).toMatch(
-    /\/scenes\/neuron-grove-768\.webp$/,
-  );
-
-  await page.getByRole("button", { name: "Minimize Player" }).click();
-  await expect(page.getByRole("complementary", { name: "Mini-player" }).locator("img")).toHaveAttribute(
-    "src",
-    "/scenes/neuron-grove-768.webp",
-  );
+  await expectPlayingScene(page, "neuron-grove");
 });
 
 test("the Studio stores a Scene only when one is picked, so unpicked audio follows the default", async ({ page }) => {
@@ -109,22 +113,19 @@ test("Custom Audio saved without a Scene, or with an unknown one, shows Brainwav
     (session) => localStorage.setItem("serenade.customSessions.v1", JSON.stringify([session])),
     EVENING_THETA,
   );
-  const unknown = await importSession(page, { ...EVENING_THETA, id: "dawn", name: "Dawn Theta", sceneId: "no-such-scene" });
+  const unknown = await importSession(page, {
+    ...EVENING_THETA,
+    id: "dawn",
+    name: "Dawn Theta",
+    sceneId: "no-such-scene",
+  });
   const saved = libraryRow(page, "Evening Theta");
   for (const row of [saved, unknown]) {
     await expect(row.locator("img")).toHaveAttribute("src", "/scenes/brainwave-ribbons-768.webp");
   }
 
   await playFromLibrary(page, saved, "15 min");
-  await expect(page.locator(".player .scene-art")).toHaveAttribute("data-scene", "brainwave-ribbons");
-  expect(await page.evaluate(() => window.__mediaControls.metadata?.artwork[0]?.src)).toMatch(
-    /\/scenes\/brainwave-ribbons-768\.webp$/,
-  );
-  await page.getByRole("button", { name: "Minimize Player" }).click();
-  await expect(page.getByRole("complementary", { name: "Mini-player" }).locator("img")).toHaveAttribute(
-    "src",
-    "/scenes/brainwave-ribbons-768.webp",
-  );
+  await expectPlayingScene(page, "brainwave-ribbons");
 });
 
 test("a session file keeps its Scene when imported into the Studio", async ({ page }) => {

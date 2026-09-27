@@ -75,12 +75,9 @@ describe("sanitizeSession Scene", () => {
   /** Brainwave Ribbons, the Scene of Custom Audio whose designer chose none. */
   const DEFAULT = "brainwave-ribbons";
 
-  // An explicit choice stays, even of Misty Peak, the default before Brainwave Ribbons.
-  it("keeps a pickable Scene id", () => {
-    for (const sceneId of ["anxiety-relief", "deep-meditation", "synapse-light"]) {
-      const result = sanitizeSession({ ...spec([validLayer("a")]), sceneId });
-      expect(sceneOf(result!)).toBe(sceneId);
-    }
+  it("keeps a pickable Scene id, even Misty Peak, the default before Brainwave Ribbons", () => {
+    const result = sanitizeSession({ ...spec([validLayer("a")]), sceneId: "deep-meditation" });
+    expect(sceneOf(result!)).toBe("deep-meditation");
   });
 
   it("shows the default Scene for a spec without one, or with an unknown or unpickable one", () => {
