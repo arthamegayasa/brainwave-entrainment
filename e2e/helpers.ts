@@ -134,7 +134,7 @@ export async function endPlay(page: Page): Promise<void> {
 }
 
 /** A saved Studio session, as an exported .swarasanti.json file. */
-const EVENING_THETA = {
+export const EVENING_THETA = {
   version: 1,
   id: "evening-theta",
   name: "Evening Theta",
@@ -152,13 +152,41 @@ const EVENING_THETA = {
   createdAt: "2026-09-20T10:00:00.000Z",
 };
 
-/** Import Evening Theta into the Library and return its row. */
-export async function importSession(page: Page): Promise<Locator> {
+/** Import a saved Studio session (Evening Theta by default) into the Library and return its row. */
+export async function importSession(
+  page: Page,
+  session: { id: string; name: string; [field: string]: unknown } = EVENING_THETA,
+): Promise<Locator> {
   await page.getByRole("button", { name: "Library", exact: true }).click();
   await page.locator('input[type="file"]').setInputFiles({
-    name: "evening-theta.swarasanti.json",
+    name: `${session.id}.swarasanti.json`,
     mimeType: "application/json",
-    buffer: Buffer.from(JSON.stringify(EVENING_THETA)),
+    buffer: Buffer.from(JSON.stringify(session)),
   });
-  return page.locator(".library-item", { hasText: "Evening Theta" });
+  return page.locator(".library-item", { hasText: session.name });
+}
+
+/**
+ * Play a Library row through its duration sheet, choosing `length` ("15 min"
+ * … "∞"); the Player opens.
+ */
+export async function playFromLibrary(page: Page, row: Locator, length: string): Promise<void> {
+  await row.getByRole("button", { name: "Play", exact: true }).click();
+  const sheet = page.getByRole("dialog");
+  await sheet.getByRole("button", { name: length, exact: true }).click();
+  await sheet.getByRole("button", { name: "Start Session" }).click();
+  await expect(page.locator(".player")).toBeVisible();
+}
+
+/** A value in the Player's frequency details, by its label ("Left · Carrier", "Beat", …). */
+export function frequencyValue(scope: Locator, label: string): Locator {
+  return scope
+    .locator(".freq-item")
+    .filter({ has: scope.page().getByText(label, { exact: true }) })
+    .locator(".v");
+}
+
+/** The Hz a frequency-details value shows. */
+export async function shownHz(value: Locator): Promise<number> {
+  return Number((await value.textContent())?.split(" ")[0]);
 }

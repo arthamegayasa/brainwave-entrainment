@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { SOUND_LABELS } from "../audio/constants";
 import type { AmbientKind } from "../audio/types";
+import type { EntrainmentLayerType } from "../audio/builder";
 import type { SessionApi } from "./useSession";
 import type { SessionVolumes } from "../audio/session";
 import { BAND_COLORS, formatClock } from "./bands";
@@ -29,7 +30,10 @@ const MIXER_CHANNELS: Array<{ key: keyof SessionVolumes; label: string }> = [
 const DAY_LABELS = ["M", "T", "W", "T", "F", "S", "S"];
 
 interface SessionCompleteProps {
-  presetName: string;
+  /** The completed Preset or Custom Audio. */
+  name: string;
+  /** The button back to where the Play was chosen. */
+  doneLabel: string;
   onDone: () => void;
 }
 
@@ -37,7 +41,7 @@ interface SessionCompleteProps {
  * Post-session completion card (goal gradient + loss aversion): weekly
  * session count, Mon-Sun streak dots, and the come-back-tomorrow nudge.
  */
-export function SessionComplete({ presetName, onDone }: SessionCompleteProps) {
+export function SessionComplete({ name, doneLabel, onDone }: SessionCompleteProps) {
   const count = sessionsThisWeek();
   const dots = weeklyStreakDots();
 
@@ -45,7 +49,7 @@ export function SessionComplete({ presetName, onDone }: SessionCompleteProps) {
     <section className="session-complete">
       <div className="complete-card">
         <SceneArt sceneId="complete" variant="complete" />
-        <h2>{presetName} complete</h2>
+        <h2>{name} complete</h2>
         <p className="complete-count">Session #{count} this week</p>
         <div className="streak-dots" aria-label="Sessions this week, Monday to Sunday">
           {dots.map((filled, i) => (
@@ -57,7 +61,7 @@ export function SessionComplete({ presetName, onDone }: SessionCompleteProps) {
         </div>
         <p className="complete-note">Come back tomorrow to keep your streak.</p>
         <button className="start-btn compact" onClick={onDone}>
-          Back to sessions
+          {doneLabel}
         </button>
       </div>
     </section>
@@ -78,6 +82,34 @@ function FrequencyValue({ label, hz }: { label: string; hz: number }) {
       <div className="k">{label}</div>
       <div className="v">{hz.toFixed(2)} Hz</div>
     </div>
+  );
+}
+
+interface BeatValuesProps {
+  /** How the Beat reaches the ears: a Preset's Headphones mode is binaural, its Speaker mode isochronic. */
+  type: EntrainmentLayerType;
+  carrierHz: number;
+  beatHz: number;
+}
+
+/** The frequencies actually sounding for a Beat on a Carrier: per ear, per tone, or tone and pulse. */
+function BeatValues({ type, carrierHz, beatHz }: BeatValuesProps) {
+  if (type === "isochronic") {
+    return (
+      <>
+        <FrequencyValue label="Tone · Carrier" hz={carrierHz} />
+        <FrequencyValue label="Pulse · Beat" hz={beatHz} />
+      </>
+    );
+  }
+  // Binaural splits the two tones between the ears; monaural sums them in both.
+  const [first, second] = type === "binaural" ? ["Left", "Right"] : ["Tone 1", "Tone 2"];
+  return (
+    <>
+      <FrequencyValue label={`${first} · Carrier`} hz={carrierHz} />
+      <FrequencyValue label={`${second} · Carrier + Beat`} hz={carrierHz + beatHz} />
+      <FrequencyValue label="Beat" hz={beatHz} />
+    </>
   );
 }
 
@@ -102,13 +134,13 @@ export function PlayToggle({ className, paused, held }: PlayToggleProps) {
 }
 
 interface PlayerProps {
-  /** The running Preset Play's ambient and mixer. */
+  /** A running Preset Play's ambient and mixer; Custom Audio has neither. */
   session: SessionApi;
   /** ⌄: shrink into the Mini-player; the Play keeps playing. */
   onMinimize: () => void;
 }
 
-/** The running Preset Play, as Now Playing shows it. */
+/** The running Play, Preset or Custom Audio, as Now Playing shows it. */
 export function Player({ session, onMinimize }: PlayerProps) {
   const play = useNowPlaying();
   const progress = usePlayProgress();
@@ -170,9 +202,15 @@ export function Player({ session, onMinimize }: PlayerProps) {
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [sheet, menuOpen]);
 
-  if (!play || !progress || !("mode" in play.frequencies)) return null;
+  if (!play || !progress) return null;
   const { audio, frequencies, schedule } = play;
   const { ambient, volumes } = session;
+  // Studio-designed audio (Custom Audio, or a saved session) has its ambient
+  // and mix fixed by its designer, and one Carrier per entrainment layer.
+  const custom = "layers" in frequencies;
+  const binaural = custom
+    ? frequencies.layers.some((layer) => layer.type === "binaural")
+    : frequencies.mode === "headphone";
   const reveal = () => {
     setControlsVisible(true);
     setActivity((n) => n + 1);
@@ -204,7 +242,7 @@ export function Player({ session, onMinimize }: PlayerProps) {
     >
       <header className="player-header player-fading">
         <button className="player-icon player-minimize" aria-label="Minimize Player" onClick={onMinimize}>⌄</button>
-        <h2 className="session-name">{audio.emoji} {audio.name}</h2>
+        <h2 className="session-name">{audio.emoji ? `${audio.emoji} ${audio.name}` : audio.name}</h2>
         <div className="player-menu-wrap" ref={menuRef}>
           <button className="player-icon" aria-label="More options" aria-expanded={menuOpen}
             onClick={() => setMenuOpen((open) => !open)}>⋯</button>
@@ -246,12 +284,12 @@ export function Player({ session, onMinimize }: PlayerProps) {
       </div>
 
       <div className="player-controls player-fading">
-        <button className="player-icon" aria-label="Ambient" onClick={() => setSheet("ambient")}>♫</button>
+        {!custom && <button className="player-icon" aria-label="Ambient" onClick={() => setSheet("ambient")}>♫</button>}
         <PlayToggle className="player-play" paused={paused} held={held} />
-        <button className="player-icon" aria-label="Mixer" onClick={() => setSheet("mixer")}>☷</button>
+        {!custom && <button className="player-icon" aria-label="Mixer" onClick={() => setSheet("mixer")}>☷</button>}
       </div>
       <button className="player-mode player-fading" onClick={() => setSheet("frequencies")}>
-        {frequencies.mode === "headphone" ? "🎧 Headphones" : "◉ Speaker"}
+        {binaural ? "🎧 Headphones" : "◉ Speaker"}
         <span> · Frequency details</span>
       </button>
 
@@ -286,22 +324,33 @@ export function Player({ session, onMinimize }: PlayerProps) {
             ))}
             {sheet === "frequencies" && (
               <>
-                <div className="freq-grid">
-                  {frequencies.mode === "headphone" ? (
-                    <>
-                      <FrequencyValue label="Left · Carrier" hz={frequencies.carrierHz} />
-                      <FrequencyValue label="Right · Carrier + Beat" hz={frequencies.carrierHz + progress.beatHz} />
-                      <FrequencyValue label="Beat" hz={progress.beatHz} />
-                    </>
-                  ) : (
-                    <>
-                      <FrequencyValue label="Tone · Carrier" hz={frequencies.carrierHz} />
-                      <FrequencyValue label="Pulse · Beat" hz={progress.beatHz} />
-                    </>
-                  )}
-                </div>
-                {frequencies.mode === "headphone" && (
-                  <p className="headphone-note">🎧 Use headphones — the binaural effect needs both ears</p>
+                {custom ? (
+                  frequencies.layers.map((layer, index) => {
+                    const sameType = frequencies.layers.filter((other) => other.type === layer.type);
+                    const label = sameType.length > 1
+                      ? `${SOUND_LABELS[layer.type]} ${sameType.indexOf(layer) + 1}`
+                      : SOUND_LABELS[layer.type];
+                    return (
+                      <div className="freq-layer" role="group" aria-label={label} key={index}>
+                        <h3>{label}</h3>
+                        <div className="freq-grid">
+                          <BeatValues type={layer.type} carrierHz={layer.carrierHz}
+                            beatHz={layer.fixedBeatHz ?? progress.beatHz} />
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="freq-grid">
+                    <BeatValues type={frequencies.mode === "headphone" ? "binaural" : "isochronic"}
+                      carrierHz={frequencies.carrierHz} beatHz={progress.beatHz} />
+                  </div>
+                )}
+                {custom && frequencies.layers.length === 0 && (
+                  <p className="freq-note">This audio has no entrainment layers.</p>
+                )}
+                {binaural && (
+                  <p className="freq-note">🎧 Use headphones — the binaural effect needs both ears</p>
                 )}
               </>
             )}

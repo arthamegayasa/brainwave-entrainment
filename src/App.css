@@ -680,7 +680,16 @@ body:has(.sheet-backdrop) .scene-art * {
   font-variant-numeric: tabular-nums;
 }
 
-.headphone-note {
+.freq-layer { display: grid; gap: 0.5rem; }
+.freq-layer h3 {
+  margin: 0;
+  font-size: 0.8rem;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+.freq-note {
   font-size: 0.8rem;
   color: var(--ink-faint);
   text-align: center;
@@ -1976,10 +1985,8 @@ body:has(.mini-player) .dash-notice {
   color: var(--ink-faint);
 }
 
-.library-transport {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+.library-playing {
+  white-space: nowrap;
 }
 
 /* Studio publish panel (admin) */

@@ -1,5 +1,16 @@
 import { expect, test } from "@playwright/test";
-import { audioStates, liveFrequencies, openSessions, recordAudioContexts, recordLiveOutput, setUpPreset } from "./helpers";
+import {
+  audioStates,
+  frequencyValue,
+  importSession,
+  liveFrequencies,
+  openSessions,
+  playFromLibrary,
+  recordAudioContexts,
+  recordLiveOutput,
+  setUpPreset,
+  shownHz,
+} from "./helpers";
 
 for (const mode of ["Headphones", "Speaker"] as const) {
   test(`Media controls leave the Preset's ${mode} live Carrier frequency accurate per channel`, async ({ page }) => {
@@ -31,37 +42,43 @@ for (const mode of ["Headphones", "Speaker"] as const) {
   });
 }
 
-test("Media controls preserve a single-layer Custom Audio's live left and right frequencies", async ({ page }) => {
+test("a single-layer saved Studio session plays from the Library through the duration sheet into the Player, its live output matching the displayed frequencies", async ({
+  page,
+}) => {
   await recordAudioContexts(page);
   await recordLiveOutput(page);
   await openSessions(page);
-  await page.getByRole("button", { name: "Library", exact: true }).click();
-  await page.locator('input[type="file"]').setInputFiles({
-    name: "single-layer.swarasanti.json",
-    mimeType: "application/json",
-    buffer: Buffer.from(JSON.stringify({
-      version: 1,
-      id: "single-layer",
-      name: "Single Layer",
-      curve: { startHz: 10, targetHz: 10, endHz: null, rampInMin: 5, rampOutMin: 0 },
-      layers: [{
-        id: "binaural",
-        type: "binaural",
-        carrierHz: 200,
-        beatMode: "fixed",
-        fixedBeatHz: 10,
-        gain: 0.7,
-      }],
-      createdAt: "2026-09-20T10:00:00.000Z",
-    })),
+  const row = await importSession(page, {
+    version: 1,
+    id: "single-layer",
+    name: "Single Layer",
+    curve: { startHz: 10, targetHz: 10, endHz: null, rampInMin: 5, rampOutMin: 0 },
+    layers: [{
+      id: "binaural",
+      type: "binaural",
+      carrierHz: 200,
+      beatMode: "fixed",
+      fixedBeatHz: 10,
+      gain: 0.7,
+    }],
+    createdAt: "2026-09-20T10:00:00.000Z",
   });
-  await page.locator(".library-item", { hasText: "Single Layer" })
-    .getByRole("button", { name: /Play/ }).click();
+  await playFromLibrary(page, row, "15 min");
   await expect.poll(() => audioStates(page)).toEqual(["running"]);
   await expect.poll(() => page.evaluate(() => document.querySelector("audio")?.paused)).toBe(false);
   expect(await page.evaluate(() => navigator.mediaSession.metadata?.title)).toBe("Single Layer");
+
+  await page.getByRole("button", { name: /Frequency details/ }).click();
+  const details = page.getByRole("dialog", { name: "Frequency details" });
+  const target = [
+    await shownHz(frequencyValue(details, "Left · Carrier")),
+    await shownHz(frequencyValue(details, "Right · Carrier + Beat")),
+  ];
+  expect(target).toEqual([200, 210]); // the layer's Carrier, and Carrier + its fixed Beat
   await page.waitForTimeout(1800); // observe a full FFT window after fade-in
-  const measured = await liveFrequencies(page, [200, 210]);
-  expect(Math.abs(measured[0] - 200), `Custom Audio left Carrier: ${measured[0]} Hz`).toBeLessThanOrEqual(0.1);
-  expect(Math.abs(measured[1] - 210), `Custom Audio right Carrier + Beat: ${measured[1]} Hz`).toBeLessThanOrEqual(0.1);
+  const measured = await liveFrequencies(page, target);
+  for (const channel of [0, 1]) {
+    expect(Math.abs(measured[channel] - target[channel]), `channel ${channel} measured ${measured[channel]} Hz, displayed ${target[channel]} Hz`)
+      .toBeLessThanOrEqual(0.1);
+  }
 });

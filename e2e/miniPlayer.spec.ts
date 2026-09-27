@@ -5,6 +5,7 @@ import {
   audioStates,
   importSession,
   openSessions,
+  playFromLibrary,
   recordAudioContexts,
   setUpPreset,
 } from "./helpers";
@@ -161,19 +162,20 @@ test("Back keeps working after Forward or a reload lands on a closed layer's ent
   await expect(mini).toBeVisible();
 });
 
-test("a Custom Audio Play shows in the Mini-player, which opens its Library row", async ({ page }) => {
+test("a saved Studio session's Play shows in the Mini-player, which opens its Player", async ({ page }) => {
   await recordAudioContexts(page);
   await openSessions(page);
   const row = await importSession(page);
-  await row.getByRole("button", { name: /Play/ }).click();
-  await expect.poll(() => audioStates(page)).toEqual(["running"]);
+  await playFromLibrary(page, row, "15 min");
+  await page.getByRole("button", { name: "Minimize Player" }).click();
   await page.getByRole("button", { name: "Science", exact: true }).click();
   const mini = miniPlayer(page);
   await expect(mini).toContainText("Evening Theta");
 
   await mini.getByRole("button", { name: "Open Evening Theta" }).click();
-  await expect(page.getByRole("heading", { name: "Library" })).toBeVisible();
-  await expect(row.getByRole("button", { name: /Stop/ })).toBeVisible();
+  await expect(page.locator(".player").getByRole("heading", { name: "Evening Theta" })).toBeVisible();
+  await expect(mini).toHaveCount(0);
+  expect(await audioStates(page)).toEqual(["running"]);
 });
 
 test("a device-held Studio preview offers Tap to resume in its transport, without a Mini-player", async ({

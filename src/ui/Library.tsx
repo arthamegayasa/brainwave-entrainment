@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { DURATIONS_MIN } from "../audio/presets";
 import type { CustomSession } from "../audio/builder";
 import { listAssignedAudios } from "../lib/audioLibrary";
 import type { CloudAudio } from "../lib/audioLibrary";
@@ -10,17 +11,18 @@ import {
   listCustomSessions,
   saveCustomSession,
 } from "../state/customPresets";
-import type { AudioKind } from "../state/listening";
-import { loadPrefs } from "../state/prefs";
-import { bandForHz, formatClock } from "./bands";
-import { startLibraryPlay, stopPlay, useNowPlaying, usePlayProgress } from "./nowPlaying";
+import type { AudioSnapshot } from "../state/listening";
+import { loadPrefs, savePrefs } from "../state/prefs";
+import { BAND_COLORS, bandForHz } from "./bands";
+import { startLibraryPlay, stopPlay, useNowPlaying } from "./nowPlaying";
 
 /**
  * Library: the user-facing home for custom audio — cloud sessions
  * crafted by the SwaraSanti team ("Made for you" + templates) and locally saved
- * Studio sessions with JSON import/export. Playback goes through the SAME
- * shared BuilderEngine the Studio uses, so one custom session plays at a time.
- * Fully standalone without Supabase: the cloud section hides entirely.
+ * Studio sessions with JSON import/export. Play asks only for the length, then
+ * the Player shows the Play; it goes through the SAME shared BuilderEngine the
+ * Studio uses, so one custom session plays at a time. Fully standalone without
+ * Supabase: the cloud section hides entirely.
  */
 
 interface LibraryProps {
@@ -28,28 +30,83 @@ interface LibraryProps {
   onSignIn: () => void;
   /** Called before custom audio starts — the running Play stops first. */
   onBeforePlay: () => void;
+  /** Shows the running Play in the Player. */
+  onOpenPlayer: () => void;
 }
 
-/** The running Play's time left (or heard, when open-ended), repainted while it runs. */
-function PlayTime() {
-  const progress = usePlayProgress();
-  if (!progress) return null;
+interface DurationSheetProps {
+  audio: AudioSnapshot;
+  onClose: () => void;
+  /** Starts the Play for `durationMin` (null = ∞); called inside the Start tap. */
+  onStart: (durationMin: number | null) => void;
+}
+
+/**
+ * The setup of a Custom Audio or saved Studio session: only its length. Its
+ * designer fixed everything else in the Studio (layers, ambient, mix), so
+ * there is nothing more to choose. Defaults to the last length the User
+ * picked, Preset or not.
+ */
+function DurationSheet({ audio, onClose, onStart }: DurationSheetProps) {
+  const [durationMin, setDurationMin] = useState<number | null>(() => {
+    const last = loadPrefs().lastDurationMin;
+    return last === "inf" ? null : last ?? 30;
+  });
+
   return (
-    <span className="transport-time">
-      {formatClock(progress.remainingSec ?? progress.elapsedSec)}
-    </span>
+    <div
+      className="sheet-backdrop"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        className="sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Set up ${audio.name}`}
+        style={{ "--accent": audio.band ? BAND_COLORS[audio.band] : undefined } as React.CSSProperties}
+      >
+        <div className="sheet-head">
+          <h2>{audio.name}</h2>
+        </div>
+        <div className="field">
+          <div className="label">Duration</div>
+          <div className="chips">
+            {DURATIONS_MIN.map((d) => (
+              <button
+                key={d ?? "inf"}
+                className={`chip ${durationMin === d ? "selected" : ""}`}
+                aria-pressed={durationMin === d}
+                onClick={() => setDurationMin(d)}
+              >
+                {d === null ? "∞" : `${d} min`}
+              </button>
+            ))}
+          </div>
+        </div>
+        <button className="start-btn" onClick={() => onStart(durationMin)}>
+          Start Session
+        </button>
+        <button className="close-btn" onClick={onClose}>
+          Cancel
+        </button>
+      </div>
+    </div>
   );
 }
 
-export function Library({ onSignIn, onBeforePlay }: LibraryProps) {
+export function Library({ onSignIn, onBeforePlay, onOpenPlayer }: LibraryProps) {
   const ent = useEntitlement();
   const [cloud, setCloud] = useState<CloudAudio[]>([]);
   const [cloudError, setCloudError] = useState<string | null>(null);
   const [saved, setSaved] = useState<CustomSession[]>(() => listCustomSessions());
-  // Now Playing outlives this view, so a remount (nav away and back) shows the
-  // Stop control for audio that is still playing.
+  // Now Playing outlives this view, so a remount (nav away and back) still
+  // marks the row of audio that is playing.
   const play = useNowPlaying();
   const playingId = play && play.audio.kind !== "preset" ? play.audio.id : null;
+  /** The item whose duration sheet is open. */
+  const [setup, setSetup] = useState<{ audio: AudioSnapshot; spec: CustomSession } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -85,17 +142,14 @@ export function Library({ onSignIn, onBeforePlay }: LibraryProps) {
     window.setTimeout(() => setNotice(null), 2600);
   };
 
-  /** Play `spec` as `kind` (cloud Custom Audio or a saved session) under the list's id and name. */
-  const playItem = (kind: AudioKind, id: string, name: string, spec: CustomSession) => {
+  /** Start the set-up item as the running Play, inside the Start tap, and show it in the Player. */
+  const startSetUp = (durationMin: number | null) => {
+    if (!setup) return;
     onBeforePlay(); // one pair of ears: the running Play stops first
-    const prefs = loadPrefs();
-    const durationMin =
-      prefs.lastDurationMin === "inf" ? null : prefs.lastDurationMin ?? 30;
-    startLibraryPlay(
-      { kind, id, name, emoji: null, band: bandForHz(spec.curve.targetHz) },
-      spec,
-      durationMin,
-    );
+    startLibraryPlay(setup.audio, setup.spec, durationMin);
+    savePrefs({ lastDurationMin: durationMin ?? "inf" });
+    setSetup(null);
+    onOpenPlayer();
   };
 
   const handleExport = (session: CustomSession) => {
@@ -127,25 +181,33 @@ export function Library({ onSignIn, onBeforePlay }: LibraryProps) {
     setSaved(listCustomSessions());
   };
 
-  // Resolve a play target from either list by id (cloud first, then saved).
-  const playFrom = (id: string) => {
+  // Set up an item of either list by id (cloud Custom Audio first, then saved sessions).
+  const setUpItem = (id: string) => {
     const cloudHit = cloud.find((a) => a.id === id);
-    if (cloudHit) return playItem("custom", id, cloudHit.name, cloudHit.spec);
-    const savedHit = saved.find((s) => s.id === id);
-    if (savedHit) return playItem("saved", id, savedHit.name, savedHit);
+    const spec = cloudHit?.spec ?? saved.find((s) => s.id === id);
+    if (!spec) return;
+    setSetup({
+      audio: {
+        kind: cloudHit ? "custom" : "saved",
+        id,
+        name: cloudHit?.name ?? spec.name,
+        emoji: null,
+        band: bandForHz(spec.curve.targetHz),
+      },
+      spec,
+    });
   };
 
+  // The playing row never restarts its Play: it opens the Player instead. Its
+  // time left is in the Mini-player, so the name keeps its room on a phone.
   const transport = (id: string) =>
     playingId === id ? (
-      <span className="library-transport">
-        <PlayTime />
-        <button className="pill-btn stop" onClick={stopPlay}>
-          ■ Stop
-        </button>
-      </span>
+      <button className="chip selected library-playing" aria-label="Playing: open the Player" onClick={onOpenPlayer}>
+        Playing
+      </button>
     ) : (
-      <button className="chip" onClick={() => playFrom(id)}>
-        ▶ Play
+      <button className="chip" onClick={() => setUpItem(id)}>
+        <span aria-hidden>▶</span> Play
       </button>
     );
 
@@ -275,6 +337,9 @@ export function Library({ onSignIn, onBeforePlay }: LibraryProps) {
       </div>
 
       {notice && <div className="notice">{notice}</div>}
+      {setup && (
+        <DurationSheet audio={setup.audio} onClose={() => setSetup(null)} onStart={startSetUp} />
+      )}
     </section>
   );
 }
