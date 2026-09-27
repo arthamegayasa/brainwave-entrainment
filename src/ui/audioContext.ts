@@ -62,6 +62,21 @@ function onStateChange(): void {
   notify();
 }
 
+/**
+ * Playback (re)starts: a start, or the User resuming. Until the context runs
+ * or the grace runs out, a paused context is the normal suspended → running
+ * transition, not the device holding the audio.
+ */
+function startGrace(): void {
+  ranSincePlay = ctx?.state === "running";
+  graceExpired = false;
+  window.clearTimeout(graceTimer);
+  graceTimer = window.setTimeout(() => {
+    graceExpired = true;
+    notify();
+  }, START_GRACE_MS);
+}
+
 function createContext(): AudioContext {
   // "playback": the largest buffers the device offers. Sessions are long and
   // non-interactive, so latency is irrelevant and underruns (crackles on
@@ -94,12 +109,7 @@ export function acquireAudio(owner: AudioOwner): AudioContext {
   window.clearTimeout(idleTimer);
   owners.add(owner);
   userPaused = false;
-  ranSincePlay = ctx.state === "running";
-  window.clearTimeout(graceTimer);
-  graceTimer = window.setTimeout(() => {
-    graceExpired = true;
-    notify();
-  }, START_GRACE_MS);
+  startGrace();
   tryResume();
   notify();
   return ctx;
@@ -132,6 +142,7 @@ export function pauseAudio(): void {
 /** Resume after a user or device pause; call from a user gesture. */
 export function resumeAudio(): void {
   userPaused = false;
+  if (ctx && owners.size > 0) startGrace();
   declarePlaybackSession();
   tryResume();
   notify();
