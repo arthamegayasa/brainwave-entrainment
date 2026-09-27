@@ -124,7 +124,7 @@ function App() {
   const goUpgrade = () => setView("upgrade");
 
   return (
-    <div className="shell">
+    <div className={`shell${view === "player" && presetPlaying ? " shell-player" : ""}`}>
       <header className="topbar">
         <button
           className="brand"
@@ -165,7 +165,7 @@ function App() {
         </button>
       </header>
 
-      {audioBlocked && (
+      {audioBlocked && view !== "player" && (
         <div className="audio-paused" role="alert">
           <span>
             Your device paused the audio — a call, alarm, or another app took

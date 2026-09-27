@@ -15,8 +15,8 @@ export function SessionViz({ schedule, elapsedSec, durationSec }: SessionVizProp
   if (!schedule) return null;
 
   const W = 320;
-  const H = 96;
-  const pad = 8;
+  const H = 40;
+  const pad = 4;
 
   // X axis spans the full session (or a rolling 30-min window when infinite).
   const span = durationSec ?? Math.max(elapsedSec + 60, 30 * 60);
@@ -45,7 +45,7 @@ export function SessionViz({ schedule, elapsedSec, durationSec }: SessionVizProp
   const markerY = pad + (H - 2 * pad) * (1 - (nowHz - minHz) / range);
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="session-viz" role="img" aria-label="Kurva frekuensi sesi">
+    <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="session-viz" role="img" aria-label="Beat frequency curve and Play progress">
       <defs>
         <linearGradient id="vizfill" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.28" />

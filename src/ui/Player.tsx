@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { SOUND_LABELS } from "../audio/constants";
 import type { AmbientKind } from "../audio/types";
 import type { SessionApi } from "./useSession";
@@ -62,8 +63,10 @@ export function SessionComplete({ presetName, onDone }: SessionCompleteProps) {
   );
 }
 
+type PlayerSheet = "ambient" | "mixer" | "frequencies" | null;
+
 interface PlayerProps {
-  /** The running preset session's ambient and mixer. */
+  /** The running Preset Play's ambient and mixer. */
   session: SessionApi;
 }
 
@@ -71,22 +74,77 @@ interface PlayerProps {
 export function Player({ session }: PlayerProps) {
   const play = useNowPlaying();
   const progress = usePlayProgress();
-  if (!play || !progress || !("mode" in play.frequencies)) return null;
-  const { audio, frequencies, schedule, paused } = play;
-  const { ambient, volumes } = session;
+  const [sheet, setSheet] = useState<PlayerSheet>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [keepScreenOn, setKeepScreenOn] = useState(false);
+  const [wakeError, setWakeError] = useState(false);
+  const [visible, setVisible] = useState(() => document.visibilityState === "visible");
+  const [controlsVisible, setControlsVisible] = useState(true);
+  const [activity, setActivity] = useState(0);
+  const paused = play?.paused ?? false;
+  const held = play?.held ?? false;
 
+  useEffect(() => {
+    const update = () => setVisible(document.visibilityState === "visible");
+    document.addEventListener("visibilitychange", update);
+    return () => document.removeEventListener("visibilitychange", update);
+  }, []);
+
+  useEffect(() => {
+    if (!keepScreenOn || paused || held || !visible) return;
+    if (!navigator.wakeLock) {
+      setWakeError(true);
+      return;
+    }
+    let cancelled = false;
+    let lock: WakeLockSentinel | null = null;
+    void navigator.wakeLock.request("screen").then((sentinel) => {
+      if (cancelled) void sentinel.release();
+      else lock = sentinel;
+    }).catch(() => {
+      if (!cancelled) setWakeError(true);
+    });
+    return () => {
+      cancelled = true;
+      if (lock) void lock.release();
+    };
+  }, [keepScreenOn, paused, held, visible]);
+
+  useEffect(() => {
+    setControlsVisible(true);
+    if (paused || held || menuOpen || sheet) return;
+    const timer = window.setTimeout(() => setControlsVisible(false), 6000);
+    return () => window.clearTimeout(timer);
+  }, [paused, held, menuOpen, sheet, activity]);
+
+  useEffect(() => {
+    if (!sheet && !menuOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setSheet(null);
+        setMenuOpen(false);
+      }
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [sheet, menuOpen]);
+
+  if (!play || !progress || !("mode" in play.frequencies)) return null;
+  const { audio, frequencies, schedule } = play;
+  const { ambient, volumes } = session;
+  const reveal = () => {
+    setControlsVisible(true);
+    setActivity((n) => n + 1);
+  };
   const accent = audio.band ? BAND_COLORS[audio.band] : undefined;
   const timer =
     progress.remainingSec === null
       ? formatClock(progress.elapsedSec)
       : formatClock(progress.remainingSec);
-  // How far the Beat has travelled from the start of the ramp toward its
-  // target: the scene deepens while descending presets ease down and warms
-  // while ascending ones lift, and returns as a closing ramp rises back.
+  // Only this overlay's opacity changes per tick; the Scene below never re-styles.
   const [{ hz: startHz }, { hz: targetHz }] = schedule.points;
   const journey = Math.min(1, Math.max(0, (progress.beatHz - startHz) / (targetHz - startHz)));
   const descending = targetHz < startHz;
-  // Only this overlay's opacity changes per tick; the scene below never re-styles.
   const shadeStyle = {
     background: descending ? "#040912" : "#ffcf9c",
     opacity: (journey * (descending ? 0.45 : 0.18)).toFixed(2),
@@ -94,12 +152,29 @@ export function Player({ session }: PlayerProps) {
 
   return (
     <section
-      className={paused ? "player paused" : "player"}
+      className={`player${paused ? " paused" : ""}${controlsVisible ? "" : " controls-dimmed"}`}
       style={{ "--accent": accent } as React.CSSProperties}
+      onPointerDown={reveal}
+      onKeyDown={reveal}
     >
-      <h2 className="session-name">
-        {audio.emoji} {audio.name}
-      </h2>
+      <header className="player-header player-fading">
+        <span className="player-minimize" aria-hidden="true">⌄</span>
+        <h2 className="session-name">{audio.emoji} {audio.name}</h2>
+        <div className="player-menu-wrap">
+          <button className="player-icon" aria-label="More options" aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((open) => !open)}>⋯</button>
+          {menuOpen && (
+            <div className="player-menu" role="menu" aria-label="Player options">
+              <button role="menuitemcheckbox" aria-checked={keepScreenOn}
+                onClick={() => { setWakeError(false); setKeepScreenOn((on) => !on); }}>
+                Keep screen on {keepScreenOn ? "✓" : ""}
+              </button>
+              {wakeError && <p role="status">Screen Wake Lock unavailable on this device.</p>}
+              <button role="menuitem" className="end-play" onClick={stopPlay}>End session</button>
+            </div>
+          )}
+        </div>
+      </header>
 
       <div className="player-stage" data-parallax>
         <SceneArt sceneId={play.scene} variant="player" />
@@ -112,94 +187,86 @@ export function Player({ session }: PlayerProps) {
         </div>
       </div>
 
-      <div className="phase-label">
-        {progress.remainingSec === null ? "Infinite session · " : ""}
-        {paused ? "Paused" : PHASE_LABELS[progress.phase]}
+      <div className="phase-label player-fading">
+        {progress.remainingSec === null ? "Infinite Play · " : ""}
+        {paused ? "Paused" : held ? "Audio held by device" : PHASE_LABELS[progress.phase]}
       </div>
 
-      <SessionViz schedule={schedule} elapsedSec={progress.elapsedSec} durationSec={schedule.endSec} />
+      <div className="player-curve player-fading">
+        <SessionViz schedule={schedule} elapsedSec={progress.elapsedSec} durationSec={schedule.endSec} />
+      </div>
 
-      <div className="player-controls">
-        {paused ? (
-          <button className="pill-btn" onClick={resumeAudio}>
-            ▶ Resume
-          </button>
-        ) : (
-          <button className="pill-btn" onClick={pauseAudio}>
-            ❚❚ Pause
-          </button>
-        )}
-        <button className="pill-btn stop" onClick={stopPlay}>
-          ■ End Session
+      <div className="player-controls player-fading">
+        <button className="player-icon" aria-label="Ambient" onClick={() => setSheet("ambient")}>♫</button>
+        <button className={`player-play${held ? " player-held" : ""}`}
+          aria-label={held ? "Tap to resume" : paused ? "Resume Play" : "Pause Play"}
+          onClick={paused || held ? resumeAudio : pauseAudio}>
+          <span aria-hidden>{paused || held ? "▶" : "❚❚"}</span>
+          {held && <small>Tap to resume</small>}
         </button>
+        <button className="player-icon" aria-label="Mixer" onClick={() => setSheet("mixer")}>☷</button>
       </div>
+      <button className="player-mode player-fading" onClick={() => setSheet("frequencies")}>
+        {frequencies.mode === "headphone" ? "🎧 Headphones" : "◉ Speaker"}
+        <span> · Frequency details</span>
+      </button>
 
-      <div className="player-panels">
-        <details className="panel" open>
-          <summary>Ambient</summary>
-          <div className="panel-body">
-            <div className="chips">
-              {AMBIENTS.map((a) => (
-                <button
-                  key={a ?? "none"}
-                  className={`chip ${ambient === a ? "selected" : ""}`}
-                  onClick={() => session.setAmbient(a)}
-                >
-                  {a === null ? "No ambient" : SOUND_LABELS[a]}
-                </button>
-              ))}
+      {sheet && (
+        <div className="sheet-backdrop" onClick={() => setSheet(null)}>
+          <div className="sheet player-sheet" role="dialog" aria-modal="true"
+            aria-label={sheet === "ambient" ? "Ambient" : sheet === "mixer" ? "Mixer" : "Frequency details"}
+            onClick={(event) => event.stopPropagation()}>
+            <div className="player-sheet-head">
+              <h2>{sheet === "ambient" ? "Ambient" : sheet === "mixer" ? "Mixer" : "Frequency details"}</h2>
+              <button className="player-icon" aria-label="Close" onClick={() => setSheet(null)}>✕</button>
             </div>
-          </div>
-        </details>
-
-        <details className="panel">
-          <summary>Volume mixer</summary>
-          <div className="panel-body">
-            {MIXER_CHANNELS.map(({ key, label }) => (
+            {sheet === "ambient" && (
+              <div className="chips">
+                {AMBIENTS.map((a) => (
+                  <button key={a ?? "none"} className={`chip ${ambient === a ? "selected" : ""}`}
+                    aria-pressed={ambient === a} onClick={() => session.setAmbient(a)}>
+                    {a === null ? "No ambient" : SOUND_LABELS[a]}
+                  </button>
+                ))}
+              </div>
+            )}
+            {sheet === "mixer" && MIXER_CHANNELS.map(({ key, label }) => (
               <label className="mixer-row" key={key}>
                 <span>{label}</span>
-                <input
-                  type="range"
-                  min={0}
-                  max={1}
-                  step={0.01}
-                  value={volumes[key]}
+                <input type="range" min={0} max={1} step={0.01} value={volumes[key]}
                   style={{ "--fill": `${volumes[key] * 100}%` } as React.CSSProperties}
-                  onChange={(e) => session.setVolume(key, Number(e.target.value))}
-                />
+                  onChange={(event) => session.setVolume(key, Number(event.target.value))} />
                 <span className="value">{Math.round(volumes[key] * 100)}%</span>
               </label>
             ))}
-          </div>
-        </details>
-
-        <details className="panel">
-          <summary>Frequency details</summary>
-          <div className="panel-body">
-            <div className="freq-grid">
-              <div className="freq-item">
-                <div className="k">Current beat</div>
-                <div className="v">{progress.beatHz.toFixed(2)} Hz</div>
-              </div>
-              <div className="freq-item">
-                <div className="k">Carrier (solfeggio)</div>
-                <div className="v">{frequencies.carrierHz} Hz</div>
-              </div>
-              <div className="freq-item">
-                <div className="k">Method</div>
-                <div className="v" style={{ fontSize: "0.95rem", paddingTop: "0.3rem" }}>
-                  {frequencies.mode === "headphone" ? "Binaural" : "Isochronic"}
+            {sheet === "frequencies" && (
+              <>
+                <div className="freq-grid">
+                  {frequencies.mode === "headphone" ? (
+                    <>
+                      <div className="freq-item"><div className="k">Left · Carrier</div>
+                        <div className="v">{frequencies.carrierHz.toFixed(2)} Hz</div></div>
+                      <div className="freq-item"><div className="k">Right · Carrier + Beat</div>
+                        <div className="v">{(frequencies.carrierHz + progress.beatHz).toFixed(2)} Hz</div></div>
+                      <div className="freq-item"><div className="k">Beat</div>
+                        <div className="v">{progress.beatHz.toFixed(2)} Hz</div></div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="freq-item"><div className="k">Tone · Carrier</div>
+                        <div className="v">{frequencies.carrierHz.toFixed(2)} Hz</div></div>
+                      <div className="freq-item"><div className="k">Pulse · Beat</div>
+                        <div className="v">{progress.beatHz.toFixed(2)} Hz</div></div>
+                    </>
+                  )}
                 </div>
-              </div>
-            </div>
+                {frequencies.mode === "headphone" && (
+                  <p className="headphone-note">🎧 Use headphones — the binaural effect needs both ears</p>
+                )}
+              </>
+            )}
           </div>
-        </details>
-      </div>
-
-      {frequencies.mode === "headphone" && (
-        <p className="headphone-note">
-          🎧 Use headphones — the binaural effect needs both ears
-        </p>
+        </div>
       )}
     </section>
   );
