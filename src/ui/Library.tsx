@@ -13,14 +13,7 @@ import {
 import type { AudioKind } from "../state/listening";
 import { loadPrefs } from "../state/prefs";
 import { bandForHz, formatClock } from "./bands";
-import {
-  ensureBuilder,
-  getBuilderEngine,
-  getNowPlaying,
-  setNowPlaying,
-  stopBuilderPlayback,
-} from "./builderEngine";
-import { libraryPlayStarted } from "./playAdapters";
+import { startLibraryPlay, stopPlay, useNowPlaying, usePlayProgress } from "./nowPlaying";
 
 /**
  * Library: the user-facing home for custom audio — cloud sessions
@@ -33,8 +26,19 @@ import { libraryPlayStarted } from "./playAdapters";
 interface LibraryProps {
   /** Opens the Account sheet — sign-in lives there now. */
   onSignIn: () => void;
-  /** Called before custom audio starts — the App stops any preset session. */
+  /** Called before custom audio starts — the running Play stops first. */
   onBeforePlay: () => void;
+}
+
+/** The running Play's time left (or heard, when open-ended), repainted while it runs. */
+function PlayTime() {
+  const progress = usePlayProgress();
+  if (!progress) return null;
+  return (
+    <span className="transport-time">
+      {formatClock(progress.remainingSec ?? progress.elapsedSec)}
+    </span>
+  );
 }
 
 export function Library({ onSignIn, onBeforePlay }: LibraryProps) {
@@ -42,11 +46,10 @@ export function Library({ onSignIn, onBeforePlay }: LibraryProps) {
   const [cloud, setCloud] = useState<CloudAudio[]>([]);
   const [cloudError, setCloudError] = useState<string | null>(null);
   const [saved, setSaved] = useState<CustomSession[]>(() => listCustomSessions());
-  // Re-derive from the shared module so a remount (nav away and back) shows
-  // the Stop control for audio that is still playing.
-  const [playingId, setPlayingId] = useState<string | null>(() => getNowPlaying());
-  const [elapsed, setElapsed] = useState(0);
-  const [remaining, setRemaining] = useState<number | null>(null);
+  // Now Playing outlives this view, so a remount (nav away and back) shows the
+  // Stop control for audio that is still playing.
+  const play = useNowPlaying();
+  const playingId = play && play.audio.kind !== "preset" ? play.audio.id : null;
   const [notice, setNotice] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -77,47 +80,22 @@ export function Library({ onSignIn, onBeforePlay }: LibraryProps) {
     };
   }, [signedIn]);
 
-  // Poll the shared engine while playing, mirroring the Studio transport.
-  useEffect(() => {
-    if (!playingId) return;
-    const id = window.setInterval(() => {
-      const engine = getBuilderEngine();
-      if (!engine) return;
-      const p = engine.progress();
-      setElapsed(p.elapsedSec);
-      setRemaining(p.remainingSec);
-      // getNowPlaying() also covers a timed session's natural end (the engine
-      // stays isRunning until stopped — the shared module self-heals that).
-      if (getNowPlaying() === null) setPlayingId(null);
-    }, 300);
-    return () => window.clearInterval(id);
-  }, [playingId]);
-
   const flash = (msg: string) => {
     setNotice(msg);
     window.setTimeout(() => setNotice(null), 2600);
   };
 
   /** Play `spec` as `kind` (cloud Custom Audio or a saved session) under the list's id and name. */
-  const play = (kind: AudioKind, id: string, name: string, spec: CustomSession) => {
-    onBeforePlay(); // one pair of ears: any running preset session stops first
+  const playItem = (kind: AudioKind, id: string, name: string, spec: CustomSession) => {
+    onBeforePlay(); // one pair of ears: the running Play stops first
     const prefs = loadPrefs();
     const durationMin =
       prefs.lastDurationMin === "inf" ? null : prefs.lastDurationMin ?? 30;
-    const engine = ensureBuilder();
-    engine.stop();
-    engine.start(spec.layers, spec.curve, durationMin);
-    setNowPlaying(id);
-    setPlayingId(id);
-    libraryPlayStarted(
+    startLibraryPlay(
       { kind, id, name, emoji: null, band: bandForHz(spec.curve.targetHz) },
+      spec,
       durationMin,
     );
-  };
-
-  const stop = () => {
-    stopBuilderPlayback();
-    setPlayingId(null);
   };
 
   const handleExport = (session: CustomSession) => {
@@ -144,7 +122,7 @@ export function Library({ onSignIn, onBeforePlay }: LibraryProps) {
   };
 
   const handleDelete = (id: string) => {
-    if (playingId === id) stop();
+    if (playingId === id) stopPlay();
     deleteCustomSession(id);
     setSaved(listCustomSessions());
   };
@@ -152,18 +130,16 @@ export function Library({ onSignIn, onBeforePlay }: LibraryProps) {
   // Resolve a play target from either list by id (cloud first, then saved).
   const playFrom = (id: string) => {
     const cloudHit = cloud.find((a) => a.id === id);
-    if (cloudHit) return play("custom", id, cloudHit.name, cloudHit.spec);
+    if (cloudHit) return playItem("custom", id, cloudHit.name, cloudHit.spec);
     const savedHit = saved.find((s) => s.id === id);
-    if (savedHit) return play("saved", id, savedHit.name, savedHit);
+    if (savedHit) return playItem("saved", id, savedHit.name, savedHit);
   };
 
   const transport = (id: string) =>
     playingId === id ? (
       <span className="library-transport">
-        <span className="transport-time">
-          {remaining === null ? formatClock(elapsed) : formatClock(remaining)}
-        </span>
-        <button className="pill-btn stop" onClick={stop}>
+        <PlayTime />
+        <button className="pill-btn stop" onClick={stopPlay}>
           ■ Stop
         </button>
       </span>

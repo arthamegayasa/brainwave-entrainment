@@ -19,8 +19,8 @@ import { formatClock } from "./bands";
 import {
   ensureBuilder,
   getBuilderEngine,
-  getNowPlaying,
-  setNowPlaying,
+  getBuilderItem,
+  setBuilderItem,
   stopBuilderPlayback,
 } from "./builderEngine";
 import { useEntitlement } from "../lib/useEntitlement";
@@ -81,11 +81,11 @@ const DEFAULT_CURVE: BuilderCurve = {
 
 const DURATIONS: (number | null)[] = [15, 30, 45, 60, null];
 
-/** nowPlaying id the Studio preview claims on the shared engine. */
+/** Item id the Studio preview claims on the shared engine. */
 const STUDIO_PREVIEW_ID = "studio-preview";
 
 interface BuilderProps {
-  /** Called before preview audio starts — the App stops any preset session. */
+  /** Called before preview audio starts — the running Play stops first. */
   onBeforePlay: () => void;
 }
 
@@ -100,7 +100,7 @@ export function Builder({ onBeforePlay }: BuilderProps) {
   // Re-derive from the shared module so a remount keeps a live preview's
   // transport instead of showing Play over audible audio.
   const [playing, setPlaying] = useState(
-    () => getNowPlaying() === STUDIO_PREVIEW_ID,
+    () => getBuilderItem() === STUDIO_PREVIEW_ID,
   );
   const [elapsed, setElapsed] = useState(0);
   const [remaining, setRemaining] = useState<number | null>(null);
@@ -118,8 +118,8 @@ export function Builder({ onBeforePlay }: BuilderProps) {
       setElapsed(p.elapsedSec);
       setRemaining(p.remainingSec);
       // Covers explicit stop, another view claiming the engine, and a timed
-      // preview's natural end (self-healed inside getNowPlaying()).
-      if (getNowPlaying() !== STUDIO_PREVIEW_ID) setPlaying(false);
+      // preview's natural end (self-healed inside getBuilderItem()).
+      if (getBuilderItem() !== STUDIO_PREVIEW_ID) setPlaying(false);
     }, 300);
     return () => window.clearInterval(id);
   }, [playing]);
@@ -130,11 +130,11 @@ export function Builder({ onBeforePlay }: BuilderProps) {
   };
 
   const handlePlay = () => {
-    onBeforePlay(); // one pair of ears: any running preset session stops first
+    onBeforePlay(); // one pair of ears: the running Play stops first
     const e = ensureBuilder();
     e.stop();
     e.start(layers, curve, durationMin);
-    setNowPlaying(STUDIO_PREVIEW_ID);
+    setBuilderItem(STUDIO_PREVIEW_ID);
     setPlaying(true);
   };
 

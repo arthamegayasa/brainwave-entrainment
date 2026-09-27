@@ -5,6 +5,8 @@ import type { SessionVolumes } from "../audio/session";
 import { BAND_COLORS, formatClock } from "./bands";
 import { SessionViz } from "./SessionViz";
 import { SceneArt } from "./SceneArt";
+import { pauseAudio, resumeAudio } from "./audioContext";
+import { stopPlay, useNowPlaying, usePlayProgress } from "./nowPlaying";
 import { sessionsThisWeek, weeklyStreakDots } from "../state/progress";
 
 const AMBIENTS: (AmbientKind | null)[] = [null, "rain", "ocean", "wind", "brown"];
@@ -61,25 +63,29 @@ export function SessionComplete({ presetName, onDone }: SessionCompleteProps) {
 }
 
 interface PlayerProps {
+  /** The running preset session's ambient and mixer. */
   session: SessionApi;
-  onExit: () => void;
 }
 
-export function Player({ session, onExit }: PlayerProps) {
-  const { preset, config, progress, volumes, paused } = session.state;
-  if (!preset || !config) return null;
+/** The running Preset Play, as Now Playing shows it. */
+export function Player({ session }: PlayerProps) {
+  const play = useNowPlaying();
+  const progress = usePlayProgress();
+  if (!play || !progress || !("mode" in play.frequencies)) return null;
+  const { audio, frequencies, schedule, paused } = play;
+  const { ambient, volumes } = session;
 
-  const accent = BAND_COLORS[preset.band];
+  const accent = audio.band ? BAND_COLORS[audio.band] : undefined;
   const timer =
     progress.remainingSec === null
       ? formatClock(progress.elapsedSec)
       : formatClock(progress.remainingSec);
-  // How far the beat has travelled from its start toward the target, straight
-  // from the engine: the scene deepens while descending presets ease down and
-  // warms while ascending ones lift, and returns as a closing ramp rises back.
-  const journey = Math.min(1, Math.max(0,
-    (progress.currentBeatHz - preset.startHz) / (preset.targetHz - preset.startHz)));
-  const descending = preset.targetHz < preset.startHz;
+  // How far the Beat has travelled from the start of the ramp toward its
+  // target: the scene deepens while descending presets ease down and warms
+  // while ascending ones lift, and returns as a closing ramp rises back.
+  const [{ hz: startHz }, { hz: targetHz }] = schedule.points;
+  const journey = Math.min(1, Math.max(0, (progress.beatHz - startHz) / (targetHz - startHz)));
+  const descending = targetHz < startHz;
   // Only this overlay's opacity changes per tick; the scene below never re-styles.
   const shadeStyle = {
     background: descending ? "#040912" : "#ffcf9c",
@@ -92,11 +98,11 @@ export function Player({ session, onExit }: PlayerProps) {
       style={{ "--accent": accent } as React.CSSProperties}
     >
       <h2 className="session-name">
-        {preset.emoji} {preset.name}
+        {audio.emoji} {audio.name}
       </h2>
 
       <div className="player-stage" data-parallax>
-        <SceneArt sceneId={preset.id} variant="player" />
+        <SceneArt sceneId={play.scene} variant="player" />
         <span className="scene-shade" style={shadeStyle} />
         <div className="orb-wrap" aria-hidden>
           <div className="orb-halo" />
@@ -112,22 +118,22 @@ export function Player({ session, onExit }: PlayerProps) {
       </div>
 
       <SessionViz
-        schedule={session.getSchedule()}
+        schedule={schedule}
         elapsedSec={progress.elapsedSec}
-        durationSec={config.durationMin === null ? null : config.durationMin * 60}
+        durationSec={play.plannedMin === null ? null : play.plannedMin * 60}
       />
 
       <div className="player-controls">
         {paused ? (
-          <button className="pill-btn" onClick={session.resume}>
+          <button className="pill-btn" onClick={resumeAudio}>
             ▶ Resume
           </button>
         ) : (
-          <button className="pill-btn" onClick={session.pause}>
+          <button className="pill-btn" onClick={pauseAudio}>
             ❚❚ Pause
           </button>
         )}
-        <button className="pill-btn stop" onClick={onExit}>
+        <button className="pill-btn stop" onClick={stopPlay}>
           ■ End Session
         </button>
       </div>
@@ -140,7 +146,7 @@ export function Player({ session, onExit }: PlayerProps) {
               {AMBIENTS.map((a) => (
                 <button
                   key={a ?? "none"}
-                  className={`chip ${config.ambient === a ? "selected" : ""}`}
+                  className={`chip ${ambient === a ? "selected" : ""}`}
                   onClick={() => session.setAmbient(a)}
                 >
                   {a === null ? "No ambient" : SOUND_LABELS[a]}
@@ -177,16 +183,16 @@ export function Player({ session, onExit }: PlayerProps) {
             <div className="freq-grid">
               <div className="freq-item">
                 <div className="k">Current beat</div>
-                <div className="v">{progress.currentBeatHz.toFixed(2)} Hz</div>
+                <div className="v">{progress.beatHz.toFixed(2)} Hz</div>
               </div>
               <div className="freq-item">
                 <div className="k">Carrier (solfeggio)</div>
-                <div className="v">{progress.carrierHz} Hz</div>
+                <div className="v">{frequencies.carrierHz} Hz</div>
               </div>
               <div className="freq-item">
                 <div className="k">Method</div>
                 <div className="v" style={{ fontSize: "0.95rem", paddingTop: "0.3rem" }}>
-                  {config.mode === "headphone" ? "Binaural" : "Isochronic"}
+                  {frequencies.mode === "headphone" ? "Binaural" : "Isochronic"}
                 </div>
               </div>
             </div>
@@ -194,7 +200,7 @@ export function Player({ session, onExit }: PlayerProps) {
         </details>
       </div>
 
-      {config.mode === "headphone" && (
+      {frequencies.mode === "headphone" && (
         <p className="headphone-note">
           🎧 Use headphones — the binaural effect needs both ears
         </p>
