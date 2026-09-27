@@ -126,3 +126,9 @@ export async function setUpPreset(page: Page, name: string, length: string): Pro
   await page.getByRole("button", { name: new RegExp(`^${name}`) }).click();
   await page.getByRole("button", { name: length, exact: true }).click();
 }
+
+/** End a Preset Play deliberately through its Player menu. */
+export async function endPlay(page: Page): Promise<void> {
+  await page.getByRole("button", { name: "More options" }).click();
+  await page.getByRole("menuitem", { name: "End session" }).click();
+}

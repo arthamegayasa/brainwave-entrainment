@@ -56,7 +56,7 @@ export function SessionViz({ schedule, elapsedSec, durationSec }: SessionVizProp
         points={`${pad},${H - pad} ${points.join(" ")} ${W - pad},${H - pad}`}
         fill="url(#vizfill)"
       />
-      <polyline points={points.join(" ")} fill="none" stroke="var(--accent)" strokeWidth="2" />
+      <polyline points={points.join(" ")} fill="none" stroke="var(--accent)" strokeWidth="2" vectorEffect="non-scaling-stroke" />
       <line
         x1={markerX}
         y1={pad}
@@ -65,8 +65,11 @@ export function SessionViz({ schedule, elapsedSec, durationSec }: SessionVizProp
         stroke="var(--ink-faint)"
         strokeWidth="1"
         strokeDasharray="3 3"
+        vectorEffect="non-scaling-stroke"
       />
-      <circle cx={markerX} cy={markerY} r="4" fill="var(--ink)" stroke="var(--accent)" strokeWidth="2" />
+      <line x1={markerX} x2={markerX} y1={markerY - 0.1} y2={markerY + 0.1}
+        stroke="var(--accent)" strokeWidth="8" strokeLinecap="round"
+        vectorEffect="non-scaling-stroke" />
     </svg>
   );
 }

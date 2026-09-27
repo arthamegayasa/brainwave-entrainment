@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
-import { advanceAudioClock, openSessions, recordAudioContexts, setUpPreset } from "./helpers";
+import { advanceAudioClock, audioStates, endPlay, openSessions, recordAudioContexts, setUpPreset } from "./helpers";
 
 declare global {
   interface Window {
@@ -40,6 +40,9 @@ test("the Preset Player fits a phone and keeps the desktop navigation", async ({
   const controls = await page.getByRole("button", { name: "Pause Play" }).boundingBox();
   expect(controls).not.toBeNull();
   expect(controls!.y + controls!.height).toBeLessThanOrEqual(844);
+  const emblem = await page.getByRole("button", { name: /Frequency details/ }).boundingBox();
+  expect(emblem).not.toBeNull();
+  expect(emblem!.y + emblem!.height).toBeLessThanOrEqual(844);
   await page.setViewportSize({ width: 1280, height: 900 });
   await expect(page.locator(".topbar")).toBeVisible();
   await expect(page.locator(".foot")).toBeVisible();
@@ -48,8 +51,7 @@ test("the Preset Player fits a phone and keeps the desktop navigation", async ({
 test("End session is only in the Player menu and stops without confirmation", async ({ page }) => {
   await startPreset(page);
   await expect(page.getByRole("button", { name: "End session" })).toHaveCount(0);
-  await page.getByRole("button", { name: "More options" }).click();
-  await page.getByRole("menuitem", { name: "End session" }).click();
+  await endPlay(page);
   await expect(page.getByRole("heading", { name: /Choose your goal/ })).toBeVisible();
 });
 
@@ -117,6 +119,42 @@ test("controls fade after six seconds of playing, return on tap, and stay while 
   await expect(controls).toHaveCSS("opacity", "1");
 });
 
+test("choosing Keep screen on dismisses the menu so the Player can dim", async ({ page }) => {
+  await page.clock.install();
+  await startPreset(page);
+  await page.getByRole("button", { name: "More options" }).click();
+  await page.locator(".player-stage").click();
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  await page.getByRole("button", { name: "More options" }).click();
+  await page.getByRole("menuitemcheckbox", { name: "Keep screen on" }).click();
+  await expect(page.getByRole("menu")).toHaveCount(0);
+  await page.clock.runFor(6500);
+  await expect(page.locator(".player-controls")).toHaveCSS("opacity", "0");
+});
+
+test("keyboard focus reveals dimmed Player controls before activation", async ({ page }) => {
+  await page.clock.install();
+  await startPreset(page);
+  await page.getByRole("button", { name: "Account" }).focus();
+  await page.clock.runFor(6500);
+  await expect(page.locator(".player-header")).toHaveCSS("opacity", "0");
+  await page.keyboard.press("Tab");
+  await expect(page.getByRole("button", { name: "More options" })).toBeFocused();
+  await expect(page.locator(".player-header")).toHaveCSS("opacity", "1");
+});
+
+test("unavailable Screen Wake Lock does not interrupt the Play", async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "wakeLock", { configurable: true, value: undefined });
+  });
+  await startPreset(page);
+  await page.getByRole("button", { name: "More options" }).click();
+  await page.getByRole("menuitemcheckbox", { name: "Keep screen on" }).click();
+  await page.getByRole("button", { name: "More options" }).click();
+  await expect(page.getByRole("status")).toContainText("unavailable");
+  await expect.poll(() => audioStates(page)).toEqual(["running"]);
+});
+
 test("Keep screen on releases on pause, hiding, and end; resumes while visible", async ({ page }) => {
   await page.addInitScript(() => {
     const state = { requests: 0, releases: 0 };
@@ -135,7 +173,7 @@ test("Keep screen on releases on pause, hiding, and end; resumes while visible",
   await page.getByRole("button", { name: "More options" }).click();
   await page.getByRole("menuitemcheckbox", { name: "Keep screen on" }).click();
   await expect.poll(async () => (await wake()).requests).toBe(1);
-  await page.getByRole("button", { name: "More options" }).click();
+  await expect(page.getByRole("menu")).toHaveCount(0);
   await page.getByRole("button", { name: "Pause Play" }).click();
   await expect.poll(async () => (await wake()).releases).toBe(1);
   await page.getByRole("button", { name: "Resume Play" }).click();
@@ -150,31 +188,29 @@ test("Keep screen on releases on pause, hiding, and end; resumes while visible",
     document.dispatchEvent(new Event("visibilitychange"));
   });
   await expect.poll(async () => (await wake()).requests).toBe(3);
-  await page.getByRole("button", { name: "More options" }).click();
-  await page.getByRole("menuitem", { name: "End session" }).click();
+  await endPlay(page);
   await expect.poll(async () => (await wake()).releases).toBe(3);
 });
 
 test("resuming a User-paused Play never shows the device-held transport", async ({ page }) => {
   await startPreset(page);
-  await expect.poll(() => page.evaluate(() => window.__audioContexts[0].state)).toBe("running");
+  await expect.poll(() => audioStates(page)).toEqual(["running"]);
   await page.getByRole("button", { name: "Pause Play" }).click();
-  await expect.poll(() => page.evaluate(() => window.__audioContexts[0].state)).toBe("suspended");
+  await expect.poll(() => audioStates(page)).toEqual(["suspended"]);
   await countDeviceHolds(page);
   await page.getByRole("button", { name: "Resume Play" }).click();
-  await expect.poll(() => page.evaluate(() => window.__audioContexts[0].state)).toBe("running");
+  await expect.poll(() => audioStates(page)).toEqual(["running"]);
   expect(await page.evaluate(() => window.__holds)).toBe(0);
 });
 
 test("a subsequent Preset Play starts without a device-held prompt", async ({ page }) => {
   await startPreset(page);
   await page.waitForTimeout(2000); // past the initial start's grace period
-  await page.getByRole("button", { name: "More options" }).click();
-  await page.getByRole("menuitem", { name: "End session" }).click();
-  await expect.poll(() => page.evaluate(() => window.__audioContexts[0].state)).toBe("suspended");
+  await endPlay(page);
+  await expect.poll(() => audioStates(page)).toEqual(["suspended"]);
   await countDeviceHolds(page);
   await setUpPreset(page, "Meditating", "15 min");
   await page.getByRole("button", { name: "Start Session" }).click();
-  await expect.poll(() => page.evaluate(() => window.__audioContexts[0].state)).toBe("running");
+  await expect.poll(() => audioStates(page)).toEqual(["running"]);
   expect(await page.evaluate(() => window.__holds)).toBe(0);
 });

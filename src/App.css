@@ -624,9 +624,8 @@ body:has(.sheet-backdrop) .scene-art * {
 .player.controls-dimmed .player-fading { opacity: 0; pointer-events: none; }
 .player.controls-dimmed .timer { opacity: 0.35; }
 .player-sheet { display: grid; gap: 1.3rem; padding-bottom: max(2rem, env(safe-area-inset-bottom)); }
-.player-sheet-head { display: flex; align-items: center; justify-content: space-between; }
-.player-sheet-head h2 { margin: 0; }
-.player-sheet .chips { display: flex; flex-wrap: wrap; gap: 0.55rem; }
+.player-sheet .sheet-head { justify-content: space-between; }
+.player-sheet .sheet-head h2 { margin: 0; }
 .player-sheet .mixer-row { grid-template-columns: 7.5rem minmax(0, 1fr) 2.6rem; }
 
 .pill-btn {

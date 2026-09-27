@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import type { Page } from "@playwright/test";
-import { advanceAudioClock, audioStates, openSessions, recordAudioContexts, setUpPreset } from "./helpers";
+import { advanceAudioClock, audioStates, endPlay, openSessions, recordAudioContexts, setUpPreset } from "./helpers";
 
 type MediaAction = "play" | "pause" | "stop";
 interface RecordedMedia {
@@ -166,8 +166,7 @@ test("audio-focus loss still holds the next Play after ending a prior Play", asy
   await setUpPreset(page, "Meditating", "15 min");
   await page.getByRole("button", { name: "Start Session" }).click();
   await expect.poll(() => page.evaluate(() => window.__mediaControls.element?.paused)).toBe(false);
-  await page.getByRole("button", { name: "More options" }).click();
-  await page.getByRole("menuitem", { name: "End session" }).click();
+  await endPlay(page);
   await setUpPreset(page, "Meditating", "15 min");
   await page.getByRole("button", { name: "Start Session" }).click();
   await expect.poll(() => audioStates(page)).toEqual(["running"]);

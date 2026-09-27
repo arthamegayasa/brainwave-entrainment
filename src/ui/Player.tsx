@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SOUND_LABELS } from "../audio/constants";
 import type { AmbientKind } from "../audio/types";
 import type { SessionApi } from "./useSession";
@@ -65,6 +65,21 @@ export function SessionComplete({ presetName, onDone }: SessionCompleteProps) {
 
 type PlayerSheet = "ambient" | "mixer" | "frequencies" | null;
 
+const SHEET_TITLES: Record<Exclude<PlayerSheet, null>, string> = {
+  ambient: "Ambient",
+  mixer: "Mixer",
+  frequencies: "Frequency details",
+};
+
+function FrequencyValue({ label, hz }: { label: string; hz: number }) {
+  return (
+    <div className="freq-item">
+      <div className="k">{label}</div>
+      <div className="v">{hz.toFixed(2)} Hz</div>
+    </div>
+  );
+}
+
 interface PlayerProps {
   /** The running Preset Play's ambient and mixer. */
   session: SessionApi;
@@ -76,6 +91,7 @@ export function Player({ session }: PlayerProps) {
   const progress = usePlayProgress();
   const [sheet, setSheet] = useState<PlayerSheet>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
   const [keepScreenOn, setKeepScreenOn] = useState(false);
   const [wakeError, setWakeError] = useState(false);
   const [visible, setVisible] = useState(() => document.visibilityState === "visible");
@@ -154,19 +170,27 @@ export function Player({ session }: PlayerProps) {
     <section
       className={`player${paused ? " paused" : ""}${controlsVisible ? "" : " controls-dimmed"}`}
       style={{ "--accent": accent } as React.CSSProperties}
-      onPointerDown={reveal}
+      onPointerDown={(event) => {
+        reveal();
+        if (menuOpen && !menuRef.current?.contains(event.target as Node)) setMenuOpen(false);
+      }}
+      onFocus={reveal}
       onKeyDown={reveal}
     >
       <header className="player-header player-fading">
         <span className="player-minimize" aria-hidden="true">⌄</span>
         <h2 className="session-name">{audio.emoji} {audio.name}</h2>
-        <div className="player-menu-wrap">
+        <div className="player-menu-wrap" ref={menuRef}>
           <button className="player-icon" aria-label="More options" aria-expanded={menuOpen}
             onClick={() => setMenuOpen((open) => !open)}>⋯</button>
           {menuOpen && (
             <div className="player-menu" role="menu" aria-label="Player options">
               <button role="menuitemcheckbox" aria-checked={keepScreenOn}
-                onClick={() => { setWakeError(false); setKeepScreenOn((on) => !on); }}>
+                onClick={() => {
+                  setWakeError(false);
+                  setKeepScreenOn((on) => !on);
+                  setMenuOpen(false);
+                }}>
                 Keep screen on {keepScreenOn ? "✓" : ""}
               </button>
               {wakeError && <p role="status">Screen Wake Lock unavailable on this device.</p>}
@@ -212,12 +236,13 @@ export function Player({ session }: PlayerProps) {
       </button>
 
       {sheet && (
-        <div className="sheet-backdrop" onClick={() => setSheet(null)}>
+        <div className="sheet-backdrop" onClick={(event) => {
+          if (event.target === event.currentTarget) setSheet(null);
+        }}>
           <div className="sheet player-sheet" role="dialog" aria-modal="true"
-            aria-label={sheet === "ambient" ? "Ambient" : sheet === "mixer" ? "Mixer" : "Frequency details"}
-            onClick={(event) => event.stopPropagation()}>
-            <div className="player-sheet-head">
-              <h2>{sheet === "ambient" ? "Ambient" : sheet === "mixer" ? "Mixer" : "Frequency details"}</h2>
+            aria-label={SHEET_TITLES[sheet]}>
+            <div className="sheet-head">
+              <h2>{SHEET_TITLES[sheet]}</h2>
               <button className="player-icon" aria-label="Close" onClick={() => setSheet(null)}>✕</button>
             </div>
             {sheet === "ambient" && (
@@ -244,19 +269,14 @@ export function Player({ session }: PlayerProps) {
                 <div className="freq-grid">
                   {frequencies.mode === "headphone" ? (
                     <>
-                      <div className="freq-item"><div className="k">Left · Carrier</div>
-                        <div className="v">{frequencies.carrierHz.toFixed(2)} Hz</div></div>
-                      <div className="freq-item"><div className="k">Right · Carrier + Beat</div>
-                        <div className="v">{(frequencies.carrierHz + progress.beatHz).toFixed(2)} Hz</div></div>
-                      <div className="freq-item"><div className="k">Beat</div>
-                        <div className="v">{progress.beatHz.toFixed(2)} Hz</div></div>
+                      <FrequencyValue label="Left · Carrier" hz={frequencies.carrierHz} />
+                      <FrequencyValue label="Right · Carrier + Beat" hz={frequencies.carrierHz + progress.beatHz} />
+                      <FrequencyValue label="Beat" hz={progress.beatHz} />
                     </>
                   ) : (
                     <>
-                      <div className="freq-item"><div className="k">Tone · Carrier</div>
-                        <div className="v">{frequencies.carrierHz.toFixed(2)} Hz</div></div>
-                      <div className="freq-item"><div className="k">Pulse · Beat</div>
-                        <div className="v">{progress.beatHz.toFixed(2)} Hz</div></div>
+                      <FrequencyValue label="Tone · Carrier" hz={frequencies.carrierHz} />
+                      <FrequencyValue label="Pulse · Beat" hz={progress.beatHz} />
                     </>
                   )}
                 </div>

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { audioStates, openSessions, recordAudioContexts, setUpPreset } from "./helpers";
+import { audioStates, endPlay, openSessions, recordAudioContexts, setUpPreset } from "./helpers";
 
 test.beforeEach(async ({ page }) => {
   await recordAudioContexts(page);
@@ -20,14 +20,13 @@ test("a preset session plays, pauses in place, resumes, and ends", async ({ page
   await page.waitForTimeout(2500);
   await expect(timer).toHaveText(heldAt ?? "");
   // A user pause is not a device interruption: no Resume prompt.
-  await expect(page.getByRole("alert")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Tap to resume" })).toHaveCount(0);
 
   await page.getByRole("button", { name: "Resume Play" }).click();
   await expect.poll(() => audioStates(page)).toEqual(["running"]);
   await expect(timer).not.toHaveText(heldAt ?? "");
 
-  await page.getByRole("button", { name: "More options" }).click();
-  await page.getByRole("menuitem", { name: "End session" }).click();
+  await endPlay(page);
   await expect(page.getByRole("heading", { name: /Choose your goal/ })).toBeVisible();
   // Nothing plays any more, so the device is released.
   await expect.poll(() => audioStates(page)).toEqual(["suspended"]);
@@ -65,5 +64,5 @@ test("a device pause the browser allows to undo recovers without asking", async 
   await page.evaluate(() => window.__audioContexts[0].suspend());
   await expect.poll(() => audioStates(page)).toEqual(["running"]);
   await expect.poll(() => page.evaluate(() => document.querySelector("audio")?.paused)).toBe(false);
-  await expect(page.getByRole("alert")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Tap to resume" })).toHaveCount(0);
 });

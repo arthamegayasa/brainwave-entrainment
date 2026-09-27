@@ -25,7 +25,7 @@ Gotcha React, CSS, dan PWA di `src/ui/` dan `src/state/`.
 - At widths up to 760 px, `.shell-player` owns one `100dvh` viewport with safe-area padding; only its top navigation and footer disappear. The Scene flexes to the space left after the header, 40 px Beat curve, phase, and transport. Desktop retains the usual shell.
 - The Player's Ambient, Mixer, and frequency details share the existing `.sheet-backdrop`/`.sheet` bottom-sheet pattern. Frequency values read from Now Playing: Headphones left = Carrier, right = Carrier + live Beat; Speaker tone = Carrier, pulse = live Beat. The ⌄ is visual only until Mini-player navigation lands in #40.
 - Keep screen on is opt-in per mounted Player. The Screen Wake Lock is released on User pause, device hold, hidden page, and Player unmount (including End session); a visible playing page requests it again. Browsers without the API show an unavailable message rather than blocking audio.
-- The 6-second controls fade uses wall-clock inactivity only for UI, never for Play duration; the timer remains dimmed. Pausing or a device hold restores transport controls.
+- The 6-second controls fade uses wall-clock inactivity only for UI, never for Play duration; the timer remains dimmed. Pausing, a device hold, or keyboard focus restores controls. The ⋯ menu closes on outside tap or after toggling Keep screen on, so it cannot pin the controls awake.
 
 ## Build, PWA & unduhan
 
