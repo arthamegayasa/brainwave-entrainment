@@ -1,6 +1,7 @@
 import { BAND_COLORS, formatClock } from "./bands";
 import { useNowPlaying, usePlayProgress } from "./nowPlaying";
 import { PlayToggle } from "./Player";
+import { scenePainting } from "./scenes";
 
 interface MiniPlayerProps {
   /** Opens the running Play's full view. */
@@ -26,7 +27,7 @@ export function MiniPlayer({ onOpen }: MiniPlayerProps) {
       style={{ "--accent": audio.band ? BAND_COLORS[audio.band] : undefined } as React.CSSProperties}
     >
       <button className="mini-player-open" aria-label={`Open ${audio.name}`} onClick={onOpen}>
-        <img className="mini-player-scene" src={`/scenes/${play.scene}-768.webp`} alt="" />
+        <img className="mini-player-scene" src={scenePainting(play.scene, 768)} alt="" />
         <span className="mini-player-text">
           <span className="mini-player-name">{audio.name}</span>
           <span className="mini-player-status">

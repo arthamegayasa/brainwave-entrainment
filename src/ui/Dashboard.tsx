@@ -16,6 +16,7 @@ import {
 import type { AudioCategory, BankAudio, PatientLink } from "../lib/clinician";
 import { PatientsTab } from "./PatientsTab";
 import { PeopleTab } from "./PeopleTab";
+import { ScenePicker } from "./ScenePicker";
 
 /**
  * Clinician Dashboard: Patients tab (the table of the Clinician's
@@ -240,6 +241,7 @@ function BankCard({
   const [tagline, setTagline] = useState(audio.goalTagline ?? "");
   const [category, setCategory] = useState<AudioCategory>(audio.category);
   const [notes, setNotes] = useState(audio.notes ?? "");
+  const [sceneId, setSceneId] = useState(audio.spec.sceneId);
   const [busy, setBusy] = useState(false);
   const [dlOpen, setDlOpen] = useState(false);
   const [dlMin, setDlMin] = useState(15);
@@ -280,6 +282,8 @@ function BankCard({
         goalTagline: tagline.trim() || null,
         category,
         notes: notes.trim() || null,
+        // Change Scene: only a new pick rewrites the stored spec.
+        spec: sceneId === audio.spec.sceneId ? undefined : { ...audio.spec, sceneId },
       });
       setEditOpen(false);
       onChange();
@@ -460,6 +464,7 @@ function BankCard({
             aria-label="Notes"
             onChange={(e) => setNotes(e.target.value)}
           />
+          <ScenePicker value={sceneId} onChange={setSceneId} />
           <button className="chip" disabled={busy} onClick={() => void doSave()}>
             Save changes
           </button>

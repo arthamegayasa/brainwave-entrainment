@@ -1,92 +1,8 @@
 import { memo, useEffect, useRef, useState } from "react";
+import { SCENE_SPECS, scenePainting } from "./scenes";
+import type { SceneSpec } from "./scenes";
 
 type SceneVariant = "hero" | "card" | "step" | "reco" | "complete" | "player";
-type Rays = "down" | "burst";
-type Particles = "motes" | "pollen" | "sand" | "snow";
-
-/**
- * A painted place (from `public/scenes/`, generated with GPT Image) plus the
- * live layers drawn over it. Coordinates are in the painting's own pixels,
- * so glows, glints and rays stay pinned to the moon, sun and water they
- * belong to at any crop.
- *
- * Every live layer is a plain HTML element animated only through transform
- * and opacity, so the GPU compositor runs all motion and the main thread
- * stays free for scrolling, even on phones.
- */
-interface SceneSpec {
-  width: number;
-  height: number;
-  /** Placeholder colour shown until the painting has loaded. */
-  tint: string;
-  /** Colour of the light source, its bloom, rays and glints. */
-  glow: string;
-  /** Light source: x, y and bloom radius. */
-  light: [number, number, number];
-  /** Height of the horizon band the mist drifts along. */
-  mist: number;
-  /** Twinkling stars down to this height (night scenes only). */
-  stars?: number;
-  /** Column of water or wet sand that reflects the light. */
-  reflection?: { x: number; top: number; bottom: number };
-  rays?: Rays;
-  /** Where the down-rays land. */
-  rayTarget?: [number, number];
-  particles?: Particles;
-  /** Region particles live in: x, y, width, height. */
-  particleBox?: [number, number, number, number];
-  aurora?: boolean;
-  meteor?: boolean;
-}
-
-const WIDE = { width: 1536, height: 864 };
-const CARD = { width: 1536, height: 1024 };
-
-const SCENES: Record<string, SceneSpec> = {
-  landing: {
-    ...WIDE, tint: "#0f2237", glow: "#ffd9a8", light: [1249, 254, 60], mist: 478,
-    stars: 380, reflection: { x: 1247, top: 494, bottom: 864 }, meteor: true,
-  },
-  complete: {
-    ...WIDE, tint: "#8fb0c4", glow: "#ffe2ae", light: [1257, 322, 60], mist: 470,
-    reflection: { x: 1250, top: 494, bottom: 864 }, rays: "burst",
-  },
-  "deep-sleep": {
-    ...CARD, tint: "#1b2148", glow: "#e3e8ff", light: [985, 220, 90], mist: 640,
-    stars: 470, meteor: true,
-  },
-  "deep-meditation": {
-    ...CARD, tint: "#6a6788", glow: "#ffe7c2", light: [767, 238, 70], mist: 760,
-    rays: "down", rayTarget: [767, 1024],
-  },
-  "healing-relaxation": {
-    ...CARD, tint: "#e7a58b", glow: "#ffd7a0", light: [1047, 444, 70], mist: 470,
-    reflection: { x: 1060, top: 486, bottom: 900 },
-  },
-  "anxiety-relief": {
-    ...CARD, tint: "#4d6e5c", glow: "#fff4cf", light: [1440, 70, 120], mist: 640,
-    rays: "down", rayTarget: [760, 800],
-    particles: "motes", particleBox: [640, 160, 820, 640],
-  },
-  focus: {
-    ...CARD, tint: "#5b7ea8", glow: "#ffcf85", light: [767, 487, 70], mist: 580,
-    rays: "burst",
-  },
-  energy: {
-    ...CARD, tint: "#c7704f", glow: "#ffcc7a", light: [1055, 270, 80], mist: 330,
-    rays: "burst", particles: "sand", particleBox: [0, 380, 1536, 480],
-  },
-  creativity: {
-    ...CARD, tint: "#12305a", glow: "#8ef0d0", light: [760, 330, 260], mist: 670,
-    stars: 520, aurora: true, reflection: { x: 780, top: 700, bottom: 1010 },
-    particles: "snow", particleBox: [0, 0, 1536, 1024],
-  },
-  "power-nap": {
-    ...CARD, tint: "#b9c8d6", glow: "#fff1d0", light: [1020, 340, 110], mist: 720,
-    rays: "down", rayTarget: [700, 1024],
-    particles: "pollen", particleBox: [0, 560, 1536, 460],
-  },
-};
 
 /** Large frames get the 1536 px painting, particles, ripples and the meteor. */
 const FULL_SIZE: Record<SceneVariant, boolean> = {
@@ -146,7 +62,7 @@ function buildDecor(sceneId: string, spec: SceneSpec, full: boolean): Decor {
   const particles: Decor["particles"] = [];
   if (full && spec.particles && spec.particleBox) {
     const [bx, by, bw, bh] = spec.particleBox;
-    const drift: Record<Particles, [number, number]> = {
+    const drift: Record<NonNullable<SceneSpec["particles"]>, [number, number]> = {
       motes: [24, -60], pollen: [70, -80], sand: [150, -18], snow: [-24, 110],
     };
     const [dx, dy] = drift[spec.particles];
@@ -242,8 +158,16 @@ interface SceneArtProps {
   variant: SceneVariant;
 }
 
+/**
+ * A painted place (from `public/scenes/`, see scenes.ts) plus the live layers
+ * drawn over it, pinned to the painting's own pixel coordinates.
+ *
+ * Every live layer is a plain HTML element animated only through transform
+ * and opacity, so the GPU compositor runs all motion and the main thread
+ * stays free for scrolling, even on phones.
+ */
 export const SceneArt = memo(function SceneArt({ sceneId, variant }: SceneArtProps) {
-  const spec = SCENES[sceneId];
+  const spec = SCENE_SPECS[sceneId];
   if (!spec) throw new Error(`Unknown scene: ${sceneId}`);
 
   const rootRef = useRef<HTMLDivElement>(null);
@@ -324,7 +248,7 @@ export const SceneArt = memo(function SceneArt({ sceneId, variant }: SceneArtPro
       }}>
         <div className="scene-plane scene-plane--base"
           style={{ "--origin": `${px(lx)} ${py(ly)}` } as React.CSSProperties}>
-          <img className="scene-image" src={`/scenes/${sceneId}-${full ? 1536 : 768}.webp`} alt=""
+          <img className="scene-image" src={scenePainting(sceneId, full ? 1536 : 768)} alt=""
             draggable={false} decoding="async" loading={full ? "eager" : "lazy"}
             fetchPriority={variant === "hero" ? "high" : "auto"} onLoad={() => setLoaded(true)} />
           <div className="scene-fx">

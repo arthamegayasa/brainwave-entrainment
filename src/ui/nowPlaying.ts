@@ -23,6 +23,7 @@ import {
   setBuilderItem,
   stopBuilderPlayback,
 } from "./builderEngine";
+import { sceneOf } from "./scenes";
 
 /**
  * The app's Now Playing (src/state/nowPlaying.ts): the one running Play,
@@ -32,9 +33,6 @@ import {
  * ended Play goes to the Listening History (ADR-017), and one that counts as
  * a completed session to the weekly streak.
  */
-
-/** Library audio shows the Meditating Scene until Custom Audio can choose one (#43). */
-const LIBRARY_SCENE = "deep-meditation";
 
 // Both engines play on the one shared AudioContext, so its clock is the
 // running Play's: every time Now Playing shows or records is time on it.
@@ -133,7 +131,7 @@ export function startLibraryPlay(
   begin(
     {
       audio,
-      scene: LIBRARY_SCENE,
+      scene: sceneOf(session),
       plannedMin: durationMin,
       schedule: engine.getSchedule()!,
       frequencies: {

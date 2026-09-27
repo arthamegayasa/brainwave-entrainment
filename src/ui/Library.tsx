@@ -15,6 +15,7 @@ import { loadPrefs, savePrefs } from "../state/prefs";
 import { BAND_COLORS, bandForHz } from "./bands";
 import { DurationRow } from "./DurationRow";
 import { startLibraryPlay, stopPlay, useNowPlaying } from "./nowPlaying";
+import { sceneOf, scenePainting } from "./scenes";
 
 /**
  * Library: the user-facing home for custom audio — cloud sessions
@@ -197,6 +198,11 @@ export function Library({ onSignIn, onBeforePlay, onOpenPlayer }: LibraryProps) 
       </button>
     );
 
+  /** The Scene an item shows, its designer's choice or the default. */
+  const sceneThumb = (spec: CustomSession) => (
+    <img className="library-item-scene" src={scenePainting(sceneOf(spec), 768)} alt="" />
+  );
+
   const assigned = cloud.filter((a) => !a.isTemplate);
   const templates = cloud.filter((a) => a.isTemplate);
 
@@ -243,6 +249,7 @@ export function Library({ onSignIn, onBeforePlay, onOpenPlayer }: LibraryProps) 
             <div className="library-list">
               {assigned.map((audio) => (
                 <div className="library-item" key={audio.id}>
+                  {sceneThumb(audio.spec)}
                   <div className="library-item-info">
                     <span className="library-item-name">{audio.name}</span>
                     {audio.goalTagline && (
@@ -260,6 +267,7 @@ export function Library({ onSignIn, onBeforePlay, onOpenPlayer }: LibraryProps) 
               <div className="library-list">
                 {templates.map((audio) => (
                   <div className="library-item" key={audio.id}>
+                    {sceneThumb(audio.spec)}
                     <div className="library-item-info">
                       <span className="library-item-name">{audio.name}</span>
                       {audio.goalTagline && (
@@ -302,6 +310,7 @@ export function Library({ onSignIn, onBeforePlay, onOpenPlayer }: LibraryProps) 
           <div className="library-list">
             {saved.map((session) => (
               <div className="library-item" key={session.id}>
+                {sceneThumb(session)}
                 <div className="library-item-info">
                   <span className="library-item-name">{session.name}</span>
                 </div>

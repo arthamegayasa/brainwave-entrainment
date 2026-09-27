@@ -16,6 +16,8 @@ import {
   saveCustomSession,
 } from "../state/customPresets";
 import { formatClock } from "./bands";
+import { ScenePicker } from "./ScenePicker";
+import { sceneOf } from "./scenes";
 import {
   ensureBuilder,
   getBuilderEngine,
@@ -114,6 +116,8 @@ export function Builder({ onBeforePlay }: BuilderProps) {
   const [elapsed, setElapsed] = useState(0);
   const [remaining, setRemaining] = useState<number | null>(null);
   const [name, setName] = useState("My Custom Session");
+  /** The Scene the designer picked; none until they pick (the default shows). */
+  const [sceneId, setSceneId] = useState<string | undefined>();
   const [saved, setSaved] = useState<CustomSession[]>(() => listCustomSessions());
   const [notice, setNotice] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -146,7 +150,7 @@ export function Builder({ onBeforePlay }: BuilderProps) {
     setBuilderItem(STUDIO_PREVIEW_ID);
     setMediaPresentation({
       title: "Studio preview",
-      scene: "deep-meditation",
+      scene: sceneOf({ sceneId }),
       durationSec: null,
       position: () => 0,
       stop: stopBuilderPlayback,
@@ -185,6 +189,7 @@ export function Builder({ onBeforePlay }: BuilderProps) {
     name,
     curve,
     layers,
+    sceneId,
     createdAt: new Date().toISOString(),
   });
 
@@ -212,6 +217,7 @@ export function Builder({ onBeforePlay }: BuilderProps) {
       setName(imported.name);
       setCurve(imported.curve);
       setLayers(imported.layers);
+      setSceneId(imported.sceneId);
       flash("Preset imported ✓");
     } catch (err) {
       flash(err instanceof Error ? err.message : "Import failed");
@@ -222,6 +228,7 @@ export function Builder({ onBeforePlay }: BuilderProps) {
     setName(session.name);
     setCurve(session.curve);
     setLayers(session.layers);
+    setSceneId(session.sceneId);
     flash("Preset loaded ✓");
   };
 
@@ -290,6 +297,8 @@ export function Builder({ onBeforePlay }: BuilderProps) {
               </button>
             ))}
           </div>
+
+          <ScenePicker value={sceneId} onChange={setSceneId} />
 
           <div className="builder-section-title">Save &amp; Share</div>
           <div className="save-row">
