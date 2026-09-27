@@ -37,26 +37,33 @@ test("a Scene picked in the Studio shows in the Library, the Player, the Mini-pl
   await page.setViewportSize({ width: 390, height: 844 });
   await openStudio(page);
   const picker = page.getByRole("group", { name: "Scene" });
-  const nature = picker.getByRole("group", { name: "Nature" });
+  const science = picker.getByRole("group", { name: "Science" });
+  await expect(science.locator(".scene-option-label")).toHaveText([
+    "Neuron Grove",
+    "Synapse Light",
+    "Mind Constellation",
+    "Sound to Mind",
+    /^Brainwave Ribbons/,
+  ]);
   // Nothing picked yet: the default Scene.
-  await expect(nature.getByRole("radio", { name: /^Misty Peak/ })).toBeChecked();
-  await nature.getByRole("radio", { name: "Deep Ocean" }).check();
-  await saveInStudio(page, "Ocean Evening");
+  await expect(science.getByRole("radio", { name: /^Brainwave Ribbons/ })).toBeChecked();
+  await science.getByRole("radio", { name: "Neuron Grove" }).check();
+  await saveInStudio(page, "Grove Evening");
 
   await page.getByRole("button", { name: "Library", exact: true }).click();
-  const row = libraryRow(page, "Ocean Evening");
-  await expect(row.locator("img")).toHaveAttribute("src", "/scenes/deep-ocean-768.webp");
+  const row = libraryRow(page, "Grove Evening");
+  await expect(row.locator("img")).toHaveAttribute("src", "/scenes/neuron-grove-768.webp");
 
   await playFromLibrary(page, row, "15 min");
-  await expect(page.locator(".player .scene-art")).toHaveAttribute("data-scene", "deep-ocean");
+  await expect(page.locator(".player .scene-art")).toHaveAttribute("data-scene", "neuron-grove");
   expect(await page.evaluate(() => window.__mediaControls.metadata?.artwork[0]?.src)).toMatch(
-    /\/scenes\/deep-ocean-768\.webp$/,
+    /\/scenes\/neuron-grove-768\.webp$/,
   );
 
   await page.getByRole("button", { name: "Minimize Player" }).click();
   await expect(page.getByRole("complementary", { name: "Mini-player" }).locator("img")).toHaveAttribute(
     "src",
-    "/scenes/deep-ocean-768.webp",
+    "/scenes/neuron-grove-768.webp",
   );
 });
 
@@ -65,7 +72,7 @@ test("the Studio stores a Scene only when one is picked, so unpicked audio follo
   await saveInStudio(page, "Plain Theta");
   await page.getByRole("button", { name: "Library", exact: true }).click();
   const row = libraryRow(page, "Plain Theta");
-  await expect(row.locator("img")).toHaveAttribute("src", "/scenes/deep-meditation-768.webp");
+  await expect(row.locator("img")).toHaveAttribute("src", "/scenes/brainwave-ribbons-768.webp");
   const plain = page.waitForEvent("download");
   await row.getByRole("button", { name: "Export" }).click();
   expect(await exported(plain)).not.toHaveProperty("sceneId");
@@ -78,7 +85,7 @@ test("the Studio stores a Scene only when one is picked, so unpicked audio follo
   expect(await exported(picked)).toMatchObject({ sceneId: "creativity" });
 
   // Picking the Default again goes back to following the default.
-  await picker.getByRole("radio", { name: /^Misty Peak/ }).check();
+  await picker.getByRole("radio", { name: /^Brainwave Ribbons/ }).check();
   const unpicked = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export", exact: true }).click();
   expect(await exported(unpicked)).not.toHaveProperty("sceneId");
@@ -89,16 +96,35 @@ test("a Scene picked during a Studio preview shows in its Media controls", async
   await page.locator(".builder-transport").getByRole("button", { name: /Play/ }).click();
   await expect.poll(() => audioStates(page)).toEqual(["running"]);
   const artwork = () => page.evaluate(() => window.__mediaControls.metadata?.artwork[0]?.src);
-  expect(await artwork()).toMatch(/\/scenes\/deep-meditation-768\.webp$/);
+  expect(await artwork()).toMatch(/\/scenes\/brainwave-ribbons-768\.webp$/);
   await page.getByRole("group", { name: "Scene" }).getByRole("radio", { name: "Aurora Lake" }).check();
   expect(await artwork()).toMatch(/\/scenes\/creativity-768\.webp$/);
 });
 
-test("Custom Audio from before Scenes, or with an unknown Scene, shows the default Scene", async ({ page }) => {
-  const row = await importSession(page, { ...EVENING_THETA, sceneId: "no-such-scene" });
-  await expect(row.locator("img")).toHaveAttribute("src", "/scenes/deep-meditation-768.webp");
-  await playFromLibrary(page, row, "15 min");
-  await expect(page.locator(".player .scene-art")).toHaveAttribute("data-scene", "deep-meditation");
+test("Custom Audio saved without a Scene, or with an unknown one, shows Brainwave Ribbons everywhere", async ({
+  page,
+}) => {
+  // Saved before Brainwave Ribbons was painted: stored specs never hold the default.
+  await page.evaluate(
+    (session) => localStorage.setItem("serenade.customSessions.v1", JSON.stringify([session])),
+    EVENING_THETA,
+  );
+  const unknown = await importSession(page, { ...EVENING_THETA, id: "dawn", name: "Dawn Theta", sceneId: "no-such-scene" });
+  const saved = libraryRow(page, "Evening Theta");
+  for (const row of [saved, unknown]) {
+    await expect(row.locator("img")).toHaveAttribute("src", "/scenes/brainwave-ribbons-768.webp");
+  }
+
+  await playFromLibrary(page, saved, "15 min");
+  await expect(page.locator(".player .scene-art")).toHaveAttribute("data-scene", "brainwave-ribbons");
+  expect(await page.evaluate(() => window.__mediaControls.metadata?.artwork[0]?.src)).toMatch(
+    /\/scenes\/brainwave-ribbons-768\.webp$/,
+  );
+  await page.getByRole("button", { name: "Minimize Player" }).click();
+  await expect(page.getByRole("complementary", { name: "Mini-player" }).locator("img")).toHaveAttribute(
+    "src",
+    "/scenes/brainwave-ribbons-768.webp",
+  );
 });
 
 test("a session file keeps its Scene when imported into the Studio", async ({ page }) => {

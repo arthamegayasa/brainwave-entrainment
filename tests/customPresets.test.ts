@@ -72,12 +72,15 @@ describe("sanitizeSession duplicate layer ids", () => {
 });
 
 describe("sanitizeSession Scene", () => {
-  /** The Meditating Scene, the default until #45 paints Brainwave Ribbons. */
-  const DEFAULT = "deep-meditation";
+  /** Brainwave Ribbons, the Scene of Custom Audio whose designer chose none. */
+  const DEFAULT = "brainwave-ribbons";
 
+  // An explicit choice stays, even of Misty Peak, the default before Brainwave Ribbons.
   it("keeps a pickable Scene id", () => {
-    const result = sanitizeSession({ ...spec([validLayer("a")]), sceneId: "anxiety-relief" });
-    expect(sceneOf(result!)).toBe("anxiety-relief");
+    for (const sceneId of ["anxiety-relief", "deep-meditation", "synapse-light"]) {
+      const result = sanitizeSession({ ...spec([validLayer("a")]), sceneId });
+      expect(sceneOf(result!)).toBe(sceneId);
+    }
   });
 
   it("shows the default Scene for a spec without one, or with an unknown or unpickable one", () => {

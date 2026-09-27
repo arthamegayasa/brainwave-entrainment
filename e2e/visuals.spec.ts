@@ -64,27 +64,31 @@ const CUSTOM_AUDIO_SCENES = [
   { id: "deep-ocean", label: "Deep Ocean", moves: ["scene-rays-sway", "scene-float"] },
   { id: "nebula", label: "Nebula", moves: ["scene-drift-slow", "scene-meteor"] },
   { id: "lavender-field", label: "Lavender Field", moves: ["scene-rays-sway", "scene-float"] },
+  { id: "neuron-grove", label: "Neuron Grove", moves: ["scene-float"] },
+  { id: "synapse-light", label: "Synapse Light", moves: ["scene-float"] },
+  { id: "mind-constellation", label: "Mind Constellation", moves: ["scene-drift-slow", "scene-meteor"] },
+  { id: "sound-to-mind", label: "Sound to Mind", moves: ["scene-rays-spin", "scene-float"] },
+  { id: "brainwave-ribbons", label: "Brainwave Ribbons", moves: ["scene-aurora", "scene-drift-slow"] },
 ];
 
 for (const scene of CUSTOM_AUDIO_SCENES) {
-  test(`the ${scene.label} Scene moves in the Player`, async ({ page }) => {
+  test(`the ${scene.label} Scene moves in the Player, and keeps only opacity ambience under reduced motion`, async ({
+    page,
+  }) => {
     await playScene(page, scene.label, scene.id);
     await expect
       .poll(async () => (await playerSceneAnimations(page)).map((animation) => animation.name))
       .toEqual(expect.arrayContaining(scene.moves));
+
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    const moving = async () =>
+      (await playerSceneAnimations(page)).filter((animation) =>
+        animation.properties.some((property) => property !== "opacity"),
+      );
+    await expect.poll(moving).toEqual([]);
+    expect((await playerSceneAnimations(page)).map((animation) => animation.name)).toContain("scene-pulse");
   });
 }
-
-test("under reduced motion, a Scene in the Player keeps only opacity ambience", async ({ page }) => {
-  await page.emulateMedia({ reducedMotion: "reduce" });
-  // Light shafts and floating motes: movements the landing hero above lacks.
-  await playScene(page, "Deep Ocean", "deep-ocean");
-  const animations = await playerSceneAnimations(page);
-  expect(animations.filter((animation) => animation.properties.some((property) => property !== "opacity"))).toEqual(
-    [],
-  );
-  expect(animations.map((animation) => animation.name)).toContain("scene-pulse");
-});
 
 test("the landing scene follows the pointer with depth", async ({ page }) => {
   await page.goto("/");
