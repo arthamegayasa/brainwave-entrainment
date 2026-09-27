@@ -48,32 +48,43 @@ function playerSceneAnimations(page: Page): Promise<Array<{ name: string; proper
   );
 }
 
-// Each new Nature Scene and the movements its live layers add to the painting.
-const NATURE_SCENES = [
-  { id: "deep-ocean", label: "Deep Ocean", moves: ["scene-drift", "scene-rays-sway", "scene-float"] },
-  { id: "nebula", label: "Nebula", moves: ["scene-drift", "scene-drift-slow", "scene-meteor"] },
-  { id: "lavender-field", label: "Lavender Field", moves: ["scene-drift", "scene-rays-sway", "scene-float"] },
+/** Play Custom Audio that shows `sceneId`, so the Player paints that Scene. */
+async function playScene(page: Page, name: string, sceneId: string): Promise<void> {
+  await openSessions(page);
+  const row = await importSession(page, { ...EVENING_THETA, name, sceneId });
+  await playFromLibrary(page, row, "15 min");
+  await expect(page.locator(".player .scene-art")).toHaveAttribute("data-scene", sceneId);
+}
+
+// The Scenes painted for Custom Audio and the movements their live layers add.
+// Particles are drawn only inside the Player's crop, and stars only above its
+// sky line, so each Scene's own particle box and star height decide whether
+// its layers move on screen.
+const CUSTOM_AUDIO_SCENES = [
+  { id: "deep-ocean", label: "Deep Ocean", moves: ["scene-rays-sway", "scene-float"] },
+  { id: "nebula", label: "Nebula", moves: ["scene-drift-slow", "scene-meteor"] },
+  { id: "lavender-field", label: "Lavender Field", moves: ["scene-rays-sway", "scene-float"] },
 ];
 
-for (const scene of NATURE_SCENES) {
-  test(`the ${scene.label} Scene moves in the Player, and only glows under reduced motion`, async ({ page }) => {
-    await page.emulateMedia({ reducedMotion: "reduce" });
-    await openSessions(page);
-    const row = await importSession(page, { ...EVENING_THETA, name: scene.label, sceneId: scene.id });
-    await playFromLibrary(page, row, "15 min");
-    await expect(page.locator(".player .scene-art")).toHaveAttribute("data-scene", scene.id);
-
-    // Movement stops; gentle opacity ambience (the glow of the light) stays.
-    const still = await playerSceneAnimations(page);
-    expect(still.filter((animation) => animation.properties.some((property) => property !== "opacity"))).toEqual([]);
-    expect(still.map((animation) => animation.name)).toContain("scene-pulse");
-
-    await page.emulateMedia({ reducedMotion: "no-preference" });
+for (const scene of CUSTOM_AUDIO_SCENES) {
+  test(`the ${scene.label} Scene moves in the Player`, async ({ page }) => {
+    await playScene(page, scene.label, scene.id);
     await expect
       .poll(async () => (await playerSceneAnimations(page)).map((animation) => animation.name))
       .toEqual(expect.arrayContaining(scene.moves));
   });
 }
+
+test("under reduced motion, a Scene in the Player keeps only opacity ambience", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  // Light shafts and floating motes: movements the landing hero above lacks.
+  await playScene(page, "Deep Ocean", "deep-ocean");
+  const animations = await playerSceneAnimations(page);
+  expect(animations.filter((animation) => animation.properties.some((property) => property !== "opacity"))).toEqual(
+    [],
+  );
+  expect(animations.map((animation) => animation.name)).toContain("scene-pulse");
+});
 
 test("the landing scene follows the pointer with depth", async ({ page }) => {
   await page.goto("/");

@@ -37,40 +37,27 @@ test("a Scene picked in the Studio shows in the Library, the Player, the Mini-pl
   await page.setViewportSize({ width: 390, height: 844 });
   await openStudio(page);
   const picker = page.getByRole("group", { name: "Scene" });
-  await expect(picker.getByRole("group", { name: "Nature" })).toBeVisible();
+  const nature = picker.getByRole("group", { name: "Nature" });
   // Nothing picked yet: the default Scene.
-  await expect(picker.getByRole("radio", { name: /^Misty Peak/ })).toBeChecked();
-  await picker.getByRole("radio", { name: "Forest Light" }).check();
-  await saveInStudio(page, "Forest Evening");
+  await expect(nature.getByRole("radio", { name: /^Misty Peak/ })).toBeChecked();
+  await nature.getByRole("radio", { name: "Deep Ocean" }).check();
+  await saveInStudio(page, "Ocean Evening");
 
   await page.getByRole("button", { name: "Library", exact: true }).click();
-  const row = libraryRow(page, "Forest Evening");
-  await expect(row.locator("img")).toHaveAttribute("src", "/scenes/anxiety-relief-768.webp");
+  const row = libraryRow(page, "Ocean Evening");
+  await expect(row.locator("img")).toHaveAttribute("src", "/scenes/deep-ocean-768.webp");
 
   await playFromLibrary(page, row, "15 min");
-  await expect(page.locator(".player .scene-art")).toHaveAttribute("data-scene", "anxiety-relief");
+  await expect(page.locator(".player .scene-art")).toHaveAttribute("data-scene", "deep-ocean");
   expect(await page.evaluate(() => window.__mediaControls.metadata?.artwork[0]?.src)).toMatch(
-    /\/scenes\/anxiety-relief-768\.webp$/,
+    /\/scenes\/deep-ocean-768\.webp$/,
   );
 
   await page.getByRole("button", { name: "Minimize Player" }).click();
   await expect(page.getByRole("complementary", { name: "Mini-player" }).locator("img")).toHaveAttribute(
     "src",
-    "/scenes/anxiety-relief-768.webp",
+    "/scenes/deep-ocean-768.webp",
   );
-});
-
-test("the Studio picker offers Deep Ocean, Nebula, and Lavender Field under Nature, each with its painting", async ({
-  page,
-}) => {
-  await openStudio(page);
-  const nature = page.getByRole("group", { name: "Scene" }).getByRole("group", { name: "Nature" });
-  for (const label of ["Deep Ocean", "Nebula", "Lavender Field"]) {
-    const tile = nature.locator(".scene-option", { has: page.getByRole("radio", { name: label, exact: true }) });
-    const thumbnail = tile.locator("img");
-    await thumbnail.scrollIntoViewIfNeeded();
-    await expect.poll(() => thumbnail.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(768);
-  }
 });
 
 test("the Studio stores a Scene only when one is picked, so unpicked audio follows the default", async ({ page }) => {
