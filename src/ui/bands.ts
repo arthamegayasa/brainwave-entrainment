@@ -17,16 +17,24 @@ export const BAND_LABELS: Record<Band, string> = {
 };
 
 /**
- * Map a beat frequency to its brainwave band. Boundaries
- * 4 / 8 / 13 / 30 belong to the HIGHER band, matching the documented mapping:
- * delta <4, theta 4–8, alpha 8–13, beta 13–30, gamma 30+.
+ * Each band's lower edge in Hz, low to high. A boundary belongs to the
+ * HIGHER band, matching the documented mapping: delta <4, theta 4–8,
+ * alpha 8–13, beta 13–30, gamma 30+.
  */
+export const BAND_FLOORS: readonly { band: Band; fromHz: number }[] = [
+  { band: "delta", fromHz: 0 },
+  { band: "theta", fromHz: 4 },
+  { band: "alpha", fromHz: 8 },
+  { band: "beta", fromHz: 13 },
+  { band: "gamma", fromHz: 30 },
+];
+
+/** Map a beat frequency to its brainwave band (see BAND_FLOORS). */
 export function bandForHz(hz: number): Band {
-  if (hz < 4) return "delta";
-  if (hz < 8) return "theta";
-  if (hz < 13) return "alpha";
-  if (hz < 30) return "beta";
-  return "gamma";
+  for (let i = BAND_FLOORS.length - 1; i > 0; i--) {
+    if (hz >= BAND_FLOORS[i].fromHz) return BAND_FLOORS[i].band;
+  }
+  return "delta";
 }
 
 export function formatClock(totalSec: number): string {

@@ -5,15 +5,16 @@ interface DurationRowProps {
   /** Minutes; null = ∞. */
   value: number | null;
   onChange: (durationMin: number | null) => void;
+  label?: string;
 }
 
 /** The length of a Play as one segmented row: 15 · 30 · 45 · 60 · ∞. */
-export function DurationRow({ value, onChange }: DurationRowProps) {
+export function DurationRow({ value, onChange, label = "Duration (min)" }: DurationRowProps) {
   const labelId = useId();
   return (
     <div className="field" role="group" aria-labelledby={labelId}>
       <div className="label" id={labelId}>
-        Duration (min)
+        {label}
       </div>
       <div className="segmented">
         {DURATIONS_MIN.map((d) => (
