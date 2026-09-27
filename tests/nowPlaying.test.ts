@@ -2,7 +2,12 @@ import { describe, it, expect } from "vitest";
 import { buildSchedule } from "../src/audio/schedule";
 import { PRESETS } from "../src/audio/presets";
 import { createNowPlaying } from "../src/state/nowPlaying";
-import type { EntrainmentLayer, NowPlayingEvent, PlaySetup } from "../src/state/nowPlaying";
+import type {
+  AudioState,
+  EntrainmentLayer,
+  NowPlayingEvent,
+  PlaySetup,
+} from "../src/state/nowPlaying";
 
 const MEDITATING = PRESETS.find((p) => p.id === "deep-meditation")!;
 
@@ -32,29 +37,47 @@ const CUSTOM_PLAY: PlaySetup = {
   frequencies: { layers: CUSTOM_LAYERS },
 };
 
-/** A clock that only moves when the test says so, starting 21:00 WIB. */
-function fakeClock() {
-  let ms = Date.parse("2026-09-26T21:00:00+07:00");
+/**
+ * The device's two clocks: the wall clock, starting 21:00 WIB, and the audio
+ * clock (AudioContext.currentTime), which moves with it only while the audio
+ * plays. Both only move when the test says so.
+ */
+function fakeClocks() {
+  let wallMs = Date.parse("2026-09-26T21:00:00+07:00");
+  let audioSec = 500; // the shared context has played before
+  let playing = false;
   return {
-    now: () => ms,
+    now: () => wallMs,
+    audioSec: () => audioSec,
     advance: (sec: number) => {
-      ms += sec * 1000;
+      wallMs += sec * 1000;
+      if (playing) audioSec += sec;
+    },
+    /** The audio stands still or plays again, whether or not the app has heard yet. */
+    play: (on: boolean) => {
+      playing = on;
     },
   };
 }
 
-/** Now Playing on a fake clock, with every event it sends recorded. */
+/** Now Playing on fake clocks, with every event it sends recorded. */
 function nowPlaying() {
-  const clock = fakeClock();
+  const clock = fakeClocks();
   let n = 0;
   const np = createNowPlaying({
     now: clock.now,
+    audioSec: clock.audioSec,
     newId: () => `play-${++n}`,
     timeZone: () => "Asia/Jakarta",
   });
   const events: NowPlayingEvent[] = [];
   np.subscribe((event) => events.push(event));
-  return { np, clock, events, types: () => events.map((e) => e.type) };
+  /** The audio changes, and Now Playing hears of it at once, as the app glue tells it. */
+  const setAudio = (state: AudioState) => {
+    clock.play(state === "playing");
+    np.setAudio(state);
+  };
+  return { np, clock, setAudio, events, types: () => events.map((e) => e.type) };
 }
 
 describe("Now Playing", () => {
@@ -81,48 +104,66 @@ describe("Now Playing", () => {
   });
 
   it("counts time only while the audio plays, and holds the ramp in place while paused", () => {
-    const { np, clock, types } = nowPlaying();
+    const { np, setAudio, clock, types } = nowPlaying();
     np.start(PRESET_PLAY); // the device has not resumed the audio yet
     clock.advance(2);
     expect(np.progress()).toMatchObject({ elapsedSec: 0, remainingSec: 1800, beatHz: 10 });
 
-    np.setAudio("playing");
+    setAudio("playing");
     clock.advance(6 * 60); // halfway down the 12-minute ramp
-    np.setAudio("paused");
+    setAudio("paused");
     expect(np.current()).toMatchObject({ paused: true, held: false });
     const heldAt = np.progress();
     expect(heldAt).toMatchObject({ elapsedSec: 360, remainingSec: 1440, beatHz: 8, phase: "rampIn" });
     clock.advance(30 * 60);
     expect(np.progress()).toEqual(heldAt);
 
-    np.setAudio("waiting"); // the User tapped resume; the device is resuming
+    setAudio("waiting"); // the User tapped resume; the device is resuming
     expect(np.current()).toMatchObject({ paused: false, held: false });
     clock.advance(1);
     expect(np.progress()).toEqual(heldAt);
-    np.setAudio("playing");
+    setAudio("playing");
     clock.advance(6 * 60);
     expect(np.progress()).toMatchObject({ elapsedSec: 720, beatHz: 6, phase: "hold" });
     expect(types()).toEqual(["start", "pause", "resume"]);
   });
 
   it("shows a device hold until the User taps to resume, without counting the time held", () => {
-    const { np, clock, types } = nowPlaying();
-    np.setAudio("playing");
+    const { np, setAudio, clock, types } = nowPlaying();
+    setAudio("playing");
     np.start(CUSTOM_PLAY);
     clock.advance(60);
-    np.setAudio("held"); // a call took the audio, and the browser wants a tap
+    setAudio("held"); // a call took the audio, and the browser wants a tap
     expect(np.current()).toMatchObject({ paused: false, held: true });
     clock.advance(10 * 60);
-    np.setAudio("playing");
+    setAudio("playing");
     expect(np.current()).toMatchObject({ paused: false, held: false });
     clock.advance(60);
     expect(np.progress()).toMatchObject({ elapsedSec: 120, remainingSec: 1080 });
     // A short interruption the device undoes by itself is neither a pause nor a hold.
-    np.setAudio("waiting");
+    setAudio("waiting");
     clock.advance(5);
-    np.setAudio("playing");
+    setAudio("playing");
     expect(np.progress()).toMatchObject({ elapsedSec: 120 });
     expect(types()).toEqual(["start", "hold", "resume"]);
+  });
+
+  it("follows the audio clock: wall time that passes while it stands still is not heard", () => {
+    const { np, clock, setAudio } = nowPlaying();
+    setAudio("playing");
+    np.start(PRESET_PLAY);
+    clock.advance(60);
+    // A call froze the audio while the page was frozen in the background:
+    // the audio clock stops, and the statechange has not arrived yet.
+    clock.play(false);
+    clock.advance(20 * 60);
+    const progress = np.progress();
+    expect(progress).toMatchObject({ elapsedSec: 60, remainingSec: 1740, phase: "rampIn" });
+    expect(progress?.beatHz).toBeCloseTo(9.667, 3);
+    expect(np.stop()).toMatchObject({
+      play: { listenedSec: 60, outcome: "stopped" },
+      completedAt: null,
+    });
   });
 
   describe.each([
@@ -132,13 +173,13 @@ describe("Now Playing", () => {
     const lengthSec = setup.plannedMin! * 60;
 
     it("a stop before 5 minutes listened is not a completed session", () => {
-      const { np, clock, events } = nowPlaying();
-      np.setAudio("playing");
+      const { np, setAudio, clock, events } = nowPlaying();
+      setAudio("playing");
       np.start(setup);
       clock.advance(4 * 60);
-      np.setAudio("paused");
+      setAudio("paused");
       clock.advance(10 * 60); // paused time is not listening
-      np.setAudio("playing");
+      setAudio("playing");
       clock.advance(59);
       const ending = np.stop();
       expect(ending).toMatchObject({
@@ -152,8 +193,8 @@ describe("Now Playing", () => {
     });
 
     it("a stop after 5 minutes listened is a completed session, dated at the stop", () => {
-      const { np, clock } = nowPlaying();
-      np.setAudio("playing");
+      const { np, setAudio, clock } = nowPlaying();
+      setAudio("playing");
       np.start(setup);
       clock.advance(5 * 60);
       expect(np.stop()).toMatchObject({
@@ -164,13 +205,13 @@ describe("Now Playing", () => {
     });
 
     it("a natural end is a completed session, dated when the whole length had been heard", () => {
-      const { np, clock, events } = nowPlaying();
-      np.setAudio("playing");
+      const { np, setAudio, clock, events } = nowPlaying();
+      setAudio("playing");
       np.start(setup);
       clock.advance(60);
-      np.setAudio("paused");
+      setAudio("paused");
       clock.advance(60);
-      np.setAudio("playing");
+      setAudio("playing");
       clock.advance(lengthSec - 60 + 2 * 3600); // the end was noticed hours later
       expect(np.progress()).toMatchObject({ elapsedSec: lengthSec, remainingSec: 0 });
       const ending = np.end();
@@ -184,8 +225,8 @@ describe("Now Playing", () => {
     });
 
     it("a stop after the whole length was heard counts as completed at the end", () => {
-      const { np, clock } = nowPlaying();
-      np.setAudio("playing");
+      const { np, setAudio, clock } = nowPlaying();
+      setAudio("playing");
       np.start(setup);
       clock.advance(lengthSec + 30);
       const endedAt = new Date(Date.parse("2026-09-26T14:00:00Z") + lengthSec * 1000).toISOString();
@@ -197,8 +238,8 @@ describe("Now Playing", () => {
   });
 
   it("an open-ended (∞) Play has no remaining time and counts once 5 minutes were heard", () => {
-    const { np, clock } = nowPlaying();
-    np.setAudio("playing");
+    const { np, setAudio, clock } = nowPlaying();
+    setAudio("playing");
     np.start({ ...CUSTOM_PLAY, plannedMin: null });
     clock.advance(90 * 60);
     expect(np.progress()).toMatchObject({ elapsedSec: 5400, remainingSec: null, beatHz: 4 });
@@ -209,8 +250,8 @@ describe("Now Playing", () => {
   });
 
   it("a natural end counts even when the whole Play was shorter than 5 minutes", () => {
-    const { np, clock } = nowPlaying();
-    np.setAudio("playing");
+    const { np, setAudio, clock } = nowPlaying();
+    setAudio("playing");
     np.start({ ...PRESET_PLAY, plannedMin: 2 });
     clock.advance(2 * 60);
     expect(np.end()).toMatchObject({
@@ -220,8 +261,8 @@ describe("Now Playing", () => {
   });
 
   it("starting a Play stops the one still running, with its credit", () => {
-    const { np, clock, events } = nowPlaying();
-    np.setAudio("playing");
+    const { np, setAudio, clock, events } = nowPlaying();
+    setAudio("playing");
     np.start(PRESET_PLAY);
     clock.advance(6 * 60);
     np.start(CUSTOM_PLAY);
@@ -233,13 +274,13 @@ describe("Now Playing", () => {
   });
 
   it("ends each Play once, and nothing without one", () => {
-    const { np, clock, types } = nowPlaying();
+    const { np, setAudio, clock, types } = nowPlaying();
     expect(np.stop()).toBeNull();
     expect(np.end()).toBeNull();
-    np.setAudio("paused");
+    setAudio("paused");
     expect(np.progress()).toBeNull();
 
-    np.setAudio("playing");
+    setAudio("playing");
     np.start(PRESET_PLAY);
     clock.advance(10);
     expect(np.stop()).toMatchObject({ play: null, completedAt: null }); // a mis-tap is not a Play

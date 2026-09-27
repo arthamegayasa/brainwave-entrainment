@@ -158,6 +158,15 @@ export function isAudioRunning(): boolean {
 }
 
 /**
+ * Seconds on the shared audio clock (AudioContext.currentTime), 0 before the
+ * first play. It stands still whenever the context does not run, so time on
+ * it is time heard.
+ */
+export function audioClockSec(): number {
+  return ctx?.currentTime ?? 0;
+}
+
+/**
  * True while audio should be playing but the device holds the context paused
  * and a user gesture is needed. A fresh start gets a grace period, so the
  * normal suspended → running transition never flashes a prompt.

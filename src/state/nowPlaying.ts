@@ -2,13 +2,13 @@
  * Now Playing: the single source for the running Play, whichever engine plays
  * it (a Preset on SessionEngine; Custom Audio or a saved Studio session from
  * the Library on BuilderEngine). Pure TypeScript — NO React, NO audio: the
- * clock is injected, so the rules are testable without a browser. The app
- * glue lives in src/ui/nowPlaying.ts.
+ * wall clock and the audio clock are injected, so the rules are testable
+ * without a browser. The app glue lives in src/ui/nowPlaying.ts.
  *
  * It holds what the Player and the Library rows show, follows the device's
- * audio, counts time the way the Listening core counts time listened (only
- * while the audio plays), and decides, when the Play ends, its Listening
- * History Play and whether it counts as a completed session.
+ * audio state for the paused and device-held flags, takes all time from the
+ * audio clock, and decides, when the Play ends, its Listening History Play and
+ * whether it counts as a completed session.
  */
 
 import { beatAt, phaseAt } from "../audio/schedule";
@@ -16,7 +16,7 @@ import type { SessionPhase, SessionSchedule } from "../audio/schedule";
 import type { ListeningMode } from "../audio/session";
 import type { EntrainmentLayerType } from "../audio/builder";
 import { createPlayRecorder } from "./listening";
-import type { AudioSnapshot, ListeningEnv, Play } from "./listening";
+import type { AudioSnapshot, Play, PlayEnv } from "./listening";
 
 /** A Play counts as a completed session (weekly streak) at its natural end, or after this much listening. */
 export const COMPLETION_MIN_SEC = 300;
@@ -104,7 +104,14 @@ export interface NowPlaying {
   stop(): PlayEnding | null;
 }
 
-export function createNowPlaying(env: ListeningEnv): NowPlaying {
+/**
+ * `env.audioSec` is the shared audio clock: elapsed and remaining time, the
+ * Beat and phase, the time listened, and completion credit all follow it, so
+ * wall time that passes while the audio stands still (a pause, a call, a page
+ * frozen in the background) is never counted, whenever the app hears of it.
+ * Calendar instants (start, end, the credit's date) come from `env.now`.
+ */
+export function createNowPlaying(env: PlayEnv): NowPlaying {
   const recorder = createPlayRecorder(env);
   const listeners = new Set<(event: NowPlayingEvent) => void>();
   let audio: AudioState = "waiting";
@@ -112,12 +119,6 @@ export function createNowPlaying(env: ListeningEnv): NowPlaying {
 
   function emit(event: NowPlayingEvent): void {
     for (const listener of [...listeners]) listener(event);
-  }
-
-  // Time counts only while the audio plays.
-  function followAudio(): void {
-    if (audio === "playing") recorder.resume();
-    else recorder.pause();
   }
 
   function finish(naturalEnd: boolean): PlayEnding | null {
@@ -161,7 +162,6 @@ export function createNowPlaying(env: ListeningEnv): NowPlaying {
     start(setup) {
       finish(false);
       recorder.start(setup.audio, setup.plannedMin);
-      followAudio();
       running = { ...setup, paused: audio === "paused", held: audio === "held" };
       emit({ type: "start", play: running });
     },
@@ -170,7 +170,6 @@ export function createNowPlaying(env: ListeningEnv): NowPlaying {
       if (state === audio) return;
       audio = state;
       if (!running) return;
-      followAudio();
       const paused = state === "paused";
       const held = state === "held";
       if (paused === running.paused && held === running.held) return;

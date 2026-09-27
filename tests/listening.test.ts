@@ -10,21 +10,34 @@ const SLEEPING: AudioSnapshot = {
   band: "delta",
 };
 
-/** A clock that only moves when the test says so, starting 21:00 WIB. */
-function fakeClock() {
-  let ms = Date.parse("2026-09-26T21:00:00+07:00");
+/**
+ * The device's two clocks: the wall clock, starting 21:00 WIB, and the audio
+ * clock (AudioContext.currentTime), which moves with it only while the audio
+ * plays. Both only move when the test says so.
+ */
+function fakeClocks() {
+  let wallMs = Date.parse("2026-09-26T21:00:00+07:00");
+  let audioSec = 500; // the shared context has played before
+  let playing = true;
   return {
-    now: () => ms,
+    now: () => wallMs,
+    audioSec: () => audioSec,
     advance: (sec: number) => {
-      ms += sec * 1000;
+      wallMs += sec * 1000;
+      if (playing) audioSec += sec;
+    },
+    /** The audio stands still (paused, interrupted, frozen with the page) or plays again. */
+    play: (on: boolean) => {
+      playing = on;
     },
   };
 }
 
-function recorder(clock = fakeClock()) {
+function recorder(clock = fakeClocks()) {
   let n = 0;
   const rec = createPlayRecorder({
     now: clock.now,
+    audioSec: clock.audioSec,
     newId: () => `play-${++n}`,
     timeZone: () => "Asia/Jakarta",
   });
@@ -43,14 +56,15 @@ describe("Play recorder", () => {
     expect(rec.stop()).toMatchObject({ listenedSec: 30, outcome: "stopped" });
   });
 
-  it("excludes paused time from the time listened, not from start and end", () => {
+  it("takes the time listened from the audio clock and start and end from the wall clock", () => {
     const { rec, clock } = recorder();
     rec.start(SLEEPING, 20);
     clock.advance(60);
-    rec.pause();
+    clock.play(false); // nobody has to say so: the audio clock stands still
     clock.advance(120);
-    rec.resume();
+    clock.play(true);
     clock.advance(40);
+    expect(rec.heardSec()).toBe(100);
     expect(rec.stop()).toMatchObject({
       startedAt: "2026-09-26T14:00:00.000Z",
       endedAt: "2026-09-26T14:03:40.000Z",
@@ -75,10 +89,10 @@ describe("Play recorder", () => {
     const { rec, clock } = recorder();
     rec.start(SLEEPING, 20);
     clock.advance(10 * 60);
-    rec.pause();
+    clock.play(false);
     clock.advance(5 * 60);
-    rec.resume();
-    clock.advance(3 * 3600); // a locked phone held the tab overnight
+    clock.play(true);
+    clock.advance(3 * 3600); // a locked phone held the tab overnight; the audio clock ran on
     expect(rec.end()).toMatchObject({
       endedAt: "2026-09-26T14:25:00.000Z",
       listenedSec: 1200,
@@ -108,6 +122,19 @@ describe("Play recorder", () => {
     });
   });
 
+  it("a stop after a long wall-clock gap the audio clock did not share is stopped, not completed", () => {
+    const { rec, clock } = recorder();
+    rec.start(SLEEPING, 20);
+    clock.advance(4 * 60);
+    clock.play(false); // a call froze the audio while the page was frozen too
+    clock.advance(3 * 3600);
+    expect(rec.stop()).toMatchObject({
+      endedAt: "2026-09-26T17:04:00.000Z",
+      listenedSec: 240,
+      outcome: "stopped",
+    });
+  });
+
   it("an open-ended (∞) session is open, with its duration", () => {
     const { rec, clock } = recorder();
     rec.start(SLEEPING, null);
@@ -115,21 +142,21 @@ describe("Play recorder", () => {
     expect(rec.stop()).toMatchObject({ plannedMin: null, listenedSec: 2700, outcome: "open" });
   });
 
-  it("a stop right after resume counts only the time heard before the pause", () => {
+  it("a stop right after the audio plays again counts only the time heard before it stood still", () => {
     const { rec, clock } = recorder();
     rec.start(SLEEPING, 20);
     clock.advance(90);
-    rec.pause();
+    clock.play(false);
     clock.advance(300);
-    rec.resume();
+    clock.play(true);
     expect(rec.stop()).toMatchObject({ listenedSec: 90, outcome: "stopped" });
   });
 
-  it("a stop while paused counts only the time heard before the pause", () => {
+  it("a stop while the audio stands still counts only the time heard before", () => {
     const { rec, clock } = recorder();
     rec.start(SLEEPING, 20);
     clock.advance(20);
-    rec.pause();
+    clock.play(false);
     clock.advance(600);
     expect(rec.stop()).toBeNull();
   });
@@ -137,6 +164,7 @@ describe("Play recorder", () => {
   it("records nothing without a playback, and each playback once", () => {
     const { rec, clock } = recorder();
     expect(rec.stop()).toBeNull();
+    expect(rec.heardSec()).toBe(0);
     rec.start(SLEEPING, 20);
     clock.advance(60);
     expect(rec.stop()).not.toBeNull();

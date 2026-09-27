@@ -78,13 +78,27 @@ export interface ListeningEnv {
   timeZone: () => string;
 }
 
+/**
+ * What recording a Play needs on top of the ListeningEnv: the audio clock the
+ * playback runs on.
+ */
+export interface PlayEnv extends ListeningEnv {
+  /**
+   * Seconds on the audio clock (AudioContext.currentTime). It stands still
+   * whenever the audio does not play: paused by the User, interrupted by the
+   * device, or frozen with the page. So it measures exactly what was heard,
+   * even when nobody noticed the audio stop.
+   */
+  audioSec: () => number;
+}
+
+/**
+ * Invariant: how long a Play was heard, and whether its whole length was, come
+ * from the audio clock only; when it started and ended are wall-clock instants.
+ */
 export interface PlayRecorder {
   /** Playback began. Finish any earlier playback first (stop or end). */
   start(audio: AudioSnapshot, plannedMin: number | null): void;
-  /** The audio went silent (the User paused, or the device interrupted it). */
-  pause(): void;
-  /** The audio plays again. */
-  resume(): void;
   /**
    * Playback reached its natural end: the Play, or null when there is none.
    * Dated when the whole length had been heard, even when noticed later.
@@ -92,57 +106,29 @@ export interface PlayRecorder {
   end(): Play | null;
   /** Playback stopped before its end: the Play, or null when there is none. */
   stop(): Play | null;
-  /** Seconds heard so far in the current playback, pauses excluded; 0 without one. */
+  /** Seconds heard so far in the current playback, on the audio clock; 0 without one. */
   heardSec(): number;
 }
 
 interface Playback {
   audio: AudioSnapshot;
   plannedMin: number | null;
+  /** Wall clock, epoch ms. */
   startedAt: number;
-  /** Heard before the current stretch of playing. */
-  playedMs: number;
-  /** When the current stretch of playing began; null while paused. */
-  playingSince: number | null;
-  /** When the whole planned length had been heard; null until then. */
-  heardAllAt: number | null;
+  /** The audio clock at the start, seconds. */
+  audioStartSec: number;
 }
 
-/** Close the current stretch of playing at `until`, noting when the whole length was heard. */
-function closeStretch(p: Playback, until: number): void {
-  if (p.playingSince === null) return;
-  const stretchMs = Math.max(0, until - p.playingSince);
-  const plannedMs = p.plannedMin === null ? null : p.plannedMin * 60_000;
-  if (plannedMs !== null && p.heardAllAt === null && p.playedMs + stretchMs >= plannedMs) {
-    p.heardAllAt = p.playingSince + (plannedMs - p.playedMs);
-  }
-  p.playedMs += stretchMs;
-  p.playingSince = null;
-}
-
-export function createPlayRecorder(env: ListeningEnv): PlayRecorder {
+export function createPlayRecorder(env: PlayEnv): PlayRecorder {
   let current: Playback | null = null;
+
+  function heardSec(playback: Playback): number {
+    return Math.max(0, env.audioSec() - playback.audioStartSec);
+  }
 
   return {
     start(audio, plannedMin) {
-      const now = env.now();
-      current = {
-        audio,
-        plannedMin,
-        startedAt: now,
-        playedMs: 0,
-        playingSince: now,
-        heardAllAt: null,
-      };
-    },
-
-    pause() {
-      if (current) closeStretch(current, env.now());
-    },
-
-    resume() {
-      if (!current || current.playingSince !== null) return;
-      current.playingSince = env.now();
+      current = { audio, plannedMin, startedAt: env.now(), audioStartSec: env.audioSec() };
     },
 
     end() {
@@ -154,9 +140,7 @@ export function createPlayRecorder(env: ListeningEnv): PlayRecorder {
     },
 
     heardSec() {
-      if (!current) return 0;
-      const stretchMs = current.playingSince === null ? 0 : Math.max(0, env.now() - current.playingSince);
-      return (current.playedMs + stretchMs) / 1000;
+      return current ? heardSec(current) : 0;
     },
   };
 
@@ -165,15 +149,18 @@ export function createPlayRecorder(env: ListeningEnv): PlayRecorder {
     current = null;
     if (!playback) return null;
     const now = env.now();
-    closeStretch(playback, now);
+    const heard = heardSec(playback);
     const plannedSec = playback.plannedMin === null ? null : playback.plannedMin * 60;
     // Hearing the whole length is the natural end, even when a stop came
     // first because nobody noticed the end (a tab held in the background).
-    const completed = plannedSec !== null && (naturalEnd || playback.heardAllAt !== null);
-    const listenedSec = completed ? plannedSec : Math.floor(playback.playedMs / 1000);
+    const completed = plannedSec !== null && (naturalEnd || heard >= plannedSec);
+    const listenedSec = completed ? plannedSec : Math.floor(heard);
     if (listenedSec < MIN_PLAY_SEC) return null;
-    // Never before the start, even if the device clock was set back meanwhile.
-    const endedAt = Math.max(completed ? (playback.heardAllAt ?? now) : now, playback.startedAt);
+    // A completed Play ended when its whole length had been heard: as long
+    // before now as the audio clock ran past the end. Never before the start,
+    // even if the device clock was set back meanwhile.
+    const overrunSec = completed ? Math.max(0, heard - plannedSec) : 0;
+    const endedAt = Math.max(now - overrunSec * 1000, playback.startedAt);
     return {
       id: env.newId(),
       audio: playback.audio,

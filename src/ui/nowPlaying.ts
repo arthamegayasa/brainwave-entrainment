@@ -9,7 +9,13 @@ import { createNowPlaying } from "../state/nowPlaying";
 import type { PlayProgress, PlaySetup, RunningPlay } from "../state/nowPlaying";
 import { recordSessionCompleted } from "../state/progress";
 import { listeningEnv, playKeeper } from "../lib/listening";
-import { isAudioBlocked, isAudioPaused, isAudioRunning, subscribeAudio } from "./audioContext";
+import {
+  audioClockSec,
+  isAudioBlocked,
+  isAudioPaused,
+  isAudioRunning,
+  subscribeAudio,
+} from "./audioContext";
 import {
   ensureBuilder,
   onBuilderPlaybackEnd,
@@ -29,11 +35,12 @@ import {
 /** Library audio shows the Meditating Scene until Custom Audio can choose one (#43). */
 const LIBRARY_SCENE = "deep-meditation";
 
-const nowPlaying = createNowPlaying(listeningEnv);
+// Both engines play on the one shared AudioContext, so its clock is the
+// running Play's: every time Now Playing shows or records is time on it.
+const nowPlaying = createNowPlaying({ ...listeningEnv, audioSec: audioClockSec });
 
-// Both engines play on the one shared AudioContext, so its state is the
-// running Play's: the User's pause wins over the device's, and a device pause
-// only shows as a hold once the browser wants a tap to resume.
+// Its state gives the flags: the User's pause wins over the device's, and a
+// device pause only shows as a hold once the browser wants a tap to resume.
 subscribeAudio(() => {
   if (isAudioPaused()) nowPlaying.setAudio("paused");
   else if (isAudioRunning()) nowPlaying.setAudio("playing");
