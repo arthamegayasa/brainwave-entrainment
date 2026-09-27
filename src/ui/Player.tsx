@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { SOUND_LABELS } from "../audio/constants";
-import type { AmbientKind } from "../audio/types";
 import type { EntrainmentLayerType } from "../audio/builder";
 import type { SessionApi } from "./useSession";
 import type { SessionVolumes } from "../audio/session";
@@ -10,9 +9,8 @@ import { SceneArt } from "./SceneArt";
 import { pauseAudio, resumeAudio } from "./audioContext";
 import { stopPlay, useNowPlaying, usePlayProgress } from "./nowPlaying";
 import { useBackLayer } from "./backNavigation";
+import { AMBIENTS, ambientLabel } from "./ambients";
 import { sessionsThisWeek, weeklyStreakDots } from "../state/progress";
-
-const AMBIENTS: (AmbientKind | null)[] = [null, "rain", "ocean", "wind", "brown"];
 
 const PHASE_LABELS: Record<string, string> = {
   rampIn: "Easing down…",
@@ -305,10 +303,10 @@ export function Player({ session, onMinimize }: PlayerProps) {
             </div>
             {sheet === "ambient" && (
               <div className="chips">
-                {AMBIENTS.map((a) => (
-                  <button key={a ?? "none"} className={`chip ${ambient === a ? "selected" : ""}`}
-                    aria-pressed={ambient === a} onClick={() => session.setAmbient(a)}>
-                    {a === null ? "No ambient" : SOUND_LABELS[a]}
+                {AMBIENTS.map(({ kind }) => (
+                  <button key={kind ?? "none"} className={`chip ${ambient === kind ? "selected" : ""}`}
+                    aria-pressed={ambient === kind} onClick={() => session.setAmbient(kind)}>
+                    {ambientLabel(kind)}
                   </button>
                 ))}
               </div>

@@ -1,10 +1,11 @@
-import { useEffect, useReducer, useState, useSyncExternalStore } from "react";
-import { PRESETS, DURATIONS_MIN, getPreset } from "../audio/presets";
+import { useEffect, useId, useReducer, useState, useSyncExternalStore } from "react";
+import { PRESETS, getPreset } from "../audio/presets";
 import type { Preset } from "../audio/presets";
-import { SOUND_LABELS } from "../audio/constants";
 import type { AmbientKind } from "../audio/types";
 import type { ListeningMode, SessionConfig } from "../audio/session";
 import { SceneArt } from "./SceneArt";
+import { DurationRow } from "./DurationRow";
+import { AMBIENTS, ambientLabel } from "./ambients";
 import { BAND_COLORS, BAND_LABELS } from "./bands";
 import { getMyHiddenPresetIds } from "../lib/patientLink";
 import { isUnlocked } from "../state/tier";
@@ -23,7 +24,11 @@ import {
   totalSessions,
 } from "../state/progress";
 
-const AMBIENTS: (AmbientKind | null)[] = [null, "rain", "ocean", "wind", "brown"];
+/** Listening modes, each explained in one sentence that fits one line on a phone. */
+const MODES: { mode: ListeningMode; name: string; explanation: string }[] = [
+  { mode: "headphone", name: "🎧 Headphones", explanation: "A different tone in each ear." },
+  { mode: "speaker", name: "🔊 Speaker", explanation: "Gentle pulses, no headphones." },
+];
 
 interface HomeProps {
   onStart: (config: SessionConfig) => void;
@@ -312,6 +317,8 @@ function SetupSheet({ preset, onClose, onStart }: SetupSheetProps) {
   const exportJob = useSyncExternalStore(subscribeExport, getExportJob);
   const [exportError, setExportError] = useState<string | null>(null);
   const exportId = `preset:${preset.id}`;
+  const modeLabelId = useId();
+  const ambientLabelId = useId();
 
   const accent = BAND_COLORS[preset.band];
 
@@ -345,114 +352,104 @@ function SetupSheet({ preset, onClose, onStart }: SetupSheetProps) {
       }}
     >
       <div
-        className="sheet"
+        className="sheet setup-sheet"
         role="dialog"
         aria-modal="true"
         aria-label={`Set up the ${preset.name} session`}
         style={{ "--accent": accent } as React.CSSProperties}
       >
-        <div className="sheet-head">
-          <span className="emoji" aria-hidden>
-            {preset.emoji}
-          </span>
-          <div>
-            <h2>{preset.name}</h2>
-            <p className="tagline">{preset.tagline}</p>
+        <div className="setup-body">
+          <div className="sheet-head">
+            <span className="emoji" aria-hidden>
+              {preset.emoji}
+            </span>
+            <div>
+              <h2>{preset.name}</h2>
+              <p className="tagline">{preset.tagline}</p>
+            </div>
+          </div>
+
+          <DurationRow value={durationMin} onChange={setDurationMin} />
+
+          <div className="field" role="group" aria-labelledby={modeLabelId}>
+            <div className="label" id={modeLabelId}>
+              How to listen
+            </div>
+            <div className="mode-cards">
+              {MODES.map((m) => (
+                <button
+                  key={m.mode}
+                  className={`mode-card ${mode === m.mode ? "selected" : ""}`}
+                  aria-pressed={mode === m.mode}
+                  onClick={() => setMode(m.mode)}
+                >
+                  <span className="mode-name">{m.name}</span>
+                  <span className="mode-desc">{m.explanation}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="field" role="group" aria-labelledby={ambientLabelId}>
+            <div className="label">
+              <span id={ambientLabelId}>Ambient</span> · {ambientLabel(ambient)}
+            </div>
+            <div className="ambient-icons">
+              {AMBIENTS.map(({ kind, icon }) => (
+                <button
+                  key={kind ?? "none"}
+                  className={ambient === kind ? "selected" : ""}
+                  aria-label={ambientLabel(kind)}
+                  title={ambientLabel(kind)}
+                  aria-pressed={ambient === kind}
+                  onClick={() => setAmbient(kind)}
+                >
+                  <span aria-hidden>{icon}</span>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
-        <div className="field">
-          <div className="label">Duration</div>
-          <div className="chips">
-            {DURATIONS_MIN.map((d) => (
-              <button
-                key={d ?? "inf"}
-                className={`chip ${durationMin === d ? "selected" : ""}`}
-                onClick={() => setDurationMin(d)}
-              >
-                {d === null ? "∞" : `${d} min`}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="field">
-          <div className="label">How to listen</div>
-          <div className="mode-cards">
-            <button
-              className={`mode-card ${mode === "headphone" ? "selected" : ""}`}
-              onClick={() => setMode("headphone")}
-            >
-              <div className="mode-name">🎧 Headphones</div>
-              <div className="mode-desc">
-                Binaural beats — two slightly different tones per ear. The
-                deepest effect; headphones required.
-              </div>
-            </button>
-            <button
-              className={`mode-card ${mode === "speaker" ? "selected" : ""}`}
-              onClick={() => setMode("speaker")}
-            >
-              <div className="mode-name">🔊 Speaker</div>
-              <div className="mode-desc">
-                Isochronic tones — gentle pulses that work without headphones.
-              </div>
-            </button>
-          </div>
-        </div>
-
-        <div className="field">
-          <div className="label">Ambient</div>
-          <div className="chips">
-            {AMBIENTS.map((a) => (
-              <button
-                key={a ?? "none"}
-                className={`chip ${ambient === a ? "selected" : ""}`}
-                onClick={() => setAmbient(a)}
-              >
-                {a === null ? "No ambient" : SOUND_LABELS[a]}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <button
-          className="start-btn"
-          onClick={() =>
-            onStart({ preset, durationMin, mode, ambient, solfeggioTone: null })
-          }
-        >
-          Start Session
-        </button>
-        <div className="setup-download">
+        <div className="setup-foot">
           <button
-            className="pill-btn"
-            disabled={durationMin === null || exportJob !== null}
-            onClick={() => {
-              if (durationMin !== null) void download(durationMin);
-            }}
+            className="start-btn"
+            onClick={() =>
+              onStart({ preset, durationMin, mode, ambient, solfeggioTone: null })
+            }
           >
-            {exportJob?.id === exportId ? exportLabel(exportJob) : "⬇ Download as MP3"}
+            Start Session
           </button>
-          <p className="bank-download-note">
-            {durationMin === null
-              ? "Pick a length to download — infinite sessions play live only."
-              : "Plays in any music app, even with the screen locked · 320 kbps"}
-          </p>
-          {durationMin !== null && durationMin >= 45 && (
-            <p className="export-warning">
-              Long exports need a powerful device and can take a few minutes.
+          <div className="setup-download">
+            <button
+              className="link-btn"
+              disabled={durationMin === null || exportJob !== null}
+              onClick={() => {
+                if (durationMin !== null) void download(durationMin);
+              }}
+            >
+              {exportJob?.id === exportId ? exportLabel(exportJob) : "⬇ Download as MP3"}
+            </button>
+            <p className="bank-download-note">
+              {durationMin === null
+                ? "Pick a length to download — infinite sessions play live only."
+                : "Plays in any music app, even with the screen locked · 320 kbps"}
             </p>
-          )}
-          {exportError && (
-            <p className="export-warning" role="alert">
-              {exportError}
-            </p>
-          )}
+            {durationMin !== null && durationMin >= 45 && (
+              <p className="export-warning">
+                Long exports need a powerful device and can take a few minutes.
+              </p>
+            )}
+            {exportError && (
+              <p className="export-warning" role="alert">
+                {exportError}
+              </p>
+            )}
+          </div>
+          <button className="close-btn" onClick={onClose}>
+            Cancel
+          </button>
         </div>
-        <button className="close-btn" onClick={onClose}>
-          Cancel
-        </button>
       </div>
     </div>
   );

@@ -20,6 +20,10 @@ Gotcha React, CSS, dan PWA di `src/ui/` dan `src/state/`.
 - **Card rows di container query**: `.roster-table td { display: block }` (0,1,1) mengalahkan `.roster-c-plays { display: none }` (0,1,0) di query yang sama — sembunyikan kolom dengan `.roster-table .roster-c-…`. Prototype punya bug yang sama.
 - **Drawer di atas notifikasi**: drawer di-portal ke `#root` (z-index 90 di stacking context `#root`), jadi notifikasi Dashboard (`.dash-notice`, fixed, z 95) tetap terlihat saat drawer terbuka.
 
+## Setup sheets
+
+- **The Preset setup sheet fits 390×844 without scrolling**: durations on the segmented `DurationRow` (shared with the Library's duration sheet; buttons show `15`…`∞`, accessible names stay `15 min`…`∞`), Listening mode cards that keep name and sentence on one line down to 360 px (longer sentences wrap under the name, so keep them short), and Ambient as icons with the chosen name beside the field label (`src/ui/ambients.ts`, whose names the Player's Ambient sheet shows as chips). `.setup-sheet` is a flex column: only `.setup-body` scrolls, on screens too short for it, and `.setup-foot` (Start, the Download MP3 link, Cancel) stays at the bottom above `env(safe-area-inset-bottom)`.
+
 ## Player
 
 - At widths up to 760 px, `.shell-player` owns one `100dvh` viewport with safe-area padding; only its top navigation and footer disappear. The Scene flexes to the space left after the header, 40 px Beat curve, phase, and transport. Desktop retains the usual shell.
@@ -39,5 +43,6 @@ Gotcha React, CSS, dan PWA di `src/ui/` dan `src/state/`.
 ## Build, PWA & unduhan
 
 - **Code-split**: `React.lazy` untuk export bernama butuh `.then((m) => ({ default: m.X }))`; view di luar jalur pilih-goal-lalu-dengar + encoder lamejs (164.5 kB) dimuat saat dipakai. Chunk utama 554.7 → 338.3 kB (gzip 170 → 98.5). supabase-js masih di chunk utama karena `lib/supabase.ts` membuat client saat module load — memindahkannya butuh API client async di 7 modul `lib/`.
+- **The `index-*.js` size in the build log is not the startup payload**: chunks the entry imports statically (the `useEntitlement` chunk with supabase-js, `builder`) are `modulepreload`ed alongside it, and Rolldown can merge them into `index` when the import graph changes. #42 grew `index` from 246 to 363 kB by sharing `DurationRow` with the Library, while `useEntitlement` (109 kB) and `builder` (9 kB) disappeared: startup JS went from 372 to 371 kB with two fewer requests. Compare `index` plus the preloaded chunks in `dist/index.html`.
 - **PWA service worker menahan shell lama pasca-deploy**: verifikasi live pasca-deploy harus cek hash bundle dari server (curl, tanpa SW) sebelum menyimpulkan dari browser — atau unregister SW + clear caches + reload. User nyata mendapat update setelah reload berikutnya (workbox default).
 - **Blob URL download**: `URL.revokeObjectURL` langsung setelah `a.click()` bisa membatalkan unduhan di Safari — tunda (60 s).
