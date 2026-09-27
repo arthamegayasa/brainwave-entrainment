@@ -46,6 +46,7 @@ import { AUDIO_CATEGORIES } from "../lib/clinician";
 import type { AudioCategory } from "../lib/clinician";
 import type { AccountRole } from "../../supabase/functions/_shared/accountRules.ts";
 
+
 let layerCounter = 0;
 function newLayer(type: BuilderLayerType = "binaural"): BuilderLayerSpec {
   layerCounter += 1;

@@ -22,7 +22,7 @@ Gotcha React, CSS, dan PWA di `src/ui/` dan `src/state/`.
 
 ## Setup sheets
 
-- **The Preset setup sheet fits 390×844 without scrolling**: durations on the segmented `DurationRow` (shared with the Library's duration sheet; buttons show `15`…`∞`, accessible names stay `15 min`…`∞`), Listening mode cards that keep name and sentence on one line down to 360 px (longer sentences wrap under the name, so keep them short), and Ambient as icons with the chosen name beside the field label (`src/ui/ambients.ts`, whose names the Player's Ambient sheet shows as chips). `.setup-sheet` is a flex column: only `.setup-body` scrolls, on screens too short for it, and `.setup-foot` (Start, the Download MP3 link, Cancel) stays at the bottom above `env(safe-area-inset-bottom)`.
+- **The Preset setup sheet fits 390×844 without scrolling**: durations on the segmented `DurationRow` (shared with the Library's duration sheet; buttons show `15`…`∞`, accessible names stay `15 min`…`∞`), Listening mode cards that keep name and sentence on one line down to 360 px (longer sentences wrap under the name, so keep them short), and Ambient as one row of icons with the chosen name beside the field label (`src/ui/ambients.ts`, whose names the Player's Ambient sheet shows as chips). The eight icons shrink from 3rem (`flex: 0 1 3rem`, `aspect-ratio: 1`) to share that row on a 360 px phone. `.setup-sheet` is a flex column: only `.setup-body` scrolls, on screens too short for it, and `.setup-foot` (Start, the Download MP3 link, Cancel) stays at the bottom above `env(safe-area-inset-bottom)`.
 
 ## Studio
 

@@ -1,3 +1,4 @@
+import { AMBIENT_KINDS } from "./types";
 import type { AmbientKind, RampableLayer, SoundLayer } from "./types";
 import { buildSchedule } from "./schedule";
 import type { SessionSchedule } from "./schedule";
@@ -61,10 +62,8 @@ export function isEntrainment(type: BuilderLayerType): type is EntrainmentLayerT
   return (ENTRAINMENT_TYPES as string[]).includes(type);
 }
 
-const AMBIENT_TYPES: AmbientKind[] = ["rain", "ocean", "wind", "brown"];
-
 export function isAmbient(type: BuilderLayerType): type is AmbientKind {
-  return (AMBIENT_TYPES as string[]).includes(type);
+  return (AMBIENT_KINDS as readonly string[]).includes(type);
 }
 
 /** Curve → schedule, reusing the preset scheduler; the Studio draws the same schedule it plays. */

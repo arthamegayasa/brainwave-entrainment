@@ -1,6 +1,6 @@
 # SwaraSanti
 
-PWA brainwave entrainment **goal-first**: User memilih tujuan (mis. Sleeping), bukan angka Hz, lalu satu tombol memulai sesi yang menuntun bertahap lewat session ramp. Semua audio disintesis real-time dengan Web Audio API, tanpa file audio. Clinician memakai platform yang sama untuk membimbing Patient-nya.
+PWA brainwave entrainment **goal-first**: User memilih tujuan (mis. Sleeping), bukan angka Hz, lalu satu tombol memulai sesi yang menuntun bertahap lewat session ramp. Tone entrainment, solfeggio, dan brown noise disintesis real-time dengan Web Audio API; ambient alam diputar dari loop rekaman di `src/assets/ambient/` (ADR-026). Clinician memakai platform yang sama untuk membimbing Patient-nya.
 
 ## Docs
 

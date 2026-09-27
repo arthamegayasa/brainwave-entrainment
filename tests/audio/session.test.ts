@@ -1,9 +1,9 @@
-import { describe, it, expect, afterEach, vi } from "vitest";
+import { describe, it, expect, afterEach, beforeAll, vi } from "vitest";
 import { OfflineAudioContext } from "node-web-audio-api";
 import { SessionEngine } from "../../src/audio/session";
 import { getPreset } from "../../src/audio/presets";
 import type { Preset } from "../../src/audio/presets";
-import { countZeroCrossings, maxAbs, seededRandom } from "./helpers";
+import { countZeroCrossings, installAmbientAssetsFromDisk, maxAbs, seededRandom } from "./helpers";
 
 /** A fast test preset: beat ramps 10 → 40 Hz over 0.8s within a 2s render. */
 const FAST_PRESET: Preset = {
@@ -18,6 +18,7 @@ const FAST_PRESET: Preset = {
 };
 
 describe("SessionEngine", () => {
+  beforeAll(installAmbientAssetsFromDisk);
   afterEach(() => vi.restoreAllMocks());
 
   it.each([1, 2])("bounds a tone and ambience mix on both channels (noise seed %i)", async (seed) => {

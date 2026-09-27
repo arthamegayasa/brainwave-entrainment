@@ -1,3 +1,4 @@
+import { AMBIENT_KINDS } from "./types";
 import type { LayerFactory, SoundKind, SoundLayer } from "./types";
 import { DEMO } from "./constants";
 import { fadeIn, fadeOut, setGainSmooth } from "./ramps";
@@ -12,10 +13,12 @@ const LAYER_FACTORIES: Partial<Record<SoundKind, LayerFactory>> = {
   isochronic: (ctx) => createIsochronicLayer(ctx, DEMO.isochronic),
   monaural: (ctx) => createMonauralLayer(ctx, DEMO.monaural),
   solfeggio: (ctx) => createSolfeggioLayer(ctx, DEMO.solfeggio.tone),
-  rain: (ctx) => createAmbientLayer(ctx, "rain"),
-  ocean: (ctx) => createAmbientLayer(ctx, "ocean"),
-  wind: (ctx) => createAmbientLayer(ctx, "wind"),
-  brown: (ctx) => createAmbientLayer(ctx, "brown"),
+  ...Object.fromEntries(
+    AMBIENT_KINDS.map((kind): [SoundKind, LayerFactory] => [
+      kind,
+      (ctx) => createAmbientLayer(ctx, kind),
+    ]),
+  ),
 };
 
 /** Kinds available before an engine instance exists (App renders buttons from this). */

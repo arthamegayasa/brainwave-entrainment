@@ -1,3 +1,4 @@
+import { AMBIENT_KINDS } from "../audio/types";
 import type { BuilderLayerSpec, CustomSession } from "../audio/builder";
 import { isPickableScene } from "../ui/scenes";
 
@@ -138,15 +139,12 @@ function dedupeLayerIds(layers: BuilderLayerSpec[]): BuilderLayerSpec[] {
   });
 }
 
-const LAYER_TYPES = [
+const LAYER_TYPES: readonly string[] = [
   "binaural",
   "isochronic",
   "monaural",
   "pure",
-  "rain",
-  "ocean",
-  "wind",
-  "brown",
+  ...AMBIENT_KINDS,
 ];
 
 function sanitizeLayer(value: unknown): BuilderLayerSpec | null {

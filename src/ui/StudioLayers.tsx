@@ -4,6 +4,7 @@ import { isEntrainment } from "../audio/builder";
 import type { BuilderCurve, BuilderLayerSpec, BuilderLayerType } from "../audio/builder";
 import { findRelated } from "../audio/freqfinder";
 import { SOUND_LABELS } from "../audio/constants";
+import { AMBIENT_KINDS } from "../audio/types";
 import { MAX_LAYERS } from "../state/customPresets";
 import { BAND_COLORS, bandForHz } from "./bands";
 import { BandChip, RangeField } from "./StudioField";
@@ -80,12 +81,43 @@ const LAYER_META: Record<BuilderLayerType, { label: string; hint: string; icon: 
   },
   wind: {
     label: SOUND_LABELS.wind,
-    hint: "Wind moving through, gust by gust.",
+    hint: "A soft breeze through pine trees.",
     icon: (
       <Glyph>
         <path d="M3 9h11a3 3 0 1 0-3-3" />
         <path d="M3 13h15a3 3 0 1 1-3 3" />
         <path d="M3 17h6" />
+      </Glyph>
+    ),
+  },
+  stream: {
+    label: SOUND_LABELS.stream,
+    hint: "A small brook over smooth stones.",
+    icon: (
+      <Glyph>
+        <path d="M12 3c2.3 3 3.5 5 3.5 6.6a3.5 3.5 0 0 1-7 0C8.5 8 9.7 6 12 3z" />
+        <path d="M2 17c2 0 3-1.5 5-1.5s3 1.5 5 1.5 3-1.5 5-1.5 3 1.5 5 1.5" />
+        <path d="M2 21c2 0 3-1.5 5-1.5s3 1.5 5 1.5 3-1.5 5-1.5 3 1.5 5 1.5" opacity="0.5" />
+      </Glyph>
+    ),
+  },
+  forest: {
+    label: SOUND_LABELS.forest,
+    hint: "Morning birdsong and rustling leaves.",
+    icon: (
+      <Glyph>
+        <path d="M12 3l5 7h-3l4 6H6l4-6H7z" />
+        <path d="M12 16v5" />
+      </Glyph>
+    ),
+  },
+  night: {
+    label: SOUND_LABELS.night,
+    hint: "Soft crickets on a warm night.",
+    icon: (
+      <Glyph>
+        <path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z" />
+        <path d="M18 3v3M16.5 4.5h3" />
       </Glyph>
     ),
   },
@@ -109,7 +141,7 @@ const LAYER_META: Record<BuilderLayerType, { label: string; hint: string; icon: 
 const LAYER_TYPE_GROUPS: Array<{ label: string; types: BuilderLayerType[] }> = [
   { label: "Entrainment", types: ["binaural", "isochronic", "monaural"] },
   { label: "Tone", types: ["pure"] },
-  { label: "Ambience", types: ["rain", "ocean", "wind", "brown"] },
+  { label: "Ambience", types: [...AMBIENT_KINDS] },
 ];
 
 interface LayerCardProps {

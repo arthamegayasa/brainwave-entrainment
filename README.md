@@ -22,7 +22,7 @@
 
 **Choose a listening goal. Shape the sound. Make room for a quieter moment.**
 
-SwaraSanti is a browser-based audio application for relaxation, meditation, sleep routines, and focused listening. It synthesizes its sound in real time: binaural beats, isochronic and monaural beats, pure tones, and nature-inspired ambience. A session can change gradually along a frequency curve instead of repeating a static tone.
+SwaraSanti is a browser-based audio application for relaxation, meditation, sleep routines, and focused listening. It synthesizes its tones in real time (binaural beats, isochronic and monaural beats, pure tones) and can lay them over natural ambience. A session can change gradually along a frequency curve instead of repeating a static tone.
 
 The everyday experience starts with eight presets. An advanced Studio adds layered sound design, while an optional backend supports accounts, a clinician audio library, and payment integration.
 
@@ -41,7 +41,7 @@ Eight goals provide a starting point, from Sleeping and Meditating to Focus & Co
 
 ![Actual SwaraSanti session library showing all eight goal cards and the listening journey](docs/images/swarasanti-sessions.jpg)
 
-Choose a duration, headphones or speakers, and a synthesized ambient layer before starting.
+Choose a duration, headphones or speakers, and an ambient layer before starting.
 
 ![Actual Meditating setup dialog with duration, headphone or speaker mode, and ambient choices](docs/images/swarasanti-session-setup.jpg)
 
@@ -57,12 +57,12 @@ The landing, eight goal cards, recommendations, player, and completion view show
 | --- | --- |
 | **Start with a goal** | Eight presets, goal preferences, time-aware recommendations, and a local listening journey. |
 | **Choose how to listen** | Binaural headphone mode or isochronic speaker mode; 15, 30, 45, 60 minutes, or an open-ended session. |
-| **Blend the atmosphere** | Synthesized rain, ocean, wind, and brown noise with adjustable playback controls. |
+| **Blend the atmosphere** | Rain, ocean, wind, stream, forest, and night ambiences plus synthesized brown noise, with adjustable playback controls. |
 | **Follow the session** | A live curve visualization, optional frequency details, smooth gain changes, pause/resume (also from the lock screen), a Mini-player that keeps the Play in view on other pages, and an end-of-session view. |
 | **Design custom audio** | Studio layers for binaural, isochronic, monaural, pure tone, and ambience; per-layer gains, custom curves, harmonic frequency suggestions, a Scene picked from the painting catalog, and JSON import/export. |
 | **Curate an audio library** | With a configured backend and clinician/admin role: an Audio Bank (with Change Scene for saved audio), reusable templates, Patient accounts you create (with Premium switched on per Patient), and individual audio assignments. The Library, Player, Mini-player, and Media controls show the Scene the designer picked. |
 | **Export a session** | Any timed preset (with your chosen listening mode, ambience, and mixer volumes) and Audio Bank entries render locally to 320 kbps MP3 files, with progress shown in the interface. An MP3 plays in any music app, including with the screen locked. |
-| **Install the app** | A production PWA build caches the app shell and assets. Core synthesized listening can work offline after the app has loaded and been cached. |
+| **Install the app** | A production PWA build caches the app shell and assets, including every ambience. Core listening can work offline after the app has loaded and been cached. |
 
 **Access in this build:** preset and duration feature gates are currently unlocked by `ALL_UNLOCKED` in [`src/state/tier.ts`](src/state/tier.ts). Studio and Dashboard still have a separate clinician/admin role gate. Backend account, library, and payment operations need a network connection and their own configuration.
 
@@ -121,7 +121,7 @@ The illustration follows the current scheduler for a 30-minute **Meditating** se
 | **Isochronic** | A tone is rhythmically amplitude-modulated, producing audible pulses. |
 | **Monaural** | Two tones are mixed before output, creating a physical beat pattern. Available in Studio. |
 | **Pure tone / solfeggio** | A single oscillator adds a chosen pitch or carrier, such as the 528 Hz solfeggio tone. |
-| **Ambience** | Noise synthesis and filtering create rain, ocean, wind, and brown-noise textures without streaming recordings. |
+| **Ambience** | Six 30-second natural recordings (rain, ocean, wind, stream, forest, night) play as an endless bed: each 10–16 s segment starts at a random point in the recording and overlaps the next with an equal-power crossfade, so the recording never repeats on a fixed cycle. Brown noise is synthesized. |
 
 Gain ramps reduce abrupt clicks. The engines include a compressor/limiter, but device volume still determines listening loudness. Long MP3 exports render audio in memory and can be demanding on mobile devices.
 
@@ -144,6 +144,7 @@ The audio engine is plain TypeScript, independent of React. Preset definitions l
 src/
   audio/                 Audio engine, presets, curves, layers, MP3 export
     layers/              Binaural, isochronic, monaural, pure tone, ambience
+  assets/ambient/        Recorded ambient loops (normalized to −16 LUFS)
   state/                 Local preferences, progress, custom sessions, tiers, Listening core
   ui/                    Home, Player, Studio, Library, Dashboard, Science
   lib/                   Optional accounts, roles, library, payment clients
@@ -221,7 +222,7 @@ In production, use a separate key. Generate one with `node -e "console.log(requi
 | `npm run test:e2e` | Build, then run the Playwright end-to-end suite against `vite preview` (first run: `npx playwright install chromium`). |
 | `npx supabase test db` | Run the pgTAP database access-rule tests against the local Supabase stack (see [Database access rules](#database-access-rules)). |
 
-The unit suite checks rendered signals, pulse counts, fades, scheduling, layer behavior, sample-rate-independent ambience, preset and Audio Bank MP3 export, imported-session validation, the Play recorder, offline queue, report aggregations and Patient Status rules of the Listening core (across WIB and WITA and across midnight), and local state. The end-to-end suite drives the production build in Chromium: start, pause, resume, and end a session; device interruptions with and without a required tap; a full 15-minute preset MP3 download; the Premium plan layout at phone, tablet, and desktop widths; and a Personal URL deep link. At the documentation refresh, **248 unit tests across 22 files** and **9 end-to-end tests** passed, and the production build completed.
+The unit suite checks rendered signals, pulse counts, fades, scheduling, layer behavior, the seamless non-repeating ambience bed, sample-rate-independent brown noise, preset and Audio Bank MP3 export, imported-session validation, the Play recorder, offline queue, report aggregations and Patient Status rules of the Listening core (across WIB and WITA and across midnight), and local state. The end-to-end suite drives the production build in Chromium: start, pause, resume, and end a session; device interruptions with and without a required tap; a full 15-minute preset MP3 download; the Premium plan layout at phone, tablet, and desktop widths; and a Personal URL deep link. At the documentation refresh, **248 unit tests across 22 files** and **9 end-to-end tests** passed, and the production build completed.
 
 For contributions, follow [CODING_STANDARDS.md](CODING_STANDARDS.md), and run the test suite and production build before opening a pull request. Decisions are recorded in [docs/adr](docs/adr), gotchas per area in [docs/knowledge](docs/knowledge).
 
@@ -230,7 +231,7 @@ For contributions, follow [CODING_STANDARDS.md](CODING_STANDARDS.md), and run th
 - Playback begins from a user gesture because browsers restrict autoplay.
 - Preset, Custom Audio, and Studio previews share one `AudioContext` ([`src/ui/audioContext.ts`](src/ui/audioContext.ts)). On Safari 16.4+ it declares a `playback` audio session, so iPhone audio still plays when the ring/silent switch is on.
 - While sound plays, a separate looping, unmuted, five-second digital-silence media element requests exclusive audio focus and enables OS Media controls (Play, Pause, Stop, Play name, Scene). It never receives the synthesized Web Audio output. Other apps' music should pause when the Play starts; a call or other audio focus loss pauses the Play in place. A duration/progress indicator is available only for fixed-length Plays. Studio previews appear as **Studio preview**. Actual notification/lock-screen behavior and locked-screen continuity still require the Android/iPhone device check (#38).
-- Ambient noise is synthesized with sample-rate-independent constants, so the same ambience has the same level and tone at 22.05, 44.1, 48, 96, or 192 kHz.
+- Brown noise is synthesized with sample-rate-independent constants, so it has the same level and tone at 22.05, 44.1, 48, 96, or 192 kHz. Recorded ambience is decoded at the device's own sample rate.
 - If the device pauses audio mid-Play (call, alarm, another app), the Play holds its place on the audio clock. Context-only interruptions retry automatically; if the media element stops or the browser requires a gesture, the Player and the Mini-player pulse **Tap to resume** (a Studio preview shows it in the Studio transport).
 - PWA installation and offline caching should be checked using the production build served over HTTPS or localhost. Backend operations remain online features.
 - Personal URLs (`/p/<username>`) are the app's only path-based entry; every other view is in-app state. The Player and its sheets add same-address history entries, so Back (including Android Back) closes an open sheet, then shrinks the Player into the Mini-player without stopping the Play; elsewhere Back behaves as the browser's own. The host must serve `index.html` for `/p/*` (the rewrite in [`vercel.json`](vercel.json) does this on Vercel), and the service worker answers every navigation with the app shell, so an installed PWA opens them too.

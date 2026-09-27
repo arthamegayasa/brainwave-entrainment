@@ -8,17 +8,24 @@ Gotcha untuk `src/audio/`, `src/ui/audioContext.ts`, kedua engine, dan ekspor MP
 - **Frekuensi ramp**: pakai `oscillator.frequency.linearRampToValueAtTime` atau scheduler per-chunk; jangan re-create oscillator per perubahan.
 - **Binaural routing**: `ChannelMergerNode` (L/R) atau dua `StereoPannerNode` (pan -1 / +1).
 - **Isochronic**: `GainNode` dimodulasi — paling stabil pakai scheduled envelope curve (`setValueCurveAtTime` per siklus) atau oscillator LFO → `WaveShaperNode` → gain.
-- **Noise ambient**: `AudioBufferSourceNode` berisi white noise loop → filter (`BiquadFilterNode` lowpass untuk brown/ocean, bandpass modulated untuk rain/wind).
+- **Ambient**: alam = loop rekaman 30 s yang diputar sebagai segmen acak ber-crossfade (`createShuffledLoopLayer`, ADR-026); brown noise = `AudioBufferSourceNode` berisi leaky-integrated white noise loop.
 - **iOS**: Web Audio default-nya di audio session `ambient` → **silent switch membisukan app**; set `navigator.audioSession.type = "playback"` (Safari 16.4+) sebelum membuat context dan di setiap play. Audio tetap bisa di-suspend saat tab background/lock screen; Media Session API membantu kontrol lockscreen tapi tidak menjamin background synthesis di iOS — dokumentasikan ke user (screen on / add to homescreen).
 
 ## Layer & sintesis
 
 - **Isochronic double-pulse bug**: WaveShaper curve WAJIB monotonic non-decreasing. Curve yang naik-lalu-turun menghasilkan 2× beat Hz. Guard dengan test exact pulse-count (tepat 10, bukan rentang).
-- **Clip dari BiquadFilter**: filter resonansi bisa boost > 0 dBFS (rain highpass+lowpass mencapai 1.66). Solusi: trim GainNode per layer + master DynamicsCompressor limiter di SessionEngine & BuilderEngine (juga hearing safety).
+- **Clip dari BiquadFilter**: filter resonansi bisa boost > 0 dBFS (rain sintetis sebelum ADR-026, highpass+lowpass, mencapai 1.66). Solusi: trim GainNode per layer + master DynamicsCompressor limiter di SessionEngine & BuilderEngine (juga hearing safety).
 - **exponentialRampToValueAtTime(0) throws RangeError** — pakai linearRamp ke 0.0001 lalu setValueAtTime(0), atau setTargetAtTime(0).
 - **Ramp beat = ramp satu AudioParam**: arsitektur isochronic LFO→WaveShaper dipilih agar Phase 2 bisa ramp beat Hz (lfo.frequency) kontinu. Binaural/monaural: beat di oscillator kanan/B.
-- **Noise harus sample-rate invariant**: konstanta per-sample (koefisien leaky integrator brown, amplitudo white) diam-diam mengubah suara per device. Leak `a = 1.02^(−44100/fs)` menjaga corner ~139 Hz tetap; amplitudo white × `sqrt(fs/44100)` menjaga daya per-Hz. Sebelum fix: ±2.4–3.4 dB beda di 22.05k/96k. Test `bandLevels` mengukur band 125/500/2000 Hz di 22.05/48/96/192 kHz (±1 dB). 16 kHz sengaja dikecualikan: warping bilinear lowpass 7 kHz rain di dekat Nyquist = ~1 dB, batas fisik rate.
+- **Noise harus sample-rate invariant**: konstanta per-sample (koefisien leaky integrator brown, amplitudo white) diam-diam mengubah suara per device. Leak `a = 1.02^(−44100/fs)` menjaga corner ~139 Hz tetap; amplitudo white × `sqrt(fs/44100)` menjaga daya per-Hz. Sebelum fix: ±2.4–3.4 dB beda di 22.05k/96k. Test `brownBandLevels` mengukur band 125/500/2000 Hz di 16/22.05/48/96/192 kHz (±1 dB).
 - **Bangun graph dulu, baru baca `currentTime`**: pembuatan noise buffer memakan waktu main-thread (puluhan ms di device lemah) sementara audio thread terus jalan; timestamp yang diambil lebih dulu sudah lewat saat source start → fade-in terpotong (klik), terutama swap ambience live dan edit layer Studio.
+
+## Ambient rekaman (ADR-026)
+
+- **Start/offset pecahan = lowpass diam-diam**: `AudioBufferSourceNode.start(when, offset)` yang tidak jatuh tepat di sample frame membuat source menginterpolasi linear antar-sample (terbukti di node-web-audio-api; spec meminta start sub-sample accurate, jadi browser boleh berperilaku sama). White noise turun hingga −3 dB dan berbeda per segmen; di rekaman, treble rain/stream meredup di sebagian segmen saja. Snap `when`/`offset`/durasi ke frame (`toFrame`). Ditemukan oleh test level crossfade, bukan oleh telinga.
+- **OfflineAudioContext tidak menunggu apa pun**: decode async yang selesai setelah `startRendering()` dan event `ended` yang dipakai untuk top-up jadwal sama-sama datang terlambat, render sudah lewat. Ekspor wajib `preloadAmbientSamples` sebelum membangun engine, dan layer menjadwalkan seluruh `ctx.length` sekaligus di context offline. Context live menjadwalkan 5 menit ke depan dan menambah setiap kali segmen berakhir; bila JS terhenti lebih lama dari itu, rantai segmen mulai lagi dari sekarang dengan fade-in.
+- **`AudioContext.decodeAudioData` tidak selalu me-resample**: Chrome 153 men-decode MP3 44.1 kHz menjadi buffer 44.1 kHz di context live 48 kHz (terlihat di smoke browser), sehingga `AudioBufferSourceNode` me-resample dengan interpolasi linear. `OfflineAudioContext(1, 1, rate).decodeAudioData` selalu menghasilkan buffer di `rate`; sumber loop di `src/ui/ambientAssets.ts` memakai itu.
+- **Mastering loop**: normalisasi ke −16 LUFS lalu limiter; overshoot encoder MP3 menaikkan true peak ±2,5 dB di atas ceiling limiter untuk material ber-treble tinggi (rain butuh ceiling −4,4 dBFS agar ≤ −1 dBTP). Ukur ulang file hasil encode dengan `ffmpeg -af ebur128=peak=true`, bukan sinyal sebelum encode.
 
 ## AudioContext bersama & lifecycle perangkat
 

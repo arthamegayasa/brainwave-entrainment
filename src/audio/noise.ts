@@ -1,16 +1,16 @@
 /**
- * Noise buffer generators. AudioBufferSourceNode + loop — no deprecated
+ * Brown noise buffer generator. AudioBufferSourceNode + loop — no deprecated
  * main-thread audio processing nodes.
  *
  * Device sample rates differ (44.1/48 kHz typical, 16 kHz Bluetooth
  * hands-free, 96/192 kHz on USB DACs), so every per-sample constant here is
- * derived from ctx.sampleRate. The ambient beds were tuned at
- * NOISE_REFERENCE_RATE; at any other rate they must produce the same power
- * per Hz in the audible band, or the same ambience plays louder, quieter, or
- * brighter depending on the listener's hardware.
+ * derived from ctx.sampleRate. Brown noise was tuned at NOISE_REFERENCE_RATE;
+ * at any other rate it must produce the same power per Hz in the audible
+ * band, or it plays louder, quieter, or brighter depending on the listener's
+ * hardware.
  */
 
-/** Sample rate the ambient beds were tuned (and spectrally pinned) at. */
+/** Sample rate brown noise was tuned (and spectrally pinned) at. */
 export const NOISE_REFERENCE_RATE = 44100;
 
 /**
@@ -21,20 +21,6 @@ export const NOISE_REFERENCE_RATE = 44100;
  */
 function densityScale(sampleRate: number): number {
   return Math.sqrt(sampleRate / NOISE_REFERENCE_RATE);
-}
-
-export function createWhiteNoiseBuffer(
-  ctx: BaseAudioContext,
-  seconds: number = 5,
-): AudioBuffer {
-  const length = Math.floor(ctx.sampleRate * seconds);
-  const buffer = ctx.createBuffer(1, length, ctx.sampleRate);
-  const data = buffer.getChannelData(0);
-  const scale = densityScale(ctx.sampleRate);
-  for (let i = 0; i < length; i++) {
-    data[i] = (Math.random() * 2 - 1) * scale;
-  }
-  return buffer;
 }
 
 export function createBrownNoiseBuffer(
