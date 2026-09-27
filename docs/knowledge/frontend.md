@@ -23,9 +23,16 @@ Gotcha React, CSS, dan PWA di `src/ui/` dan `src/state/`.
 ## Preset Player
 
 - At widths up to 760 px, `.shell-player` owns one `100dvh` viewport with safe-area padding; only its top navigation and footer disappear. The Scene flexes to the space left after the header, 40 px Beat curve, phase, and transport. Desktop retains the usual shell.
-- The Player's Ambient, Mixer, and frequency details share the existing `.sheet-backdrop`/`.sheet` bottom-sheet pattern. Frequency values read from Now Playing: Headphones left = Carrier, right = Carrier + live Beat; Speaker tone = Carrier, pulse = live Beat. The ⌄ is visual only until Mini-player navigation lands in #40.
+- The Player's Ambient, Mixer, and frequency details share the existing `.sheet-backdrop`/`.sheet` bottom-sheet pattern. Frequency values read from Now Playing: Headphones left = Carrier, right = Carrier + live Beat; Speaker tone = Carrier, pulse = live Beat. ⌄ shrinks the Player into the Mini-player.
 - Keep screen on is opt-in per mounted Player. The Screen Wake Lock is released on User pause, device hold, hidden page, and Player unmount (including End session); a visible playing page requests it again. Browsers without the API show an unavailable message rather than blocking audio.
 - The 6-second controls fade uses wall-clock inactivity only for UI, never for Play duration; the timer remains dimmed. Pausing, a device hold, or keyboard focus restores controls. The ⋯ menu closes on outside tap or after toggling Keep screen on, so it cannot pin the controls awake.
+
+## Mini-player & Back
+
+- **Mini-player** (`src/ui/MiniPlayer.tsx`) renders in the app shell while Now Playing has a Play and the view is neither `player` nor `landing`, at every width, fixed above `env(safe-area-inset-bottom)`. `.shell-mini-player` adds bottom padding so it never covers the footer, and a Dashboard notice rises above it. Its Scene thumbnail is the precached 768 px painting, not an animated `SceneArt`. There is no Stop: ending a Play stays in the Player's ⋯ menu. Until #41 the Player shows Presets only, so a Custom Audio Mini-player opens the Library.
+- **Device-held Plays have no banner any more**: the Player and the Mini-player show the pulsing Tap to resume. A Studio preview is not a Play, so the Studio transport shows its own Tap to resume while `isAudioBlocked()`. Landing has neither; Media controls still resume from there.
+- **⌄ and Back return to the view the Player was opened from** (`playerFrom` in `App.tsx`): Sessions after Start, or wherever the Mini-player was tapped. The Sessions tab no longer jumps to the running Player; the Mini-player is the way back.
+- **Back without a router** (`src/ui/backNavigation.ts`): `useBackLayer(open, close)` pushes one same-URL history entry per open layer (the Player, then its sheet), tagged with its depth. `popstate` closes every layer deeper than the entry it lands on, so Back closes the sheet, then minimizes the Player; Back never stops the Play. A layer closed on screen (⌄, ✕, Escape, End session, natural end, a nav tab) removes its entry with one batched `history.go(-n)`, otherwise the next Back lands on a stale entry and seems to do nothing. The Preset setup sheet, the Account sheet, and every other view keep the browser's Back; the Personal URL `replaceState` only runs before a layer can open.
 
 ## Build, PWA & unduhan
 
