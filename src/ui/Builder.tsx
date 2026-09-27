@@ -23,6 +23,7 @@ import {
   setBuilderItem,
   stopBuilderPlayback,
 } from "./builderEngine";
+import { setMediaPresentation } from "./audioContext";
 import { useEntitlement } from "../lib/useEntitlement";
 import { isPaymentsConfigured } from "../lib/supabase";
 import {
@@ -135,6 +136,13 @@ export function Builder({ onBeforePlay }: BuilderProps) {
     e.stop();
     e.start(layers, curve, durationMin);
     setBuilderItem(STUDIO_PREVIEW_ID);
+    setMediaPresentation({
+      title: "Studio preview",
+      scene: "deep-meditation",
+      durationSec: null,
+      position: () => 0,
+      stop: stopBuilderPlayback,
+    });
     setPlaying(true);
   };
 

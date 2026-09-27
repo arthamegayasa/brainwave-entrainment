@@ -14,6 +14,7 @@ import {
   isAudioBlocked,
   isAudioPaused,
   isAudioRunning,
+  setMediaPresentation,
   subscribeAudio,
 } from "./audioContext";
 import {
@@ -68,6 +69,13 @@ nowPlaying.subscribe((event) => {
 
 function begin(setup: PlaySetup, haltAudio: () => void): void {
   nowPlaying.start(setup);
+  setMediaPresentation({
+    title: setup.audio.name,
+    scene: setup.scene,
+    durationSec: setup.plannedMin === null ? null : setup.plannedMin * 60,
+    position: () => nowPlaying.progress()?.elapsedSec ?? 0,
+    stop: stopPlay,
+  });
   halt = haltAudio;
 }
 

@@ -46,6 +46,7 @@ test("a device pause the browser refuses to undo asks for a tap, then continues"
   });
   const banner = page.getByRole("alert");
   await expect(banner).toContainText("Your device paused the audio");
+  await expect.poll(() => page.evaluate(() => document.querySelector("audio")?.paused)).toBe(true);
   const heldAt = await timer.textContent();
   await page.waitForTimeout(2000);
   await expect(timer).toHaveText(heldAt ?? "");
@@ -54,6 +55,7 @@ test("a device pause the browser refuses to undo asks for a tap, then continues"
   await banner.getByRole("button", { name: "Resume audio" }).click();
   await expect(banner).toHaveCount(0);
   await expect.poll(() => audioStates(page)).toEqual(["running"]);
+  await expect.poll(() => page.evaluate(() => document.querySelector("audio")?.paused)).toBe(false);
   await expect(timer).not.toHaveText(heldAt ?? "");
 });
 
@@ -61,5 +63,6 @@ test("a device pause the browser allows to undo recovers without asking", async 
   await expect(page.locator(".timer")).not.toHaveText("15:00");
   await page.evaluate(() => window.__audioContexts[0].suspend());
   await expect.poll(() => audioStates(page)).toEqual(["running"]);
+  await expect.poll(() => page.evaluate(() => document.querySelector("audio")?.paused)).toBe(false);
   await expect(page.getByRole("alert")).toHaveCount(0);
 });

@@ -228,12 +228,13 @@ For contributions, follow [CODING_STANDARDS.md](CODING_STANDARDS.md), and run th
 **Platform notes**
 
 - Playback begins from a user gesture because browsers restrict autoplay.
-- Preset sessions and custom audio share one `AudioContext` ([`src/ui/audioContext.ts`](src/ui/audioContext.ts)). On Safari 16.4+ it declares a `playback` audio session, so iPhone audio still plays when the ring/silent switch is on; starting a session then pauses other apps' music, as native audio apps do.
+- Preset, Custom Audio, and Studio previews share one `AudioContext` ([`src/ui/audioContext.ts`](src/ui/audioContext.ts)). On Safari 16.4+ it declares a `playback` audio session, so iPhone audio still plays when the ring/silent switch is on.
+- While sound plays, a separate looping, unmuted, five-second digital-silence media element requests exclusive audio focus and enables OS Media controls (Play, Pause, Stop, Play name, Scene). It never receives the synthesized Web Audio output. Other apps' music should pause when the Play starts; a call or other audio focus loss pauses the Play in place. A duration/progress indicator is available only for fixed-length Plays. Studio previews appear as **Studio preview**. Actual notification/lock-screen behavior and locked-screen continuity still require the Android/iPhone device check (#38).
 - Ambient noise is synthesized with sample-rate-independent constants, so the same ambience has the same level and tone at 22.05, 44.1, 48, 96, or 192 kHz.
-- If the device pauses audio mid-session (call, alarm, another app), the session holds its place on the audio clock. SwaraSanti retries automatically and shows **Resume audio** when the browser requires a tap.
+- If the device pauses audio mid-Play (call, alarm, another app), the Play holds its place on the audio clock. Context-only interruptions retry automatically; if the media element stops or the browser requires a gesture, **Resume audio** appears.
 - PWA installation and offline caching should be checked using the production build served over HTTPS or localhost. Backend operations remain online features.
 - Personal URLs (`/p/<username>`) are the app's only path-based entry; every other view is in-app state. The host must serve `index.html` for `/p/*` (the rewrite in [`vercel.json`](vercel.json) does this on Vercel), and the service worker answers every navigation with the app shell, so an installed PWA opens them too.
-- Mobile operating systems may suspend browser audio in the background. Media Session controls improve integration but do not guarantee uninterrupted playback on iOS.
+- Mobile operating systems may suspend browser synthesis in the background. On iOS, uninterrupted locked-screen Web Audio requires iOS 17.5+ with the playback audio session and a playing media element; older versions may still suspend it. Keep the screen on or use an MP3 Download if needed.
 - There is no dedicated lint command in the current package scripts. The build includes TypeScript checking.
 
 ### Database access rules
