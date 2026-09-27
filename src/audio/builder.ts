@@ -67,8 +67,8 @@ export function isAmbient(type: BuilderLayerType): type is AmbientKind {
   return (AMBIENT_TYPES as string[]).includes(type);
 }
 
-/** Curve → schedule, reusing the preset scheduler under the hood. */
-function curveSchedule(
+/** Curve → schedule, reusing the preset scheduler; the Studio draws the same schedule it plays. */
+export function curveSchedule(
   curve: BuilderCurve,
   durationSec: number | null,
 ): SessionSchedule {

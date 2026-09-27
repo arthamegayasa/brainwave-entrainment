@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { isEntrainment } from "../audio/builder";
+import type { CSSProperties } from "react";
 import type {
   BuilderCurve,
   BuilderLayerSpec,
   BuilderLayerType,
   CustomSession,
 } from "../audio/builder";
-import { findRelated } from "../audio/freqfinder";
-import { SOLFEGGIO, SOUND_LABELS } from "../audio/constants";
+import { beatAt } from "../audio/schedule";
+import { SOLFEGGIO } from "../audio/constants";
 import {
   deleteCustomSession,
   exportSessionJSON,
@@ -15,9 +15,12 @@ import {
   listCustomSessions,
   saveCustomSession,
 } from "../state/customPresets";
-import { formatClock } from "./bands";
+import { BAND_COLORS, bandForHz, formatClock } from "./bands";
 import { ScenePicker } from "./ScenePicker";
-import { sceneOf } from "./scenes";
+import { sceneOf, scenePainting } from "./scenes";
+import { BandChip, bandName } from "./StudioField";
+import { JourneyEditor } from "./StudioJourney";
+import { AddLayer, LayerCard } from "./StudioLayers";
 import {
   ensureBuilder,
   getBuilderEngine,
@@ -42,29 +45,6 @@ import type { CloudAudio } from "../lib/audioLibrary";
 import { AUDIO_CATEGORIES } from "../lib/clinician";
 import type { AudioCategory } from "../lib/clinician";
 import type { AccountRole } from "../../supabase/functions/_shared/accountRules.ts";
-
-const LAYER_TYPE_LABELS: Record<BuilderLayerType, string> = {
-  binaural: "Binaural",
-  isochronic: "Isochronic",
-  monaural: "Monaural",
-  pure: "Pure Tone",
-  rain: SOUND_LABELS.rain,
-  ocean: SOUND_LABELS.ocean,
-  wind: SOUND_LABELS.wind,
-  brown: SOUND_LABELS.brown,
-};
-
-/**
- * Grouped layer types for the dropdown. Values must stay byte-identical to
- * BuilderLayerType members — saved custom presets store these strings.
- * "pure" is a static tone (createSolfeggioLayer), NOT entrainment, so it
- * gets its own group.
- */
-const LAYER_TYPE_GROUPS: Array<{ label: string; types: BuilderLayerType[] }> = [
-  { label: "Entrainment", types: ["binaural", "isochronic", "monaural"] },
-  { label: "Tone", types: ["pure"] },
-  { label: "Ambience", types: ["rain", "ocean", "wind", "brown"] },
-];
 
 let layerCounter = 0;
 function newLayer(type: BuilderLayerType = "binaural"): BuilderLayerSpec {
@@ -98,10 +78,10 @@ function previewMedia(sceneId: string | undefined) {
   };
 }
 
-const DURATIONS: (number | null)[] = [15, 30, 45, 60, null];
-
 /** Item id the Studio preview claims on the shared engine. */
 const STUDIO_PREVIEW_ID = "studio-preview";
+
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 interface BuilderProps {
   /** Called before preview audio starts — the running Play stops first. */
@@ -126,6 +106,10 @@ export function Builder({ onBeforePlay }: BuilderProps) {
   const held = useSyncExternalStore(subscribeAudio, isAudioBlocked);
   const [elapsed, setElapsed] = useState(0);
   const [remaining, setRemaining] = useState<number | null>(null);
+  /** The Beat the preview plays now, from the engine's own schedule. */
+  const [liveHz, setLiveHz] = useState<number | null>(null);
+  /** The journey the running preview started with; edits after it wait for Restart. */
+  const [previewed, setPreviewed] = useState<{ curve: BuilderCurve; durationMin: number | null } | null>(null);
   const [name, setName] = useState("My Custom Session");
   /** The Scene the designer picked; none until they pick (the default shows). */
   const [sceneId, setSceneId] = useState<string | undefined>();
@@ -141,6 +125,8 @@ export function Builder({ onBeforePlay }: BuilderProps) {
       const p = engine.progress();
       setElapsed(p.elapsedSec);
       setRemaining(p.remainingSec);
+      const schedule = engine.getSchedule();
+      setLiveHz(schedule ? beatAt(schedule, p.elapsedSec) : null);
       // Covers explicit stop, another view claiming the engine, and a timed
       // preview's natural end (self-healed inside getBuilderItem()).
       if (getBuilderItem() !== STUDIO_PREVIEW_ID) setPlaying(false);
@@ -160,6 +146,10 @@ export function Builder({ onBeforePlay }: BuilderProps) {
     e.start(layers, curve, durationMin);
     setBuilderItem(STUDIO_PREVIEW_ID);
     setMediaPresentation(previewMedia(sceneId));
+    setElapsed(0);
+    setRemaining(durationMin === null ? null : durationMin * 60);
+    setLiveHz(curve.startHz);
+    setPreviewed({ curve, durationMin });
     setPlaying(true);
   };
 
@@ -182,8 +172,8 @@ export function Builder({ onBeforePlay }: BuilderProps) {
     });
   };
 
-  const addLayer = () => {
-    const layer = newLayer();
+  const addLayer = (type: BuilderLayerType) => {
+    const layer = newLayer(type);
     setLayers((prev) => [...prev, layer]);
     if (playing) getBuilderEngine()?.addLayer(layer);
   };
@@ -221,8 +211,12 @@ export function Builder({ onBeforePlay }: BuilderProps) {
     URL.revokeObjectURL(url);
   };
 
-  /** Show a saved or imported session's design in the Studio. */
+  /**
+   * Show a saved or imported session's design in the Studio. A running
+   * preview stops: it would keep playing the old layers under the new ones.
+   */
   const loadSession = (session: CustomSession) => {
+    if (playing) handleStop();
     setName(session.name);
     setCurve(session.curve);
     setLayers(session.layers);
@@ -232,7 +226,7 @@ export function Builder({ onBeforePlay }: BuilderProps) {
   const handleImportFile = async (file: File) => {
     try {
       loadSession(importSessionJSON(await file.text()));
-      flash("Preset imported ✓");
+      flash("Session imported ✓");
     } catch (err) {
       flash(err instanceof Error ? err.message : "Import failed");
     }
@@ -240,144 +234,266 @@ export function Builder({ onBeforePlay }: BuilderProps) {
 
   const loadSaved = (session: CustomSession) => {
     loadSession(session);
-    flash("Preset loaded ✓");
+    flash("Session loaded ✓");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
+
+  const hasLayers = layers.length > 0;
+  const scene = sceneOf({ sceneId });
+  const stale =
+    playing &&
+    previewed !== null &&
+    (previewed.durationMin !== durationMin ||
+      JSON.stringify(previewed.curve) !== JSON.stringify(curve));
+  const shownHz = playing && liveHz !== null ? liveHz : curve.targetHz;
 
   return (
     <section className="builder">
-      <div className="builder-head">
-        <div>
-          <h1>Studio</h1>
-          <p className="builder-sub">
-            Build your own multi-layer session — choose the method, carrier, and
-            the path the frequency travels.
+      <header className="studio-hero">
+        <img
+          key={scene}
+          className="studio-hero-scene"
+          src={scenePainting(scene, 768)}
+          srcSet={`${scenePainting(scene, 768)} 768w, ${scenePainting(scene, 1536)} 1536w`}
+          sizes="(min-width: 1080px) 1080px, 100vw"
+          alt=""
+          draggable={false}
+        />
+        <div className="studio-hero-body">
+          <h1 className="studio-eyebrow">Studio</h1>
+          <label className="studio-name">
+            <input
+              className="studio-name-input"
+              value={name}
+              maxLength={60}
+              size={Math.max(name.length, 8)}
+              placeholder="Name this session"
+              aria-label="Session name"
+              onChange={(e) => setName(e.target.value)}
+            />
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M4 20h4L19 9l-4-4L4 16z" />
+              <path d="M13.5 6.5l4 4" />
+            </svg>
+          </label>
+          <p className="studio-sub">
+            Shape the journey, layer the sound, pick a Scene — then preview and save.
           </p>
+          <div className="studio-summary">
+            <span className="studio-summary-item">{plural(layers.length, "layer")}</span>
+            <span className="studio-summary-item studio-summary-path">
+              <BandChip hz={curve.startHz} />
+              <span aria-hidden>→</span>
+              <BandChip hz={curve.targetHz} />
+              {curve.endHz !== null && (
+                <>
+                  <span aria-hidden>→</span>
+                  <BandChip hz={curve.endHz} />
+                </>
+              )}
+            </span>
+          </div>
         </div>
+      </header>
+
+      <div
+        className={`studio-bar${playing ? " is-playing" : ""}`}
+        style={{ "--band": BAND_COLORS[bandForHz(shownHz)] } as CSSProperties}
+      >
+        <div className="studio-bar-status">
+          <span className="studio-bar-orb" aria-hidden />
+          <div className="studio-bar-text">
+            {playing ? (
+              <>
+                <strong className="transport-time">
+                  {remaining === null ? formatClock(elapsed) : `${formatClock(remaining)} left`}
+                </strong>
+                <span>
+                  Beat {shownHz.toFixed(1)} Hz · {bandName(shownHz)}
+                </span>
+              </>
+            ) : (
+              <>
+                <strong>Preview</strong>
+                <span>
+                  {durationMin === null ? "Endless" : `${durationMin} min`} · {plural(layers.length, "layer")}
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+        <button className="chip studio-save" disabled={!hasLayers} onClick={handleSave}>
+          Save
+        </button>
         <div className="builder-transport">
           {playing ? (
             <>
-              <span className="transport-time">
-                {remaining === null ? formatClock(elapsed) : formatClock(remaining)}
-              </span>
               {held && (
                 <button className="start-btn compact player-held" onClick={resumeAudio}>
                   <span aria-hidden>▶ </span>Tap to resume
                 </button>
               )}
               <button className="pill-btn stop" onClick={handleStop}>
-                ■ Stop
+                <span aria-hidden>■ </span>Stop
               </button>
             </>
           ) : (
-            <button className="start-btn compact" onClick={handlePlay}>
-              ▶ Play
+            <button className="start-btn compact" disabled={!hasLayers} onClick={handlePlay}>
+              <span aria-hidden>▶ </span>Play
             </button>
           )}
         </div>
+        {playing && remaining !== null && (
+          <span
+            className="studio-bar-progress"
+            style={{ "--progress": `${(elapsed / Math.max(1, elapsed + remaining)) * 100}%` } as CSSProperties}
+            aria-hidden
+          />
+        )}
       </div>
 
-      <div className="builder-grid">
-        <div className="builder-col">
-          <div className="builder-section-title">Layers</div>
-          {layers.map((layer) => (
+      <section className="studio-section" aria-labelledby="studio-journey">
+        <StudioStep n={1} id="studio-journey" title="Journey" hint="How the Beat moves through the session: it begins near waking, eases to your target, and can return before the end." />
+        <JourneyEditor
+          curve={curve}
+          durationMin={durationMin}
+          onCurveChange={setCurve}
+          onDurationChange={setDurationMin}
+          live={playing && liveHz !== null ? { elapsedSec: elapsed, hz: liveHz } : null}
+          stale={stale}
+          onRestart={handlePlay}
+        />
+      </section>
+
+      <section className="studio-section" aria-labelledby="studio-layers">
+        <StudioStep n={2} id="studio-layers" title="Layers" hint="Stack entrainment, tones, and ambience. Changes play at once while you preview." />
+        <div className="layer-grid">
+          {layers.map((layer, i) => (
             <LayerCard
               key={layer.id}
               layer={layer}
+              index={i}
+              curve={curve}
               onPatch={(patch) => patchLayer(layer.id, patch)}
               onRemove={() => removeLayer(layer.id)}
             />
           ))}
-          <button className="chip add-layer" onClick={addLayer}>
-            + Add Layer
-          </button>
+          {!hasLayers && (
+            <p className="layer-empty">No layers yet. Add one below to hear your session.</p>
+          )}
         </div>
+        <AddLayer count={layers.length} onAdd={addLayer} />
+      </section>
 
-        <div className="builder-col">
-          <div className="builder-section-title">Session Curve</div>
-          <CurveEditor curve={curve} onChange={setCurve} />
+      <section className="studio-section" aria-labelledby="studio-scene">
+        <StudioStep n={3} id="studio-scene" title="Scene" hint="The painting shown with this session in the Player, the Library, and Media controls." />
+        <ScenePicker value={sceneId} onChange={pickScene} />
+      </section>
 
-          <div className="builder-section-title">Duration</div>
-          <div className="chips">
-            {DURATIONS.map((d) => (
-              <button
-                key={d ?? "inf"}
-                className={`chip ${durationMin === d ? "selected" : ""}`}
-                onClick={() => setDurationMin(d)}
-              >
-                {d === null ? "∞" : `${d} min`}
+      <section className="studio-section" aria-labelledby="studio-share">
+        <StudioStep
+          n={4}
+          id="studio-share"
+          title="Save & share"
+          hint={
+            ent.isClinician && isPaymentsConfigured
+              ? "Keep this design on this device, share it as a file, or add it to your Audio Bank."
+              : "Keep this design on this device, or share it as a file."
+          }
+        />
+        <div className="studio-share">
+          <div className="studio-card">
+            <h3>This device</h3>
+            <p className="studio-muted">Saved sessions also appear in your Library. A file carries the design anywhere.</p>
+            <div className="studio-actions">
+              <button className="chip selected" disabled={!hasLayers} onClick={handleSave}>
+                Save on this device
               </button>
-            ))}
+              <button className="chip" disabled={!hasLayers} onClick={handleExport}>
+                <span aria-hidden>↓ </span>Export
+              </button>
+              <button className="chip" onClick={() => fileRef.current?.click()}>
+                <span aria-hidden>↑ </span>Import
+              </button>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="application/json,.json"
+                hidden
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) void handleImportFile(file);
+                  e.target.value = "";
+                }}
+              />
+            </div>
           </div>
-
-          <ScenePicker value={sceneId} onChange={pickScene} />
-
-          <div className="builder-section-title">Save &amp; Share</div>
-          <div className="save-row">
-            <input
-              className="text-input"
-              value={name}
-              maxLength={60}
-              onChange={(e) => setName(e.target.value)}
-              aria-label="Preset name"
-            />
-            <button className="chip" onClick={handleSave}>
-              Save
-            </button>
-            <button className="chip" onClick={handleExport}>
-              Export
-            </button>
-            <button className="chip" onClick={() => fileRef.current?.click()}>
-              Import
-            </button>
-            <input
-              ref={fileRef}
-              type="file"
-              accept="application/json,.json"
-              hidden
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) void handleImportFile(file);
-                e.target.value = "";
-              }}
-            />
-          </div>
-          {notice && <div className="notice">{notice}</div>}
 
           {ent.isClinician && isPaymentsConfigured && (
             <PublishPanel
               getSession={currentSession}
               flash={flash}
               role={ent.role}
+              disabled={!hasLayers}
             />
           )}
-
-          {saved.length > 0 && (
-            <>
-              <div className="builder-section-title">Saved Presets</div>
-              <div className="saved-list">
-                {saved.map((s) => (
-                  <div className="saved-item" key={s.id}>
-                    <button className="saved-name" onClick={() => loadSaved(s)}>
-                      {s.name}
-                    </button>
-                    <button
-                      className="saved-del"
-                      aria-label={`Delete ${s.name}`}
-                      onClick={() => {
-                        deleteCustomSession(s.id);
-                        setSaved(listCustomSessions());
-                      }}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
         </div>
-      </div>
+
+        {saved.length > 0 && (
+          <div className="studio-saved">
+            <h3>
+              Saved sessions <span className="studio-count">{saved.length}</span>
+            </h3>
+            <ul className="saved-grid">
+              {saved.map((s) => (
+                <li className="saved-card" key={s.id}>
+                  <button className="saved-open" aria-label={`Open ${s.name}`} onClick={() => loadSaved(s)}>
+                    <img src={scenePainting(sceneOf(s), 768)} alt="" loading="lazy" draggable={false} />
+                    <span className="saved-info">
+                      <span className="saved-title">{s.name}</span>
+                      <span className="saved-meta">
+                        {plural(s.layers.length, "layer")} · {s.curve.startHz} → {s.curve.targetHz} Hz
+                      </span>
+                    </span>
+                  </button>
+                  <button
+                    className="saved-del"
+                    aria-label={`Delete ${s.name}`}
+                    onClick={() => {
+                      deleteCustomSession(s.id);
+                      setSaved(listCustomSessions());
+                    }}
+                  >
+                    ✕
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </section>
+
+      {notice && (
+        <div className="notice dash-notice" role="status">
+          {notice}
+        </div>
+      )}
     </section>
+  );
+}
+
+/** A numbered step heading: what the section is for, in one line. */
+function StudioStep({ n, id, title, hint }: { n: number; id: string; title: string; hint: string }) {
+  return (
+    <div className="studio-step">
+      <span className="studio-step-num" aria-hidden>
+        {n}
+      </span>
+      <div>
+        <h2 id={id}>{title}</h2>
+        <p>{hint}</p>
+      </div>
+    </div>
   );
 }
 
@@ -392,10 +508,13 @@ function PublishPanel({
   getSession,
   flash,
   role,
+  disabled,
 }: {
   getSession: () => CustomSession;
   flash: (msg: string) => void;
   role: AccountRole;
+  /** No layers: nothing worth publishing. */
+  disabled: boolean;
 }) {
   const [tagline, setTagline] = useState("");
   const [category, setCategory] = useState<AudioCategory>("other");
@@ -468,298 +587,67 @@ function PublishPanel({
   };
 
   return (
-    <>
-      <div className="builder-section-title">Audio Bank</div>
-      <div className="publish-panel">
-        <input
-          className="text-input"
-          value={tagline}
-          maxLength={90}
-          placeholder="Goal tagline (optional)"
-          aria-label="Goal tagline"
-          onChange={(e) => setTagline(e.target.value)}
-        />
-        <div className="publish-actions">
-          <select
-            className="select"
-            value={category}
-            aria-label="Category"
-            onChange={(e) => setCategory(e.target.value as AudioCategory)}
-          >
-            {AUDIO_CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </div>
-        <textarea
-          className="text-input"
-          value={notes}
-          rows={2}
-          maxLength={500}
-          placeholder="Notes (visible only to you)"
-          aria-label="Notes"
-          onChange={(e) => setNotes(e.target.value)}
-        />
-        <div className="publish-actions">
-          <button className="chip" disabled={busy} onClick={() => void saveToBank()}>
-            Save to Audio Bank
-          </button>
-          {role === "admin" && (
-            <button
-              className="chip"
-              disabled={busy}
-              onClick={() => void publishTemplate()}
-            >
-              Publish as template
-            </button>
-          )}
-        </div>
-        <p className="library-note">Assign it to patients from the Dashboard.</p>
-        {published.length > 0 && (
-          <div className="saved-list">
-            {published.map((a) => (
-              <div className="saved-item" key={a.id}>
-                <span className="saved-name">
-                  {a.name}
-                  {a.isTemplate ? " · template" : ""}
-                </span>
-                <button
-                  className="saved-del"
-                  aria-label={`Delete ${a.name}`}
-                  onClick={() => void remove(a.id)}
-                >
-                  ✕
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </>
-  );
-}
-
-function LayerCard({
-  layer,
-  onPatch,
-  onRemove,
-}: {
-  layer: BuilderLayerSpec;
-  onPatch: (patch: Partial<BuilderLayerSpec>) => void;
-  onRemove: () => void;
-}) {
-  const [showFinder, setShowFinder] = useState(false);
-  const entrainment = isEntrainment(layer.type);
-  const tonal = entrainment || layer.type === "pure";
-  const suggestions = showFinder ? findRelated(layer.carrierHz).slice(0, 6) : [];
-
-  return (
-    <div className="layer-card">
-      <div className="layer-row">
-        <select
-          className="select"
-          value={layer.type}
-          aria-label="Layer type"
-          onChange={(e) => onPatch({ type: e.target.value as BuilderLayerType })}
-        >
-          {LAYER_TYPE_GROUPS.map((group) => (
-            <optgroup key={group.label} label={group.label}>
-              {group.types.map((t) => (
-                <option key={t} value={t}>
-                  {LAYER_TYPE_LABELS[t]}
-                </option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
-        <button className="saved-del" aria-label="Remove layer" onClick={onRemove}>
-          ✕
+    <div className="studio-card publish-panel">
+      <h3>Audio Bank</h3>
+      <p className="studio-muted">Assign it to patients from the Dashboard.</p>
+      <input
+        className="text-input"
+        value={tagline}
+        maxLength={90}
+        placeholder="Goal tagline (optional)"
+        aria-label="Goal tagline"
+        onChange={(e) => setTagline(e.target.value)}
+      />
+      <select
+        className="select"
+        value={category}
+        aria-label="Category"
+        onChange={(e) => setCategory(e.target.value as AudioCategory)}
+      >
+        {AUDIO_CATEGORIES.map((c) => (
+          <option key={c} value={c}>
+            {c}
+          </option>
+        ))}
+      </select>
+      <textarea
+        className="text-input"
+        value={notes}
+        rows={2}
+        maxLength={500}
+        placeholder="Notes (visible only to you)"
+        aria-label="Notes"
+        onChange={(e) => setNotes(e.target.value)}
+      />
+      <div className="studio-actions">
+        <button className="chip selected" disabled={busy || disabled} onClick={() => void saveToBank()}>
+          Save to Audio Bank
         </button>
-      </div>
-
-      {tonal && (
-        <div className="layer-row">
-          <label className="inline-label">
-            {layer.type === "pure" ? "Tone (Hz)" : "Carrier (Hz)"}
-            <input
-              className="num-input"
-              type="number"
-              min={20}
-              max={1500}
-              step={0.01}
-              value={layer.carrierHz}
-              onChange={(e) => onPatch({ carrierHz: Number(e.target.value) })}
-            />
-          </label>
-          <button className="chip small" onClick={() => setShowFinder((v) => !v)}>
-            {showFinder ? "Close" : "🔍 Related frequencies"}
+        {role === "admin" && (
+          <button className="chip" disabled={busy || disabled} onClick={() => void publishTemplate()}>
+            Publish as template
           </button>
-        </div>
-      )}
-
-      {showFinder && tonal && (
-        <div className="finder">
-          {suggestions.map((s) => (
-            <button
-              key={s.hz}
-              className="chip small"
-              title={s.relation}
-              onClick={() => {
-                onPatch({ carrierHz: s.hz });
-                setShowFinder(false);
-              }}
-            >
-              {s.hz} Hz · {s.relation}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {entrainment && (
-        <div className="layer-row">
-          <label className="inline-label">
-            Beat
-            <select
-              className="select"
-              value={layer.beatMode}
-              onChange={(e) =>
-                onPatch({ beatMode: e.target.value as "follow" | "fixed" })
-              }
-            >
-              <option value="follow">Follow session curve</option>
-              <option value="fixed">Fixed</option>
-            </select>
-          </label>
-          {layer.beatMode === "fixed" && (
-            <label className="inline-label">
-              Hz
-              <input
-                className="num-input"
-                type="number"
-                min={0.5}
-                max={50}
-                step={0.1}
-                value={layer.fixedBeatHz}
-                onChange={(e) => onPatch({ fixedBeatHz: Number(e.target.value) })}
-              />
-            </label>
-          )}
-        </div>
-      )}
-
-      <label className="mixer-row compact">
-        <span>Volume</span>
-        <input
-          type="range"
-          min={0}
-          max={1}
-          step={0.01}
-          value={layer.gain}
-          style={{ "--fill": `${layer.gain * 100}%` } as React.CSSProperties}
-          onChange={(e) => onPatch({ gain: Number(e.target.value) })}
-        />
-        <span className="value">{Math.round(layer.gain * 100)}%</span>
-      </label>
-    </div>
-  );
-}
-
-function CurveEditor({
-  curve,
-  onChange,
-}: {
-  curve: BuilderCurve;
-  onChange: (c: BuilderCurve) => void;
-}) {
-  const patch = (p: Partial<BuilderCurve>) => onChange({ ...curve, ...p });
-
-  // Mini preview: normalized polyline of the ramp shape.
-  const maxHz = Math.max(curve.startHz, curve.targetHz, curve.endHz ?? 0, 1);
-  const y = (hz: number) => 44 - (hz / maxHz) * 36;
-  const endY = curve.endHz === null ? y(curve.targetHz) : y(curve.endHz);
-  const path = `M 4 ${y(curve.startHz)} L 56 ${y(curve.targetHz)} L 124 ${y(curve.targetHz)} L 176 ${endY}`;
-
-  return (
-    <div className="curve-editor">
-      <svg viewBox="0 0 180 48" className="curve-preview" aria-hidden>
-        <path d={path} fill="none" stroke="var(--accent)" strokeWidth="2" />
-      </svg>
-      <div className="curve-fields">
-        <label className="inline-label">
-          Start (Hz)
-          <input
-            className="num-input"
-            type="number"
-            min={0.5}
-            max={50}
-            step={0.1}
-            value={curve.startHz}
-            onChange={(e) => patch({ startHz: Number(e.target.value) })}
-          />
-        </label>
-        <label className="inline-label">
-          Target (Hz)
-          <input
-            className="num-input"
-            type="number"
-            min={0.5}
-            max={50}
-            step={0.1}
-            value={curve.targetHz}
-            onChange={(e) => patch({ targetHz: Number(e.target.value) })}
-          />
-        </label>
-        <label className="inline-label">
-          Descend (min)
-          <input
-            className="num-input"
-            type="number"
-            min={0.1}
-            max={60}
-            step={0.5}
-            value={curve.rampInMin}
-            onChange={(e) => patch({ rampInMin: Number(e.target.value) })}
-          />
-        </label>
-        <label className="inline-label check">
-          <input
-            type="checkbox"
-            checked={curve.endHz !== null}
-            onChange={(e) => patch({ endHz: e.target.checked ? curve.startHz : null })}
-          />
-          Rise back at the end
-        </label>
-        {curve.endHz !== null && (
-          <>
-            <label className="inline-label">
-              End (Hz)
-              <input
-                className="num-input"
-                type="number"
-                min={0.5}
-                max={50}
-                step={0.1}
-                value={curve.endHz}
-                onChange={(e) => patch({ endHz: Number(e.target.value) })}
-              />
-            </label>
-            <label className="inline-label">
-              Rise (min)
-              <input
-                className="num-input"
-                type="number"
-                min={0.5}
-                max={30}
-                step={0.5}
-                value={curve.rampOutMin}
-                onChange={(e) => patch({ rampOutMin: Number(e.target.value) })}
-              />
-            </label>
-          </>
         )}
       </div>
+      {published.length > 0 && (
+        <ul className="publish-list">
+          {published.map((a) => (
+            <li key={a.id}>
+              <span>
+                {a.name}
+                {a.isTemplate && <span className="studio-tag">template</span>}
+              </span>
+              <button
+                className="saved-del"
+                aria-label={`Delete ${a.name}`}
+                onClick={() => void remove(a.id)}
+              >
+                ✕
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

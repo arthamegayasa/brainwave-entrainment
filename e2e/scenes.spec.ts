@@ -21,7 +21,7 @@ test.beforeEach(async ({ page }) => {
 
 /** Save the Studio design as a saved session named `name`. */
 async function saveInStudio(page: Page, name: string): Promise<void> {
-  await page.getByRole("textbox", { name: "Preset name" }).fill(name);
+  await page.getByRole("textbox", { name: "Session name" }).fill(name);
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByText("Saved ✓")).toBeVisible();
 }

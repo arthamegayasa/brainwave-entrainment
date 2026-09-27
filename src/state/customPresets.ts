@@ -119,7 +119,7 @@ export function sanitizeSession(value: unknown): CustomSession | null {
  * untrusted spec is a client-exhaustion vector, and summed layers past this
  * point only add clipping, not depth.
  */
-const MAX_LAYERS = 12;
+export const MAX_LAYERS = 12;
 
 /**
  * BuilderEngine tracks live layers in a Map keyed by layer id; a duplicate id
