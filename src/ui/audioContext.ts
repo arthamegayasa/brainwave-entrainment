@@ -16,6 +16,8 @@
  *   audio session — so it is suspended once nothing is playing.
  */
 
+import { createSilentWav } from "../audio/silentWav";
+
 /** Who is playing: a preset session or custom (Studio/Library) audio. */
 export type AudioOwner = "session" | "builder";
 
@@ -37,6 +39,133 @@ let idleTimer: number | undefined;
 /** The user paused: automatic resume and the blocked prompt stand down. */
 let userPaused = false;
 const listeners = new Set<() => void>();
+/** The media element owns OS audio focus; only Web Audio carries sound. */
+let media: HTMLAudioElement | null = null;
+let silentUrl: string | null = null;
+let mediaHeld = false;
+let mediaAttempt = 0;
+let ignoredPauses = 0;
+let mediaInfo: {
+  title: string;
+  scene: string;
+  durationSec: number | null;
+  position: () => number;
+  stop: () => void;
+} | null = null;
+
+function setPosition(): void {
+  if (!("mediaSession" in navigator) || !navigator.mediaSession.setPositionState) return;
+  try {
+    if (mediaInfo && mediaInfo.durationSec !== null) {
+      const duration = mediaInfo.durationSec;
+      navigator.mediaSession.setPositionState({
+        duration,
+        position: Math.max(0, Math.min(duration, mediaInfo.position())),
+        playbackRate: 1,
+      });
+    } else {
+      navigator.mediaSession.setPositionState({});
+    }
+  } catch {
+    // Media Session is optional on browsers without position support.
+  }
+}
+
+function setMediaState(): void {
+  if (!("mediaSession" in navigator)) return;
+  try {
+    navigator.mediaSession.playbackState =
+      !mediaInfo ? "none" : userPaused || mediaHeld || ctx?.state !== "running" ? "paused" : "playing";
+    setPosition();
+  } catch {
+    // Media Session is optional; never interrupt sound for OS controls.
+  }
+}
+
+function onMediaPause(): void {
+  if (ignoredPauses > 0) {
+    ignoredPauses--;
+    return;
+  }
+  if (owners.size === 0 || userPaused || mediaHeld || !media?.paused) return;
+  // A pause not requested by SwaraSanti is an OS audio-focus interruption.
+  mediaHeld = true;
+  ctx?.suspend().catch(() => {});
+  setMediaState();
+  notify();
+}
+
+function ensureMedia(): HTMLAudioElement {
+  if (!media) {
+    media = document.createElement("audio");
+    media.loop = true;
+    media.addEventListener("pause", onMediaPause);
+    media.style.display = "none";
+    document.body.append(media);
+  }
+  if (!silentUrl) {
+    const bytes = createSilentWav();
+    silentUrl = URL.createObjectURL(new Blob([bytes as BlobPart], { type: "audio/wav" }));
+    media.src = silentUrl;
+  }
+  return media;
+}
+
+function playMedia(): void {
+  const element = ensureMedia();
+  const attempt = ++mediaAttempt;
+  // Do not await: some devices never settle play() without another gesture.
+  element.play().catch(() => {
+    if (attempt !== mediaAttempt || owners.size === 0 || userPaused || !element.paused) return;
+    mediaHeld = true;
+    ctx?.suspend().catch(() => {});
+    setMediaState();
+    notify();
+  });
+}
+
+function clearMedia(): void {
+  mediaInfo = null;
+  mediaAttempt++;
+  if (media) {
+    if (!media.paused) ignoredPauses++;
+    media.pause();
+    media.removeAttribute("src");
+    media.load();
+  }
+  if (silentUrl) URL.revokeObjectURL(silentUrl);
+  silentUrl = null;
+  mediaHeld = false;
+  if (!("mediaSession" in navigator)) return;
+  try {
+    navigator.mediaSession.metadata = null;
+    for (const action of ["play", "pause", "stop"] as const) {
+      navigator.mediaSession.setActionHandler(action, null);
+    }
+    setMediaState();
+  } catch {
+    // Browsers without Media Session still play the element.
+  }
+}
+
+/** Set the Play or Studio preview visible to the OS; cleared when its owner releases audio. */
+export function setMediaPresentation(info: NonNullable<typeof mediaInfo>): void {
+  mediaInfo = info;
+  if (!("mediaSession" in navigator)) return;
+  try {
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: info.title,
+      artist: "SwaraSanti",
+      artwork: [{ src: `/scenes/${info.scene}-768.webp`, sizes: "768x512", type: "image/webp" }],
+    });
+    navigator.mediaSession.setActionHandler("play", resumeAudio);
+    navigator.mediaSession.setActionHandler("pause", pauseAudio);
+    navigator.mediaSession.setActionHandler("stop", info.stop);
+    setMediaState();
+  } catch {
+    // Browsers without Media Session still play the element.
+  }
+}
 
 function notify(): void {
   for (const listener of listeners) listener();
@@ -48,7 +177,7 @@ function declarePlaybackSession(): void {
 }
 
 function tryResume(): void {
-  if (!ctx || owners.size === 0 || userPaused) return;
+  if (!ctx || owners.size === 0 || userPaused || mediaHeld) return;
   if (ctx.state === "running" || ctx.state === "closed") return;
   // Rejected without a user gesture on some browsers; the next one retries.
   ctx.resume().catch(() => {});
@@ -60,6 +189,7 @@ function onStateChange(): void {
   // be resumed without a gesture, so try at once.
   if (document.visibilityState === "visible") tryResume();
   notify();
+  setMediaState();
 }
 
 /**
@@ -110,6 +240,8 @@ export function acquireAudio(owner: AudioOwner): AudioContext {
   owners.add(owner);
   userPaused = false;
   startGrace();
+  mediaHeld = false;
+  playMedia();
   tryResume();
   notify();
   return ctx;
@@ -119,6 +251,7 @@ export function acquireAudio(owner: AudioOwner): AudioContext {
 export function releaseAudio(owner: AudioOwner): void {
   if (!owners.delete(owner)) return;
   if (owners.size === 0) {
+    clearMedia();
     userPaused = false;
     window.clearTimeout(graceTimer);
     idleTimer = window.setTimeout(() => {
@@ -135,6 +268,10 @@ export function releaseAudio(owner: AudioOwner): void {
 export function pauseAudio(): void {
   if (!ctx || owners.size === 0) return;
   userPaused = true;
+  mediaAttempt++;
+  if (media && !media.paused) ignoredPauses++;
+  media?.pause();
+  setMediaState();
   ctx.suspend().catch(() => {});
   notify();
 }
@@ -142,9 +279,14 @@ export function pauseAudio(): void {
 /** Resume after a user or device pause; call from a user gesture. */
 export function resumeAudio(): void {
   userPaused = false;
-  if (ctx && owners.size > 0) startGrace();
-  declarePlaybackSession();
+  mediaHeld = false;
+  if (ctx && owners.size > 0) {
+    startGrace();
+    declarePlaybackSession();
+    playMedia();
+  }
   tryResume();
+  setMediaState();
   notify();
 }
 
@@ -154,7 +296,7 @@ export function isAudioPaused(): boolean {
 
 /** True while the audio clock runs: false while paused by the User or held by the device. */
 export function isAudioRunning(): boolean {
-  return ctx?.state === "running";
+  return ctx?.state === "running" && !mediaHeld;
 }
 
 /**
@@ -172,8 +314,8 @@ export function audioClockSec(): number {
  * normal suspended → running transition never flashes a prompt.
  */
 export function isAudioBlocked(): boolean {
-  if (!ctx || owners.size === 0 || userPaused || ctx.state === "running") return false;
-  return ranSincePlay || graceExpired;
+  if (!ctx || owners.size === 0 || userPaused) return false;
+  return mediaHeld || (ctx.state !== "running" && (ranSincePlay || graceExpired));
 }
 
 /** Subscribe to isAudioBlocked()/isAudioPaused() changes (useSyncExternalStore). */

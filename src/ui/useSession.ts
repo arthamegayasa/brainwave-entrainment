@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { SessionEngine, DEFAULT_VOLUMES } from "../audio/session";
 import type { ListeningMode, SessionConfig, SessionVolumes } from "../audio/session";
 import type { AmbientKind } from "../audio/types";
 import { loadPrefs, savePrefs } from "../state/prefs";
-import { acquireAudio, pauseAudio, releaseAudio, resumeAudio } from "./audioContext";
-import { presetPlays, stopPlay, useNowPlaying } from "./nowPlaying";
+import { acquireAudio, releaseAudio } from "./audioContext";
+import { presetPlays } from "./nowPlaying";
 
 // Module-level singleton on the shared AudioContext; the engine itself never
 // creates a context.
@@ -19,37 +19,12 @@ function ensureEngine(): SessionEngine {
   return engine;
 }
 
-/** Best-effort Media Session wiring: lockscreen metadata + controls. */
-function updateMediaSession(cfg: SessionConfig | null) {
-  if (!("mediaSession" in navigator)) return;
-  try {
-    if (!cfg) {
-      navigator.mediaSession.metadata = null;
-      navigator.mediaSession.playbackState = "none";
-      for (const action of ["play", "pause", "stop"] as const) {
-        navigator.mediaSession.setActionHandler(action, null);
-      }
-      return;
-    }
-    navigator.mediaSession.metadata = new MediaMetadata({
-      title: `${cfg.preset.emoji} ${cfg.preset.name}`,
-      artist: "SwaraSanti — Healing Audio",
-      album: cfg.preset.tagline,
-    });
-    navigator.mediaSession.setActionHandler("play", resumeAudio);
-    navigator.mediaSession.setActionHandler("pause", pauseAudio);
-    navigator.mediaSession.setActionHandler("stop", stopPlay);
-  } catch {
-    /* media session is progressive enhancement only */
-  }
-}
 
 /** Silence the preset session: what ending its Play early does to the audio. */
 function haltSession(): void {
   window.clearInterval(endWatch);
   engine?.stop();
   releaseAudio("session");
-  updateMediaSession(null);
 }
 
 export interface SessionApi {
@@ -69,12 +44,6 @@ export interface SessionApi {
 export function useSession(): SessionApi {
   const [ambient, setAmbientState] = useState<AmbientKind | null>(null);
   const [volumes, setVolumes] = useState<SessionVolumes>({ ...DEFAULT_VOLUMES });
-  const play = useNowPlaying();
-
-  useEffect(() => {
-    if (play?.audio.kind !== "preset" || !("mediaSession" in navigator)) return;
-    navigator.mediaSession.playbackState = play.paused ? "paused" : "playing";
-  }, [play]);
 
   const start = useCallback((cfg: SessionConfig) => {
     const e = ensureEngine();
@@ -90,7 +59,6 @@ export function useSession(): SessionApi {
     }, 1000);
     setAmbientState(cfg.ambient);
     setVolumes(e.getVolumes());
-    updateMediaSession(cfg);
     savePrefs({
       lastPresetId: cfg.preset.id,
       lastDurationMin: cfg.durationMin === null ? "inf" : cfg.durationMin,
