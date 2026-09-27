@@ -1,8 +1,9 @@
 /**
  * Now Playing: the single source for the running Play, whichever engine plays
- * it (a Preset on SessionEngine, Custom Audio on BuilderEngine). Pure
- * TypeScript — NO React, NO audio: the clock is injected, so the rules are
- * testable without a browser. The app glue lives in src/ui/nowPlaying.ts.
+ * it (a Preset on SessionEngine; Custom Audio or a saved Studio session from
+ * the Library on BuilderEngine). Pure TypeScript — NO React, NO audio: the
+ * clock is injected, so the rules are testable without a browser. The app
+ * glue lives in src/ui/nowPlaying.ts.
  *
  * It holds what the Player and the Library rows show, follows the device's
  * audio, counts time the way the Listening core counts time listened (only

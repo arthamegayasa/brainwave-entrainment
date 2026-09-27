@@ -117,11 +117,7 @@ export function Player({ session }: PlayerProps) {
         {paused ? "Paused" : PHASE_LABELS[progress.phase]}
       </div>
 
-      <SessionViz
-        schedule={schedule}
-        elapsedSec={progress.elapsedSec}
-        durationSec={play.plannedMin === null ? null : play.plannedMin * 60}
-      />
+      <SessionViz schedule={schedule} elapsedSec={progress.elapsedSec} durationSec={schedule.endSec} />
 
       <div className="player-controls">
         {paused ? (

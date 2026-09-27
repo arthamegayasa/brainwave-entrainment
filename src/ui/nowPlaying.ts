@@ -26,8 +26,8 @@ import {
  * a completed session to the weekly streak.
  */
 
-/** Custom Audio shows the Meditating Scene until Custom Audio can choose one (#43). */
-const CUSTOM_AUDIO_SCENE = "deep-meditation";
+/** Library audio shows the Meditating Scene until Custom Audio can choose one (#43). */
+const LIBRARY_SCENE = "deep-meditation";
 
 const nowPlaying = createNowPlaying(listeningEnv);
 
@@ -118,7 +118,7 @@ export function startLibraryPlay(
   begin(
     {
       audio,
-      scene: CUSTOM_AUDIO_SCENE,
+      scene: LIBRARY_SCENE,
       plannedMin: durationMin,
       schedule: engine.getSchedule()!,
       frequencies: {
