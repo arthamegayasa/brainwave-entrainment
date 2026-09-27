@@ -162,7 +162,7 @@ test("Back keeps working after Forward or a reload lands on a closed layer's ent
   await expect(mini).toBeVisible();
 });
 
-test("a Custom Audio Play shows in the Mini-player, which opens its Player", async ({ page }) => {
+test("a saved Studio session's Play shows in the Mini-player, which opens its Player", async ({ page }) => {
   await recordAudioContexts(page);
   await openSessions(page);
   const row = await importSession(page);

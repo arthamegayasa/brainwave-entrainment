@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import {
   audioStates,
+  frequencyValue,
   importSession,
   liveFrequencies,
   openSessions,
@@ -8,6 +9,7 @@ import {
   recordAudioContexts,
   recordLiveOutput,
   setUpPreset,
+  shownHz,
 } from "./helpers";
 
 for (const mode of ["Headphones", "Speaker"] as const) {
@@ -40,7 +42,7 @@ for (const mode of ["Headphones", "Speaker"] as const) {
   });
 }
 
-test("a single-layer Custom Audio plays from the Library through the duration sheet into the Player, its live output matching the displayed frequencies", async ({
+test("a single-layer saved Studio session plays from the Library through the duration sheet into the Player, its live output matching the displayed frequencies", async ({
   page,
 }) => {
   await recordAudioContexts(page);
@@ -67,11 +69,11 @@ test("a single-layer Custom Audio plays from the Library through the duration sh
   expect(await page.evaluate(() => navigator.mediaSession.metadata?.title)).toBe("Single Layer");
 
   await page.getByRole("button", { name: /Frequency details/ }).click();
-  const values = page.getByRole("dialog", { name: "Frequency details" }).locator(".freq-item");
-  const displayed = async (label: string) =>
-    Number((await values.filter({ has: page.getByText(label, { exact: true }) }).locator(".v").textContent())
-      ?.split(" ")[0]);
-  const target = [await displayed("Left · Carrier"), await displayed("Right · Carrier + Beat")];
+  const details = page.getByRole("dialog", { name: "Frequency details" });
+  const target = [
+    await shownHz(frequencyValue(details, "Left · Carrier")),
+    await shownHz(frequencyValue(details, "Right · Carrier + Beat")),
+  ];
   expect(target).toEqual([200, 210]); // the layer's Carrier, and Carrier + its fixed Beat
   await page.waitForTimeout(1800); // observe a full FFT window after fade-in
   const measured = await liveFrequencies(page, target);

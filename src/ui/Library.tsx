@@ -42,9 +42,10 @@ interface DurationSheetProps {
 }
 
 /**
- * Custom Audio's setup: only its length. Its designer fixed everything else
- * in the Studio (layers, Listening mode, ambient), so there is nothing more
- * to choose. Defaults to the last length the User picked, Preset or not.
+ * The setup of a Custom Audio or saved Studio session: only its length. Its
+ * designer fixed everything else in the Studio (layers, ambient, mix), so
+ * there is nothing more to choose. Defaults to the last length the User
+ * picked, Preset or not.
  */
 function DurationSheet({ audio, onClose, onStart }: DurationSheetProps) {
   const [durationMin, setDurationMin] = useState<number | null>(() => {
@@ -201,7 +202,7 @@ export function Library({ onSignIn, onBeforePlay, onOpenPlayer }: LibraryProps) 
   // time left is in the Mini-player, so the name keeps its room on a phone.
   const transport = (id: string) =>
     playingId === id ? (
-      <button className="chip selected library-playing" title="Open the Player" onClick={onOpenPlayer}>
+      <button className="chip selected library-playing" aria-label="Playing: open the Player" onClick={onOpenPlayer}>
         Playing
       </button>
     ) : (

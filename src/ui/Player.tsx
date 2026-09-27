@@ -85,12 +85,6 @@ function FrequencyValue({ label, hz }: { label: string; hz: number }) {
   );
 }
 
-const LAYER_LABELS: Record<EntrainmentLayerType, string> = {
-  binaural: "Binaural",
-  isochronic: "Isochronic",
-  monaural: "Monaural",
-};
-
 interface BeatValuesProps {
   /** How the Beat reaches the ears: a Preset's Headphones mode is binaural, its Speaker mode isochronic. */
   type: EntrainmentLayerType;
@@ -211,7 +205,8 @@ export function Player({ session, onMinimize }: PlayerProps) {
   if (!play || !progress) return null;
   const { audio, frequencies, schedule } = play;
   const { ambient, volumes } = session;
-  // Custom Audio's designer fixed its ambient and mix in the Studio.
+  // Studio-designed audio (Custom Audio, or a saved session) has its ambient
+  // and mix fixed by its designer, and one Carrier per entrainment layer.
   const custom = "layers" in frequencies;
   const binaural = custom
     ? frequencies.layers.some((layer) => layer.type === "binaural")
@@ -227,10 +222,7 @@ export function Player({ session, onMinimize }: PlayerProps) {
       : formatClock(progress.remainingSec);
   // Only this overlay's opacity changes per tick; the Scene below never re-styles.
   const [{ hz: startHz }, { hz: targetHz }] = schedule.points;
-  // A flat curve (Custom Audio may hold one Beat throughout) has no journey to shade.
-  const journey = targetHz === startHz
-    ? 0
-    : Math.min(1, Math.max(0, (progress.beatHz - startHz) / (targetHz - startHz)));
+  const journey = Math.min(1, Math.max(0, (progress.beatHz - startHz) / (targetHz - startHz)));
   const descending = targetHz < startHz;
   const shadeStyle = {
     background: descending ? "#040912" : "#ffcf9c",
@@ -336,8 +328,8 @@ export function Player({ session, onMinimize }: PlayerProps) {
                   frequencies.layers.map((layer, index) => {
                     const sameType = frequencies.layers.filter((other) => other.type === layer.type);
                     const label = sameType.length > 1
-                      ? `${LAYER_LABELS[layer.type]} ${sameType.indexOf(layer) + 1}`
-                      : LAYER_LABELS[layer.type];
+                      ? `${SOUND_LABELS[layer.type]} ${sameType.indexOf(layer) + 1}`
+                      : SOUND_LABELS[layer.type];
                     return (
                       <div className="freq-layer" role="group" aria-label={label} key={index}>
                         <h3>{label}</h3>

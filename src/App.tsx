@@ -28,6 +28,7 @@ import { stopBuilderPlayback } from "./ui/builderEngine";
 import { stopPlay, subscribeNowPlaying, useNowPlaying } from "./ui/nowPlaying";
 import { useBackLayer } from "./ui/backNavigation";
 import type { SessionConfig } from "./audio/session";
+import type { AudioKind } from "./state/listening";
 import { useEntitlement } from "./lib/useEntitlement";
 import { loadProgress } from "./state/progress";
 import { startListeningSync } from "./lib/listening";
@@ -45,15 +46,25 @@ type View =
   | "privacy"
   | "personal";
 
+/** A view where Plays are chosen. */
+type ChoiceView = "home" | "library";
+
+/**
+ * The view where a Play of this kind is chosen: Sessions for a Preset, the
+ * Library for Custom Audio and saved sessions. Its Player belongs to that
+ * tab, and it returns there when it ends.
+ */
+function chosenIn(kind: AudioKind): ChoiceView {
+  return kind === "preset" ? "home" : "library";
+}
+
 function App() {
   // The Personal URL (/p/<username>, ADR-016) is the only view with its own
   // path; every other view lives in state.
   const [personalUrl] = useState(() => parsePersonalUrlPath(window.location.pathname));
   const [view, setView] = useState<View>(personalUrl === null ? "landing" : "personal");
   /** The completion card, shown in the view where its Play was chosen until dismissed. */
-  const [completed, setCompleted] = useState<{ name: string; view: "home" | "library" } | null>(
-    null,
-  );
+  const [completed, setCompleted] = useState<{ name: string; view: ChoiceView } | null>(null);
   const [accountOpen, setAccountOpen] = useState(false);
   const viewRef = useRef(view);
   viewRef.current = view;
@@ -90,9 +101,9 @@ function App() {
         if (event.type !== "stop" && event.type !== "end") return;
         const { audio, naturalEnd, completedAt } = event.ending;
         if (!naturalEnd && viewRef.current !== "player") return;
-        const chosenIn = audio.kind === "preset" ? "home" : "library";
-        setCompleted(completedAt ? { name: audio.name, view: chosenIn } : null);
-        setView(chosenIn);
+        const chosen = chosenIn(audio.kind);
+        setCompleted(completedAt ? { name: audio.name, view: chosen } : null);
+        setView(chosen);
       }),
     [],
   );
@@ -132,8 +143,7 @@ function App() {
   ];
 
   const navCurrent = (id: View): boolean => {
-    // The Player belongs to the tab its Play was chosen in.
-    if (view === "player") return id === (play?.audio.kind === "preset" ? "home" : "library");
+    if (view === "player") return play !== null && id === chosenIn(play.audio.kind);
     if (id === "home") return view === "home" || view === "landing";
     if (id === "library")
       return (

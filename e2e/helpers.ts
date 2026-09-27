@@ -177,3 +177,16 @@ export async function playFromLibrary(page: Page, row: Locator, length: string):
   await sheet.getByRole("button", { name: "Start Session" }).click();
   await expect(page.locator(".player")).toBeVisible();
 }
+
+/** A value in the Player's frequency details, by its label ("Left · Carrier", "Beat", …). */
+export function frequencyValue(scope: Locator, label: string): Locator {
+  return scope
+    .locator(".freq-item")
+    .filter({ has: scope.page().getByText(label, { exact: true }) })
+    .locator(".v");
+}
+
+/** The Hz a frequency-details value shows. */
+export async function shownHz(value: Locator): Promise<number> {
+  return Number((await value.textContent())?.split(" ")[0]);
+}
