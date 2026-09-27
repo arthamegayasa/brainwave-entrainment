@@ -1,6 +1,6 @@
 import { BAND_COLORS, formatClock } from "./bands";
-import { pauseAudio, resumeAudio } from "./audioContext";
 import { useNowPlaying, usePlayProgress } from "./nowPlaying";
+import { PlayToggle } from "./Player";
 
 interface MiniPlayerProps {
   /** Opens the running Play's full view. */
@@ -37,13 +37,7 @@ export function MiniPlayer({ onOpen }: MiniPlayerProps) {
           </span>
         </span>
       </button>
-      <button
-        className={`mini-player-play${held ? " player-held" : ""}`}
-        aria-label={held ? "Tap to resume" : paused ? "Resume Play" : "Pause Play"}
-        onClick={paused || held ? resumeAudio : pauseAudio}
-      >
-        <span aria-hidden>{paused || held ? "▶" : "❚❚"}</span>
-      </button>
+      <PlayToggle className="mini-player-play" paused={paused} held={held} />
     </aside>
   );
 }

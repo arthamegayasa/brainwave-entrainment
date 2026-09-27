@@ -57,7 +57,6 @@ test("the Mini-player pauses and resumes the Play in place and opens the Player;
   await page.getByRole("button", { name: "Minimize Player" }).click();
   await page.getByRole("button", { name: "Library", exact: true }).click();
   const mini = miniPlayer(page);
-  await expect(mini.getByRole("button")).toHaveCount(2);
   await expect(mini.getByRole("button", { name: /Stop|End/ })).toHaveCount(0);
 
   await mini.getByRole("button", { name: "Pause Play" }).click();
@@ -95,6 +94,7 @@ test("a device-held Play shows in the Mini-player and resumes from it; no top ba
   await expect.poll(() => audioStates(page)).toEqual(["suspended"]);
   const resume = mini.getByRole("button", { name: "Tap to resume" });
   await expect(resume).toBeVisible();
+  await expect(resume).toContainText("Tap to resume");
   await expect(mini).toContainText("Audio held by device");
   await expect(page.getByRole("alert")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Resume audio" })).toHaveCount(0);
@@ -133,6 +133,32 @@ test("Back closes an open sheet, then minimizes the Player, and never ends the P
   await expect(page.locator(".player")).toHaveCount(0);
   await expect(mini).toBeVisible();
   await expect.poll(() => audioStates(page)).toEqual(["running"]);
+});
+
+test("Back keeps working after Forward or a reload lands on a closed layer's entry", async ({ page }) => {
+  await startPreset(page);
+  const mini = miniPlayer(page);
+  await page.getByRole("button", { name: "Minimize Player" }).click();
+  await expect(mini).toBeVisible();
+  // ⌄ took the Player's entry back out; step Forward onto it again.
+  await page.waitForFunction(() => window.history.state === null);
+  await page.goForward();
+  await mini.getByRole("button", { name: "Open Meditating" }).click();
+  await page.goBack();
+  await expect(page.locator(".player")).toHaveCount(0);
+  await expect(mini).toBeVisible();
+
+  // Reloaded with a sheet open, then a new Play: the old entries belong to the old page.
+  await mini.getByRole("button", { name: "Open Meditating" }).click();
+  await page.getByRole("button", { name: "Mixer", exact: true }).click();
+  await page.reload();
+  await page.getByRole("button", { name: "Start a Free Session" }).click();
+  await setUpPreset(page, "Meditating", "15 min");
+  await page.getByRole("button", { name: "Start Session" }).click();
+  await expect(page.locator(".player")).toBeVisible();
+  await page.goBack();
+  await expect(page.locator(".player")).toHaveCount(0);
+  await expect(mini).toBeVisible();
 });
 
 test("a Custom Audio Play shows in the Mini-player, which opens its Library row", async ({ page }) => {

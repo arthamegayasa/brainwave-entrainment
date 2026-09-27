@@ -9,9 +9,20 @@ import { useEffect, useEffectEvent } from "react";
  * then the Player, which shrinks into the Mini-player. A layer closed on
  * screen (⌄, ✕, End session) takes its entry back out, so Back never lands on
  * a stale one. Other views keep the browser's own Back.
+ *
+ * The tags belong to one page load: entries a reload or a restored tab left
+ * behind count as the base, and Forward onto the entry of a layer closed
+ * since steps back off it. Either would otherwise make one Back do nothing.
  */
 
-const DEPTH_KEY = "swarasantiLayer";
+const LAYER_KEY = "swarasantiLayer";
+/** Tells this page load's entries from those an earlier load left in the history. */
+const PAGE_LOAD = performance.timeOrigin;
+
+interface LayerTag {
+  load: number;
+  depth: number;
+}
 
 /** How each open layer closes, bottom first. */
 const layers: Array<() => void> = [];
@@ -19,9 +30,13 @@ const layers: Array<() => void> = [];
 let staleEntries = 0;
 
 window.addEventListener("popstate", (event) => {
-  const depth = (event.state as Record<string, unknown> | null)?.[DEPTH_KEY];
-  const kept = typeof depth === "number" ? depth : 0;
-  while (layers.length > kept) layers.pop()!();
+  const tag = (event.state as Record<string, LayerTag | undefined> | null)?.[LAYER_KEY];
+  const depth = tag?.load === PAGE_LOAD ? tag.depth : 0;
+  if (depth > layers.length) {
+    window.history.go(layers.length - depth);
+    return;
+  }
+  while (layers.length > depth) layers.pop()!();
 });
 
 /**
@@ -34,7 +49,8 @@ export function useBackLayer(open: boolean, close: () => void): void {
     if (!open) return;
     const layer = () => onBack();
     layers.push(layer);
-    window.history.pushState({ ...window.history.state, [DEPTH_KEY]: layers.length }, "");
+    const tag: LayerTag = { load: PAGE_LOAD, depth: layers.length };
+    window.history.pushState({ ...window.history.state, [LAYER_KEY]: tag }, "");
     return () => {
       const index = layers.indexOf(layer);
       if (index === -1) return; // Back closed it: its entry is already behind

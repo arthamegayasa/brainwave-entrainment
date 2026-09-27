@@ -81,6 +81,26 @@ function FrequencyValue({ label, hz }: { label: string; hz: number }) {
   );
 }
 
+interface PlayToggleProps {
+  className: string;
+  /** The User paused the running Play. */
+  paused: boolean;
+  /** The device holds the audio until a tap. */
+  held: boolean;
+}
+
+/** Pause/Play for the running Play in the Player and the Mini-player; it pulses "Tap to resume" while the device holds the audio. */
+export function PlayToggle({ className, paused, held }: PlayToggleProps) {
+  return (
+    <button className={`${className}${held ? " player-held" : ""}`}
+      aria-label={held ? "Tap to resume" : paused ? "Resume Play" : "Pause Play"}
+      onClick={paused || held ? resumeAudio : pauseAudio}>
+      <span aria-hidden>{paused || held ? "▶" : "❚❚"}</span>
+      {held && <small>Tap to resume</small>}
+    </button>
+  );
+}
+
 interface PlayerProps {
   /** The running Preset Play's ambient and mixer. */
   session: SessionApi;
@@ -227,12 +247,7 @@ export function Player({ session, onMinimize }: PlayerProps) {
 
       <div className="player-controls player-fading">
         <button className="player-icon" aria-label="Ambient" onClick={() => setSheet("ambient")}>♫</button>
-        <button className={`player-play${held ? " player-held" : ""}`}
-          aria-label={held ? "Tap to resume" : paused ? "Resume Play" : "Pause Play"}
-          onClick={paused || held ? resumeAudio : pauseAudio}>
-          <span aria-hidden>{paused || held ? "▶" : "❚❚"}</span>
-          {held && <small>Tap to resume</small>}
-        </button>
+        <PlayToggle className="player-play" paused={paused} held={held} />
         <button className="player-icon" aria-label="Mixer" onClick={() => setSheet("mixer")}>☷</button>
       </div>
       <button className="player-mode player-fading" onClick={() => setSheet("frequencies")}>
