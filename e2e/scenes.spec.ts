@@ -3,8 +3,11 @@ import { expect, test } from "@playwright/test";
 import type { Download, Page } from "@playwright/test";
 import {
   EVENING_THETA,
+  audioStates,
   importSession,
+  libraryRow,
   openSessions,
+  openStudio,
   playFromLibrary,
   recordAudioContexts,
   recordMediaControls,
@@ -15,13 +18,6 @@ test.beforeEach(async ({ page }) => {
   await recordMediaControls(page);
   await openSessions(page);
 });
-
-/** Open the Studio as a Clinician (standalone role override). */
-async function openStudio(page: Page): Promise<void> {
-  await page.evaluate(() => localStorage.setItem("serenade.role.override", "clinician"));
-  await page.reload();
-  await page.getByRole("button", { name: "Studio", exact: true }).click();
-}
 
 /** Save the Studio design as a saved session named `name`. */
 async function saveInStudio(page: Page, name: string): Promise<void> {
@@ -35,11 +31,10 @@ async function exported(download: Promise<Download>): Promise<Record<string, unk
   return JSON.parse(readFileSync(await (await download).path(), "utf8"));
 }
 
-const libraryRow = (page: Page, name: string) => page.locator(".library-item", { hasText: name });
-
 test("a Scene picked in the Studio shows in the Library, the Player, the Mini-player, and Media controls", async ({
   page,
 }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
   await openStudio(page);
   const picker = page.getByRole("group", { name: "Scene" });
   await expect(picker.getByRole("group", { name: "Nature" })).toBeVisible();
@@ -76,10 +71,27 @@ test("the Studio stores a Scene only when one is picked, so unpicked audio follo
   expect(await exported(plain)).not.toHaveProperty("sceneId");
 
   await page.getByRole("button", { name: "Studio", exact: true }).click();
-  await page.getByRole("group", { name: "Scene" }).getByRole("radio", { name: "Aurora Lake" }).check();
+  const picker = page.getByRole("group", { name: "Scene" });
+  await picker.getByRole("radio", { name: "Aurora Lake" }).check();
   const picked = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export", exact: true }).click();
   expect(await exported(picked)).toMatchObject({ sceneId: "creativity" });
+
+  // Picking the Default again goes back to following the default.
+  await picker.getByRole("radio", { name: /^Misty Peak/ }).check();
+  const unpicked = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export", exact: true }).click();
+  expect(await exported(unpicked)).not.toHaveProperty("sceneId");
+});
+
+test("a Scene picked during a Studio preview shows in its Media controls", async ({ page }) => {
+  await openStudio(page);
+  await page.locator(".builder-transport").getByRole("button", { name: /Play/ }).click();
+  await expect.poll(() => audioStates(page)).toEqual(["running"]);
+  const artwork = () => page.evaluate(() => window.__mediaControls.metadata?.artwork[0]?.src);
+  expect(await artwork()).toMatch(/\/scenes\/deep-meditation-768\.webp$/);
+  await page.getByRole("group", { name: "Scene" }).getByRole("radio", { name: "Aurora Lake" }).check();
+  expect(await artwork()).toMatch(/\/scenes\/creativity-768\.webp$/);
 });
 
 test("Custom Audio from before Scenes, or with an unknown Scene, shows the default Scene", async ({ page }) => {
