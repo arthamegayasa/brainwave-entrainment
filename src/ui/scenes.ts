@@ -87,6 +87,21 @@ export const SCENE_SPECS: Record<string, SceneSpec> = {
     rays: "down", rayTarget: [700, 1024],
     particles: "pollen", particleBox: [0, 560, 1536, 460],
   },
+  // Painted for Custom Audio only: no Preset shows them.
+  "deep-ocean": {
+    ...CARD, tint: "#0e648f", glow: "#d8f8ec", light: [1281, 40, 90], mist: 780,
+    rays: "down", rayTarget: [900, 700],
+    particles: "motes", particleBox: [150, 180, 1250, 560],
+  },
+  nebula: {
+    ...CARD, tint: "#4a3f68", glow: "#ffd6b8", light: [751, 347, 70], mist: 620,
+    stars: 700, meteor: true,
+  },
+  "lavender-field": {
+    ...CARD, tint: "#af8a98", glow: "#ffeccb", light: [1253, 161, 90], mist: 560,
+    rays: "down", rayTarget: [1120, 560],
+    particles: "pollen", particleBox: [260, 470, 1276, 520],
+  },
 };
 
 /** How the Scene picker groups Scenes: painted places, or calm scientific illustrations. */
@@ -102,7 +117,7 @@ export interface PickableScene {
   label: string;
 }
 
-/** Every pickable Scene, in picker order: for now the eight Preset Scenes. */
+/** Every pickable Scene, in picker order: the eight Preset Scenes, then the paintings made for Custom Audio. */
 export const PICKABLE_SCENES: readonly PickableScene[] = [
   { id: "deep-sleep", group: "Nature", label: "Moon over Clouds" },
   { id: "deep-meditation", group: "Nature", label: "Misty Peak" },
@@ -112,6 +127,9 @@ export const PICKABLE_SCENES: readonly PickableScene[] = [
   { id: "energy", group: "Nature", label: "Desert Dunes" },
   { id: "creativity", group: "Nature", label: "Aurora Lake" },
   { id: "power-nap", group: "Nature", label: "Summer Meadow" },
+  { id: "deep-ocean", group: "Nature", label: "Deep Ocean" },
+  { id: "nebula", group: "Nature", label: "Nebula" },
+  { id: "lavender-field", group: "Nature", label: "Lavender Field" },
 ];
 
 /**

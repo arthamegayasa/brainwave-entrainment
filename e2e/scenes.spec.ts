@@ -60,6 +60,19 @@ test("a Scene picked in the Studio shows in the Library, the Player, the Mini-pl
   );
 });
 
+test("the Studio picker offers Deep Ocean, Nebula, and Lavender Field under Nature, each with its painting", async ({
+  page,
+}) => {
+  await openStudio(page);
+  const nature = page.getByRole("group", { name: "Scene" }).getByRole("group", { name: "Nature" });
+  for (const label of ["Deep Ocean", "Nebula", "Lavender Field"]) {
+    const tile = nature.locator(".scene-option", { has: page.getByRole("radio", { name: label, exact: true }) });
+    const thumbnail = tile.locator("img");
+    await thumbnail.scrollIntoViewIfNeeded();
+    await expect.poll(() => thumbnail.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(768);
+  }
+});
+
 test("the Studio stores a Scene only when one is picked, so unpicked audio follows the default", async ({ page }) => {
   await openStudio(page);
   await saveInStudio(page, "Plain Theta");
