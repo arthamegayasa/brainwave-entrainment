@@ -8,6 +8,7 @@ import { SessionViz } from "./SessionViz";
 import { SceneArt } from "./SceneArt";
 import { pauseAudio, resumeAudio } from "./audioContext";
 import { stopPlay, useNowPlaying, usePlayProgress } from "./nowPlaying";
+import { useBackLayer } from "./backNavigation";
 import { sessionsThisWeek, weeklyStreakDots } from "../state/progress";
 
 const AMBIENTS: (AmbientKind | null)[] = [null, "rain", "ocean", "wind", "brown"];
@@ -83,10 +84,12 @@ function FrequencyValue({ label, hz }: { label: string; hz: number }) {
 interface PlayerProps {
   /** The running Preset Play's ambient and mixer. */
   session: SessionApi;
+  /** ⌄: shrink into the Mini-player; the Play keeps playing. */
+  onMinimize: () => void;
 }
 
 /** The running Preset Play, as Now Playing shows it. */
-export function Player({ session }: PlayerProps) {
+export function Player({ session, onMinimize }: PlayerProps) {
   const play = useNowPlaying();
   const progress = usePlayProgress();
   const [sheet, setSheet] = useState<PlayerSheet>(null);
@@ -99,6 +102,8 @@ export function Player({ session }: PlayerProps) {
   const [activity, setActivity] = useState(0);
   const paused = play?.paused ?? false;
   const held = play?.held ?? false;
+  // Back closes the open sheet before it minimizes the Player.
+  useBackLayer(sheet !== null, () => setSheet(null));
 
   useEffect(() => {
     const update = () => setVisible(document.visibilityState === "visible");
@@ -178,7 +183,7 @@ export function Player({ session }: PlayerProps) {
       onKeyDown={reveal}
     >
       <header className="player-header player-fading">
-        <span className="player-minimize" aria-hidden="true">⌄</span>
+        <button className="player-icon player-minimize" aria-label="Minimize Player" onClick={onMinimize}>⌄</button>
         <h2 className="session-name">{audio.emoji} {audio.name}</h2>
         <div className="player-menu-wrap" ref={menuRef}>
           <button className="player-icon" aria-label="More options" aria-expanded={menuOpen}
