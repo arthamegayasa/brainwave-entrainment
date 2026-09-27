@@ -10,6 +10,7 @@ Vitest (`tests/`), Playwright (`e2e/`), pgTAP (`supabase/tests/database`), dan s
 ## E2E (Playwright)
 
 - **E2E audio di Playwright**: Chromium headless menjalankan AudioContext (bisu). `addInitScript` yang men-subclass `window.AudioContext` merekam instance untuk membaca `state`; interupsi device disimulasikan dengan `ctx.suspend()` + override `ctx.resume` yang reject (browser yang minta gesture), lalu `Reflect.deleteProperty(ctx, "resume")` memulihkan method prototype. Service worker di-block agar cache PWA tidak bocor antar-test.
+- **Waktu dengar di E2E = audio clock**: `page.clock` memalsukan jam dinding dan timer, tapi tidak `AudioContext.currentTime`, sumber semua waktu dengar dan kredit. Untuk "5 menit terdengar" pakai `advanceAudioClock(page, 301)` (offset getter `currentTime` di subclass `recordAudioContexts`); engine juga membaca offset itu, jadi penjadwalan sesudahnya bergeser ke masa depan, cukup untuk menguji UI dan kredit, bukan sampel audio.
 
 ## Database (pgTAP & stack lokal)
 

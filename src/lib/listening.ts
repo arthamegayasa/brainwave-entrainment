@@ -1,5 +1,5 @@
 import { supabase } from "./supabase";
-import { createListeningQueue, createPlayRecorder, SendError } from "../state/listening";
+import { createListeningQueue, SendError } from "../state/listening";
 import type {
   AudioKind,
   AudioSnapshot,
@@ -20,8 +20,8 @@ import type { Band } from "../audio/presets";
  * signed-in User wait in the offline queue of the Listening core
  * (src/state/listening.ts) and go to the `plays` / `downloads` tables (0011)
  * right away, or once the device is back online. Signed out, nothing leaves
- * the device. The playback paths reach this module through their thin
- * adapters (src/ui/playAdapters.ts). `loadListeningHistory` reads a history
+ * the device. Now Playing (src/state/nowPlaying.ts, glue in src/ui/nowPlaying.ts)
+ * hands each ended Play to `playKeeper`. `loadListeningHistory` reads a history
  * back for the report (src/state/listeningReport.ts, src/ui/ListeningReport.tsx);
  * `loadPatientActivity` reads the aggregates of the Dashboard's Patients table.
  */
@@ -160,36 +160,14 @@ function keep(owner: string | null, play: Play | null): void {
   flush();
 }
 
-export interface HistoryRecorder {
-  start(audio: AudioSnapshot, plannedMin: number | null): void;
-  pause(): void;
-  resume(): void;
-  /** Natural end: the Play, if any, goes to the Listening History. */
-  end(): void;
-  /** Stopped before the end: the Play, if any, goes to the Listening History. */
-  stop(): void;
-}
-
 /**
- * A Play recorder of the Listening core whose Plays go to the Listening
- * History of the User signed in when the playback started, even if they
- * sign out or someone else signs in before it ends. Signed out at the start,
- * it records nothing: listening stays on the device.
+ * Where a Play starting now goes: the Listening History of the User signed in
+ * now, even if they sign out or someone else signs in before it ends. Signed
+ * out now, it keeps nothing: listening stays on the device.
  */
-export function createHistoryRecorder(): HistoryRecorder {
-  const recorder = createPlayRecorder(listeningEnv);
-  let owner: string | null = null;
-  return {
-    start(audio, plannedMin) {
-      keep(owner, recorder.stop());
-      owner = userId;
-      recorder.start(audio, plannedMin);
-    },
-    pause: recorder.pause,
-    resume: recorder.resume,
-    end: () => keep(owner, recorder.end()),
-    stop: () => keep(owner, recorder.stop()),
-  };
+export function playKeeper(): (play: Play | null) => void {
+  const owner = userId;
+  return (play) => keep(owner, play);
 }
 
 /** Keep an MP3 Download of `audio`, `lengthMin` long, in the signed-in User's Listening History. */

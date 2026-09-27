@@ -196,6 +196,11 @@ export class BuilderEngine {
     setGainSmooth(this.masterGain.gain, this.master, this.ctx.currentTime);
   }
 
+  /** The active beat curve (for Now Playing's Beat and the session visualization). */
+  getSchedule(): SessionSchedule | null {
+    return this.schedule;
+  }
+
   progress(): { elapsedSec: number; remainingSec: number | null } {
     const elapsed = this.ctx.currentTime - this.startTime;
     return {

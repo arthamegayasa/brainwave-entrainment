@@ -19,7 +19,7 @@ export function ensureBuilder(): BuilderEngine {
   // The user may navigate away from Studio/Library mid-session; without a
   // watcher, nobody would notice the end and release the audio device.
   window.clearInterval(endWatch);
-  endWatch = window.setInterval(getNowPlaying, 1000);
+  endWatch = window.setInterval(getBuilderItem, 1000);
   return engine;
 }
 
@@ -29,12 +29,12 @@ export function getBuilderEngine(): BuilderEngine | null {
 }
 
 /**
- * Which library/studio item currently owns the shared engine. Lives at module
- * level so a transport survives its view unmounting: navigating away from
- * Library while audio plays and coming back must restore the Stop control
- * instead of showing a Play button over audible audio.
+ * Which Library or Studio item currently owns the shared engine. Lives at
+ * module level so a transport survives its view unmounting: navigating away
+ * from Studio while a preview plays and coming back must restore the Stop
+ * control instead of showing a Play button over audible audio.
  */
-let nowPlayingId: string | null = null;
+let itemId: string | null = null;
 
 /**
  * Told once when the item that owned the engine stops playing: `naturalEnd`
@@ -50,16 +50,16 @@ export function onBuilderPlaybackEnd(listener: PlaybackEndListener): () => void 
 }
 
 function endItem(naturalEnd: boolean): void {
-  const id = nowPlayingId;
-  nowPlayingId = null;
+  const id = itemId;
+  itemId = null;
   if (id === null) return;
   for (const listener of endListeners) listener(id, naturalEnd);
 }
 
-export function setNowPlaying(id: string | null): void {
+export function setBuilderItem(id: string | null): void {
   // Another item took the engine over: the one playing so far was stopped.
-  if (id !== nowPlayingId) endItem(false);
-  nowPlayingId = id;
+  if (id !== itemId) endItem(false);
+  itemId = id;
 }
 
 /**
@@ -68,7 +68,7 @@ export function setNowPlaying(id: string | null): void {
  * keeps isRunning true until stop() is called — detect that here (remaining
  * time exhausted) and stop it, so transport polls see a clean idle state.
  */
-export function getNowPlaying(): string | null {
+export function getBuilderItem(): string | null {
   if (!engine || !engine.isRunning) {
     goIdle(false);
     return null;
@@ -79,7 +79,7 @@ export function getNowPlaying(): string | null {
     goIdle(true);
     return null;
   }
-  return nowPlayingId;
+  return itemId;
 }
 
 /** Stop custom-audio playback and clear the shared transport state. */

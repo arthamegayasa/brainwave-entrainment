@@ -24,10 +24,11 @@ const AccountSheet = lazy(() =>
 );
 import { useSession } from "./ui/useSession";
 import { stopBuilderPlayback } from "./ui/builderEngine";
+import { stopPlay, subscribeNowPlaying, useNowPlaying } from "./ui/nowPlaying";
 import { isAudioBlocked, resumeAudio, subscribeAudio } from "./ui/audioContext";
 import type { SessionConfig } from "./audio/session";
 import { useEntitlement } from "./lib/useEntitlement";
-import { loadProgress, recordSessionCompleted } from "./state/progress";
+import { loadProgress } from "./state/progress";
 import { startListeningSync } from "./lib/listening";
 import { parsePersonalUrlPath } from "../supabase/functions/_shared/accountRules.ts";
 
@@ -43,9 +44,6 @@ type View =
   | "privacy"
   | "personal";
 
-/** A session counts as completed when at least 5 minutes were listened. */
-const COMPLETION_MIN_SEC = 300;
-
 function App() {
   // The Personal URL (/p/<username>, ADR-016) is the only view with its own
   // path; every other view lives in state.
@@ -53,9 +51,12 @@ function App() {
   const [view, setView] = useState<View>(personalUrl === null ? "landing" : "personal");
   const [completed, setCompleted] = useState<{ presetName: string } | null>(null);
   const [accountOpen, setAccountOpen] = useState(false);
-  const activePresetRef = useRef<{ id: string; name: string } | null>(null);
+  const viewRef = useRef(view);
+  viewRef.current = view;
   const ent = useEntitlement();
   const audioBlocked = useSyncExternalStore(subscribeAudio, isAudioBlocked);
+  const session = useSession();
+  const presetPlaying = useNowPlaying()?.audio.kind === "preset";
 
   // Journey step 1 (goal gradient): discovering the app counts immediately.
   useEffect(() => {
@@ -74,54 +75,26 @@ function App() {
     }
   }, [view]);
 
-  const session = useSession((endedAt) => {
-    // Natural end — the engine finished the full session. Credit it at the
-    // end on the audio clock, not whenever this poll callback finally runs:
-    // a locked phone can hold the tab for hours, and an overnight sleep
-    // session must not land on the next morning's streak day.
-    const active = activePresetRef.current;
-    if (active) {
-      recordSessionCompleted(active.id, endedAt);
-      setCompleted({ presetName: active.name });
-      activePresetRef.current = null;
-    }
-    setView("home");
-  });
+  // A Preset Play that ends naturally, or is ended from the Player, returns
+  // to Sessions; the completion card shows when it counts as a completed
+  // session. Now Playing has already credited the weekly streak.
+  useEffect(
+    () =>
+      subscribeNowPlaying((event) => {
+        if (event.type !== "stop" && event.type !== "end") return;
+        const { audio, naturalEnd, completedAt } = event.ending;
+        if (audio.kind !== "preset" || (!naturalEnd && viewRef.current !== "player")) return;
+        if (completedAt) setCompleted({ presetName: audio.name });
+        setView("home");
+      }),
+    [],
+  );
 
   const handleStart = (config: SessionConfig) => {
-    stopBuilderPlayback(); // one pair of ears: custom audio stops first
+    stopBuilderPlayback(); // one pair of ears: custom audio and Studio previews stop first
     setCompleted(null);
     session.start(config);
-    activePresetRef.current = { id: config.preset.id, name: config.preset.name };
     setView("player");
-  };
-
-  const handleExit = () => {
-    // Manual stop still counts when >= 5 minutes were listened (goal gradient).
-    const active = activePresetRef.current;
-    if (active && session.state.progress.elapsedSec >= COMPLETION_MIN_SEC) {
-      recordSessionCompleted(active.id);
-      setCompleted({ presetName: active.name });
-    }
-    activePresetRef.current = null;
-    session.stop();
-    setView("home");
-  };
-
-  // Library/Studio playback shares the user's ears with preset sessions:
-  // starting custom audio stops the preset session (the reverse happens in
-  // handleStart). Listening >= 5 minutes still earns the completion.
-  const handleCustomAudioStarts = () => {
-    const active = activePresetRef.current;
-    if (
-      active &&
-      session.state.active &&
-      session.state.progress.elapsedSec >= COMPLETION_MIN_SEC
-    ) {
-      recordSessionCompleted(active.id);
-    }
-    activePresetRef.current = null;
-    if (session.state.active) session.stop();
   };
 
   // Dashboard + Studio appear in the nav only for clinicians/admins.
@@ -168,7 +141,7 @@ function App() {
               className={navCurrent(item.id) ? "current" : ""}
               onClick={() =>
                 setView(
-                  item.id === "home" && session.state.active ? "player" : item.id,
+                  item.id === "home" && presetPlaying ? "player" : item.id,
                 )
               }
             >
@@ -216,9 +189,7 @@ function App() {
         ) : (
           <Home onStart={handleStart} onUpgrade={goUpgrade} />
         ))}
-      {view === "player" && session.state.active && (
-        <Player session={session} onExit={handleExit} />
-      )}
+      {view === "player" && presetPlaying && <Player session={session} />}
       <Suspense fallback={null}>
         {view === "personal" && personalUrl !== null && (
           <PersonalUrl
@@ -230,7 +201,7 @@ function App() {
         {view === "library" && (
           <Library
             onSignIn={() => setAccountOpen(true)}
-            onBeforePlay={handleCustomAudioStarts}
+            onBeforePlay={stopPlay}
           />
         )}
         {/* Non-clinicians landing on dashboard/studio get the Library (fallback). */}
@@ -240,16 +211,16 @@ function App() {
           ) : (
             <Library
               onSignIn={() => setAccountOpen(true)}
-              onBeforePlay={handleCustomAudioStarts}
+              onBeforePlay={stopPlay}
             />
           ))}
         {view === "studio" &&
           (ent.isClinician ? (
-            <Builder onBeforePlay={handleCustomAudioStarts} />
+            <Builder onBeforePlay={stopPlay} />
           ) : (
             <Library
               onSignIn={() => setAccountOpen(true)}
-              onBeforePlay={handleCustomAudioStarts}
+              onBeforePlay={stopPlay}
             />
           ))}
         {view === "science" && <Science />}
