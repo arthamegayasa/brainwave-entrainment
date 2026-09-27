@@ -1,11 +1,11 @@
 import { useEffect, useId, useReducer, useState, useSyncExternalStore } from "react";
 import { PRESETS, getPreset } from "../audio/presets";
 import type { Preset } from "../audio/presets";
-import { SOUND_LABELS } from "../audio/constants";
 import type { AmbientKind } from "../audio/types";
 import type { ListeningMode, SessionConfig } from "../audio/session";
 import { SceneArt } from "./SceneArt";
 import { DurationRow } from "./DurationRow";
+import { AMBIENTS, ambientLabel } from "./ambients";
 import { BAND_COLORS, BAND_LABELS } from "./bands";
 import { getMyHiddenPresetIds } from "../lib/patientLink";
 import { isUnlocked } from "../state/tier";
@@ -23,17 +23,6 @@ import {
   skipGoalPicker,
   totalSessions,
 } from "../state/progress";
-
-/** Ambient choices, shown as one row of icons; null = no ambient. */
-const AMBIENTS: { kind: AmbientKind | null; icon: string }[] = [
-  { kind: null, icon: "⊘" },
-  { kind: "rain", icon: "🌧️" },
-  { kind: "ocean", icon: "🌊" },
-  { kind: "wind", icon: "🌬️" },
-  { kind: "brown", icon: "🟤" },
-];
-
-const ambientLabel = (kind: AmbientKind | null) => (kind === null ? "No ambient" : SOUND_LABELS[kind]);
 
 /** Listening modes, each explained in one sentence that fits one line on a phone. */
 const MODES: { mode: ListeningMode; name: string; explanation: string }[] = [

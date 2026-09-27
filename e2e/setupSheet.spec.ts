@@ -40,15 +40,39 @@ function hiddenParts(sheet: Locator) {
   });
 }
 
-test("the Preset setup sheet fits a phone screen without scrolling, Start included", async ({ page }) => {
+test("every Preset setup sheet fits a phone screen without scrolling, Start included", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await openSessions(page);
-  // 60 min is the tallest setup: it adds the long-export warning under Download MP3.
-  await setUpPreset(page, "Meditating", "60 min");
+  const cards = page.locator(".preset-card");
+  await expect(cards).not.toHaveCount(0);
+  for (const name of await cards.locator("h3").allTextContents()) {
+    await cards.filter({ has: page.getByText(name, { exact: true }) }).click();
+    const sheet = await setupSheet(page, name);
+    // 60 min is the tallest setup: it adds the long-export warning under Download MP3.
+    await sheet.getByRole("button", { name: "60 min", exact: true }).click();
+    await expect(sheet.getByText("Long exports need a powerful device")).toBeVisible();
+    expect(await hiddenParts(sheet), name).toEqual({ scrollsDown: 0, scrollsSideways: 0, offscreen: [] });
+    await expect(sheet.getByRole("button", { name: "Start Session" })).toBeInViewport({ ratio: 1 });
+    await sheet.getByRole("button", { name: "Cancel" }).click();
+    await expect(sheet).toHaveCount(0);
+  }
+});
+
+test("on a screen too short for the choices, they scroll while Start stays pinned in view", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 560 });
+  await openSessions(page);
+  await setUpPreset(page, "Meditating", "15 min");
   const sheet = await setupSheet(page, "Meditating");
-  await expect(sheet.getByText("Long exports need a powerful device")).toBeVisible();
-  expect(await hiddenParts(sheet)).toEqual({ scrollsDown: 0, scrollsSideways: 0, offscreen: [] });
-  await expect(sheet.getByRole("button", { name: "Start Session" })).toBeInViewport({ ratio: 1 });
+  const start = sheet.getByRole("button", { name: "Start Session" });
+  await expect(start).toBeInViewport({ ratio: 1 });
+  const pinnedAt = await start.boundingBox();
+  expect((await hiddenParts(sheet)).offscreen).toContain("Brown Noise");
+
+  const brownNoise = sheet.getByRole("button", { name: "Brown Noise" });
+  await brownNoise.click();
+  await expect(brownNoise).toHaveAttribute("aria-pressed", "true");
+  expect(await start.boundingBox()).toEqual(pinnedAt);
+  await expect(start).toBeInViewport({ ratio: 1 });
 });
 
 test("the Preset setup sheet has no sideways scrolling on a narrow phone", async ({ page }) => {
