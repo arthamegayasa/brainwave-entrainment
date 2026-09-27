@@ -179,6 +179,13 @@ export async function openSessions(page: Page): Promise<void> {
   await expect(page.getByRole("heading", { name: /Choose your goal/ })).toBeVisible();
 }
 
+/** Open the Studio as a Clinician (the standalone role override), from any view. */
+export async function openStudio(page: Page): Promise<void> {
+  await page.evaluate(() => localStorage.setItem("serenade.role.override", "clinician"));
+  await page.reload();
+  await page.getByRole("button", { name: "Studio", exact: true }).click();
+}
+
 /** Open a preset's setup sheet and pick a length. */
 export async function setUpPreset(page: Page, name: string, length: string): Promise<void> {
   await page.getByRole("button", { name: new RegExp(`^${name}`) }).click();
@@ -210,6 +217,11 @@ export const EVENING_THETA = {
   createdAt: "2026-09-20T10:00:00.000Z",
 };
 
+/** The Library row of the audio named `name`. */
+export function libraryRow(page: Page, name: string): Locator {
+  return page.locator(".library-item", { hasText: name });
+}
+
 /** Import a saved Studio session (Evening Theta by default) into the Library and return its row. */
 export async function importSession(
   page: Page,
@@ -221,7 +233,7 @@ export async function importSession(
     mimeType: "application/json",
     buffer: Buffer.from(JSON.stringify(session)),
   });
-  return page.locator(".library-item", { hasText: session.name });
+  return libraryRow(page, session.name);
 }
 
 /**

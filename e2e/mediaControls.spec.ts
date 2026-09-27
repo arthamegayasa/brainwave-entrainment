@@ -4,6 +4,7 @@ import {
   audioStates,
   endPlay,
   openSessions,
+  openStudio,
   recordAudioContexts,
   recordMediaControls,
   setUpPreset,
@@ -127,9 +128,7 @@ test("audio-focus loss still holds the next Play after ending a prior Play", asy
 });
 
 test("Studio preview exposes Media controls and pauses from the OS", async ({ page }) => {
-  await page.evaluate(() => localStorage.setItem("serenade.role.override", "clinician"));
-  await page.reload();
-  await page.getByRole("button", { name: "Studio", exact: true }).click();
+  await openStudio(page);
   await page.locator(".builder-transport").getByRole("button", { name: /Play/ }).click();
   await expect.poll(() => audioStates(page)).toEqual(["running"]);
   expect(await page.evaluate(() => window.__mediaControls.metadata?.title)).toBe("Studio preview");
