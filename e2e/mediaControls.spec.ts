@@ -1,63 +1,13 @@
 import { expect, test } from "@playwright/test";
-import type { Page } from "@playwright/test";
-import { advanceAudioClock, audioStates, endPlay, openSessions, recordAudioContexts, setUpPreset } from "./helpers";
-
-type MediaAction = "play" | "pause" | "stop";
-interface RecordedMedia {
-  metadata: MediaMetadata | null;
-  playbackState: MediaSessionPlaybackState;
-  position: MediaPositionState | null;
-  actions: Partial<Record<MediaAction, () => void>>;
-  element: HTMLAudioElement | null;
-  invoke: (action: MediaAction) => void;
-}
-declare global {
-  interface Window {
-    __mediaControls: RecordedMedia;
-  }
-}
-
-async function recordMediaControls(page: Page): Promise<void> {
-  await page.addInitScript(() => {
-    const media: RecordedMedia = {
-      metadata: null,
-      playbackState: "none",
-      position: null,
-      actions: {},
-      element: null,
-      invoke(action) {
-        const handler = this.actions[action];
-        if (!handler) throw new Error(`Missing Media controls action ${action}`);
-        handler();
-      },
-    };
-    window.__mediaControls = media;
-    const nativeCreateElement = document.createElement.bind(document);
-    document.createElement = ((tag: string, options?: ElementCreationOptions) => {
-      const element = nativeCreateElement(tag, options);
-      if (tag.toLowerCase() === "audio") media.element = element as HTMLAudioElement;
-      return element;
-    }) as typeof document.createElement;
-    Object.defineProperty(navigator, "mediaSession", {
-      configurable: true,
-      value: {
-        get metadata() { return media.metadata; },
-        set metadata(value: MediaMetadata | null) { media.metadata = value; },
-        get playbackState() { return media.playbackState; },
-        set playbackState(value: MediaSessionPlaybackState) { media.playbackState = value; },
-        setActionHandler(action: MediaSessionAction, handler: MediaSessionActionHandler | null) {
-          if (action === "play" || action === "pause" || action === "stop") {
-            if (handler) media.actions[action] = () => handler({ action });
-            else delete media.actions[action];
-          }
-        },
-        setPositionState(position?: MediaPositionState) {
-          media.position = position?.duration === undefined ? null : { ...position };
-        },
-      },
-    });
-  });
-}
+import {
+  advanceAudioClock,
+  audioStates,
+  endPlay,
+  openSessions,
+  recordAudioContexts,
+  recordMediaControls,
+  setUpPreset,
+} from "./helpers";
 
 test.beforeEach(async ({ page }) => {
   await recordAudioContexts(page);

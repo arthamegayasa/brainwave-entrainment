@@ -1,6 +1,16 @@
 import { expect } from "@playwright/test";
 import type { Locator, Page } from "@playwright/test";
 
+type MediaAction = "play" | "pause" | "stop";
+interface RecordedMedia {
+  metadata: MediaMetadata | null;
+  playbackState: MediaSessionPlaybackState;
+  position: MediaPositionState | null;
+  actions: Partial<Record<MediaAction, () => void>>;
+  element: HTMLAudioElement | null;
+  invoke: (action: MediaAction) => void;
+}
+
 declare global {
   interface Window {
     /** Every AudioContext the app created, recorded by recordAudioContexts(). */
@@ -9,6 +19,8 @@ declare global {
     __advanceAudioClock: (sec: number) => void;
     /** AnalyserNodes tapped in parallel from the actual Web Audio destination input. */
     __outputAnalysers: [AnalyserNode, AnalyserNode] | null;
+    /** Media Session as the OS sees it, recorded by recordMediaControls(). */
+    __mediaControls: RecordedMedia;
   }
 }
 
@@ -75,6 +87,52 @@ export async function recordLiveOutput(page: Page): Promise<void> {
         ? Reflect.apply(connect, this, [destination, output ?? 0])
         : Reflect.apply(connect, this, [destination, output ?? 0, input ?? 0]);
     } as typeof AudioNode.prototype.connect;
+  });
+}
+
+/**
+ * Record Media Session metadata, actions and position as the OS would see
+ * them, and the app's media element, so tests can act as the OS.
+ */
+export async function recordMediaControls(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const media: RecordedMedia = {
+      metadata: null,
+      playbackState: "none",
+      position: null,
+      actions: {},
+      element: null,
+      invoke(action) {
+        const handler = this.actions[action];
+        if (!handler) throw new Error(`Missing Media controls action ${action}`);
+        handler();
+      },
+    };
+    window.__mediaControls = media;
+    const nativeCreateElement = document.createElement.bind(document);
+    document.createElement = ((tag: string, options?: ElementCreationOptions) => {
+      const element = nativeCreateElement(tag, options);
+      if (tag.toLowerCase() === "audio") media.element = element as HTMLAudioElement;
+      return element;
+    }) as typeof document.createElement;
+    Object.defineProperty(navigator, "mediaSession", {
+      configurable: true,
+      value: {
+        get metadata() { return media.metadata; },
+        set metadata(value: MediaMetadata | null) { media.metadata = value; },
+        get playbackState() { return media.playbackState; },
+        set playbackState(value: MediaSessionPlaybackState) { media.playbackState = value; },
+        setActionHandler(action: MediaSessionAction, handler: MediaSessionActionHandler | null) {
+          if (action === "play" || action === "pause" || action === "stop") {
+            if (handler) media.actions[action] = () => handler({ action });
+            else delete media.actions[action];
+          }
+        },
+        setPositionState(position?: MediaPositionState) {
+          media.position = position?.duration === undefined ? null : { ...position };
+        },
+      },
+    });
   });
 }
 
