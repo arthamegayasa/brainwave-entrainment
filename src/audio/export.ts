@@ -1,14 +1,16 @@
 import { Mp3Encoder } from "@breezystack/lamejs";
-import { BuilderEngine } from "./builder";
+import { BuilderEngine, isAmbient } from "./builder";
 import type { CustomSession } from "./builder";
 import { SessionEngine } from "./session";
 import type { SessionConfig, SessionVolumes } from "./session";
+import { preloadAmbientSamples } from "./ambientSamples";
 
 /**
  * Offline MP3 export for bank sessions and presets (engine layer — pure TS,
  * no React). Renders through the same engine the live player uses inside an
  * OfflineAudioContext, then encodes the result to MP3 entirely in the
- * browser (ADR-004: synthesis stays 100% client-side, no audio files served).
+ * browser. Recorded ambient loops are decoded before rendering starts
+ * (ADR-026): an offline render does not wait for them.
  */
 
 const SAMPLE_RATE = 44100;
@@ -33,13 +35,17 @@ const defaultFactory: ContextFactory = (channels, length, sampleRate) =>
  * so ramp curve, layer mix, fades, and the safety limiter all carry over.
  * The factory parameter exists so tests can inject node-web-audio-api.
  */
-export function renderSession(
+export async function renderSession(
   spec: CustomSession,
   durationMin: number,
   createContext: ContextFactory = defaultFactory,
 ): Promise<AudioBuffer> {
   const length = Math.round(SAMPLE_RATE * durationMin * 60);
   const ctx = createContext(2, length, SAMPLE_RATE);
+  await preloadAmbientSamples(
+    ctx,
+    spec.layers.flatMap(({ type }) => (isAmbient(type) ? [type] : [])),
+  );
   const engine = new BuilderEngine(ctx);
   engine.start(spec.layers, spec.curve, durationMin);
   return ctx.startRendering();
@@ -55,7 +61,7 @@ export type TimedSessionConfig = SessionConfig & { durationMin: number };
  * encodeMp3 duplicates it). Headphone mode must stay stereo: the binaural
  * beat IS the difference between the ears.
  */
-export function renderPreset(
+export async function renderPreset(
   config: TimedSessionConfig,
   volumes: Partial<SessionVolumes>,
   createContext: ContextFactory = defaultFactory,
@@ -63,6 +69,7 @@ export function renderPreset(
   const channels = config.mode === "headphone" ? 2 : 1;
   const length = Math.round(SAMPLE_RATE * config.durationMin * 60);
   const ctx = createContext(channels, length, SAMPLE_RATE);
+  if (config.ambient) await preloadAmbientSamples(ctx, [config.ambient]);
   new SessionEngine(ctx, volumes).start(config);
   return ctx.startRendering();
 }

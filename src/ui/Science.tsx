@@ -86,7 +86,7 @@ const SECTIONS: Section[] = [
   {
     heading: "Ambient sound & music",
     intro:
-      "Rain, ocean, wind and brown noise, synthesized live under the tones. Listening to calming music and sound helps lower stress and anxiety.",
+      "Rain, ocean, wind, stream, forest, night and brown noise, playing softly under the tones. Listening to calming music and sound helps lower stress and anxiety.",
     citations: [
       {
         ref: "de Witte et al. (2020), Health Psychology Review",

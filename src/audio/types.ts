@@ -1,5 +1,9 @@
 export type EntrainmentKind = "binaural" | "isochronic" | "monaural";
-export type AmbientKind = "rain" | "ocean" | "wind" | "brown";
+/** Ambient beds in display order. Every kind but "brown" plays a recorded loop. */
+export const AMBIENT_KINDS = ["rain", "ocean", "wind", "stream", "forest", "night", "brown"] as const;
+export type AmbientKind = (typeof AMBIENT_KINDS)[number];
+/** Ambient beds played from a recorded loop (src/assets/ambient); brown noise is synthesized. */
+export type SampleAmbientKind = Exclude<AmbientKind, "brown">;
 export type SoundKind = EntrainmentKind | "solfeggio" | AmbientKind;
 
 export interface ToneParams {

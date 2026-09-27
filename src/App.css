@@ -384,16 +384,20 @@ body:has(.sheet-backdrop) .scene-art * {
   line-height: 1.4;
 }
 
-/* Ambient: one row of icons; the field label names the chosen one. */
+/* Ambient: one row of icons; the field label names the chosen one. The icons
+   shrink from 3rem so all eight choices fit a 360 px phone. */
 .ambient-icons {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 0.4rem;
 }
 
 .ambient-icons button {
-  width: 3rem;
-  height: 3rem;
+  flex: 0 1 3rem;
+  min-width: 0;
+  aspect-ratio: 1;
+  padding: 0;
   border-radius: 50%;
   border: 1px solid var(--line);
   background: var(--bg-raised);

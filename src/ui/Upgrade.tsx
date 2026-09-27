@@ -10,7 +10,7 @@ import { currentStreakDays, totalSessions } from "../state/progress";
 const FREE = [
   "8 ready-made goal sessions",
   "Binaural, isochronic, monaural & solfeggio",
-  "4 synthesized natural ambiences",
+  "6 natural ambiences + brown noise",
   "15–60 minute durations",
 ];
 

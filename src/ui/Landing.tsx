@@ -19,7 +19,7 @@ const STEPS = [
   {
     sceneId: "focus",
     title: "Listen and let go",
-    body: "Binaural beats on headphones or isochronic tones on speakers, blended with purely synthesized rain, ocean, and wind.",
+    body: "Binaural beats on headphones or isochronic tones on speakers, blended with calming rain, ocean, stream, forest, and night soundscapes.",
   },
 ] satisfies { sceneId: string; title: string; body: string }[];
 
@@ -33,8 +33,8 @@ const FEATURES = [
     body: "Build your own session like a sound designer: an entrainment method per layer, a harmonic frequency finder, a custom curve, export & share.",
   },
   {
-    title: "Audio synthesized in real time",
-    body: "No MP3 files — frequencies precise to 0.01 Hz, unlimited duration, and fully offline.",
+    title: "Tones synthesized in real time",
+    body: "Frequencies precise to 0.01 Hz, unlimited duration, and fully offline.",
   },
   {
     title: "Scientifically honest",

@@ -1,5 +1,19 @@
 /** Shared analysis helpers for offline-render tests. */
 
+import { readFile } from "node:fs/promises";
+import { OfflineAudioContext } from "node-web-audio-api";
+import { setAmbientSampleSource } from "../../src/audio/ambientSamples";
+
+/** Serve the shipped ambient loops from disk, decoded as the app decodes them. */
+export function installAmbientAssetsFromDisk(): void {
+  setAmbientSampleSource(async (kind, sampleRate) => {
+    const bytes = await readFile(new URL(`../../src/assets/ambient/${kind}.mp3`, import.meta.url));
+    const encoded = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+    const decoder = new OfflineAudioContext(1, 1, sampleRate);
+    return (await decoder.decodeAudioData(encoded as ArrayBuffer)) as unknown as AudioBuffer;
+  });
+}
+
 /** Repeatable noise inputs for regressions that must exercise the same peaks. */
 export function seededRandom(seed: number): () => number {
   let state = seed;

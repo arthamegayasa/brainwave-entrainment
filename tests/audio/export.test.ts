@@ -1,10 +1,10 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll } from "vitest";
 import { OfflineAudioContext, AudioBuffer } from "node-web-audio-api";
 import { renderSession, renderPreset, encodeMp3 } from "../../src/audio/export";
 import type { CustomSession } from "../../src/audio/builder";
 import { getPreset } from "../../src/audio/presets";
 import { DEFAULT_VOLUMES } from "../../src/audio/session";
-import { countZeroCrossings } from "./helpers";
+import { countZeroCrossings, installAmbientAssetsFromDisk } from "./helpers";
 
 const SPEC: CustomSession = {
   version: 1,
@@ -93,6 +93,8 @@ describe("preset export (renderPreset)", () => {
   const preset = { ...getPreset("deep-meditation"), carrierHz: 200 };
   const SECONDS = 3;
 
+  beforeAll(installAmbientAssetsFromDisk);
+
   it("headphone export keeps the binaural beat between the ears", async () => {
     const buffer = await renderPreset(
       { preset, durationMin: SECONDS / 60, mode: "headphone", ambient: null },
@@ -116,5 +118,15 @@ describe("preset export (renderPreset)", () => {
     );
     expect(buffer.numberOfChannels).toBe(1);
     expect(rms(buffer.getChannelData(0).slice(22050, 66150))).toBeGreaterThan(0.01);
+  });
+
+  it("carries the recorded ambience from the first second", async () => {
+    const buffer = await renderPreset(
+      { preset, durationMin: SECONDS / 60, mode: "headphone", ambient: "stream" },
+      { ...DEFAULT_VOLUMES, entrainment: 0 },
+      createContext,
+    );
+    // Entrainment is muted: everything audible here is the stream loop.
+    expect(rms(buffer.getChannelData(0).slice(44100, 88200))).toBeGreaterThan(0.01);
   });
 });

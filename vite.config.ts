@@ -33,7 +33,8 @@ export default defineConfig({
       workbox: {
         // Card-size scene paintings (~220 KB) ship with the app shell; the
         // large ones are cached the first time a banner or player shows them.
-        globPatterns: ["**/*.{js,css,html,woff,woff2,png,svg}", "scenes/*-768.webp"],
+        // mp3: the recorded ambient loops, so every ambience plays offline.
+        globPatterns: ["**/*.{js,css,html,woff,woff2,png,svg,mp3}", "scenes/*-768.webp"],
         runtimeCaching: [
           {
             urlPattern: ({ url }) => url.pathname.startsWith("/scenes/"),

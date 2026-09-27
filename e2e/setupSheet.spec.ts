@@ -61,8 +61,11 @@ test("every Preset setup sheet fits a phone screen without scrolling, Start incl
 test("on a screen too short for the choices, they scroll while Start stays pinned in view", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 560 });
   await openSessions(page);
-  await setUpPreset(page, "Meditating", "15 min");
+  await page.getByRole("button", { name: /^Meditating/ }).click();
   const sheet = await setupSheet(page, "Meditating");
+  // Pick the length once the sheet has settled: a click during its opening
+  // slide finds the button below the screen and scrolls the choices to the end.
+  await sheet.getByRole("button", { name: "15 min", exact: true }).click();
   const start = sheet.getByRole("button", { name: "Start Session" });
   await expect(start).toBeInViewport({ ratio: 1 });
   const pinnedAt = await start.boundingBox();
