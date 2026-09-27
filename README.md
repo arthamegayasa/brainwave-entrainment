@@ -59,8 +59,8 @@ The landing, eight goal cards, recommendations, player, and completion view show
 | **Choose how to listen** | Binaural headphone mode or isochronic speaker mode; 15, 30, 45, 60 minutes, or an open-ended session. |
 | **Blend the atmosphere** | Synthesized rain, ocean, wind, and brown noise with adjustable playback controls. |
 | **Follow the session** | A live curve visualization, optional frequency details, smooth gain changes, pause/resume (also from the lock screen), a Mini-player that keeps the Play in view on other pages, and an end-of-session view. |
-| **Design custom audio** | Studio layers for binaural, isochronic, monaural, pure tone, and ambience; per-layer gains, custom curves, harmonic frequency suggestions, and JSON import/export. |
-| **Curate an audio library** | With a configured backend and clinician/admin role: an Audio Bank, reusable templates, Patient accounts you create (with Premium switched on per Patient), and individual audio assignments. |
+| **Design custom audio** | Studio layers for binaural, isochronic, monaural, pure tone, and ambience; per-layer gains, custom curves, harmonic frequency suggestions, a Scene picked from the painting catalog, and JSON import/export. |
+| **Curate an audio library** | With a configured backend and clinician/admin role: an Audio Bank (with Change Scene for saved audio), reusable templates, Patient accounts you create (with Premium switched on per Patient), and individual audio assignments. The Library, Player, Mini-player, and Media controls show the Scene the designer picked. |
 | **Export a session** | Any timed preset (with your chosen listening mode, ambience, and mixer volumes) and Audio Bank entries render locally to 320 kbps MP3 files, with progress shown in the interface. An MP3 plays in any music app, including with the screen locked. |
 | **Install the app** | A production PWA build caches the app shell and assets. Core synthesized listening can work offline after the app has loaded and been cached. |
 
