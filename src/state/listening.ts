@@ -92,6 +92,8 @@ export interface PlayRecorder {
   end(): Play | null;
   /** Playback stopped before its end: the Play, or null when there is none. */
   stop(): Play | null;
+  /** Seconds heard so far in the current playback, pauses excluded; 0 without one. */
+  heardSec(): number;
 }
 
 interface Playback {
@@ -149,6 +151,12 @@ export function createPlayRecorder(env: ListeningEnv): PlayRecorder {
 
     stop() {
       return finish(false);
+    },
+
+    heardSec() {
+      if (!current) return 0;
+      const stretchMs = current.playingSince === null ? 0 : Math.max(0, env.now() - current.playingSince);
+      return (current.playedMs + stretchMs) / 1000;
     },
   };
 
