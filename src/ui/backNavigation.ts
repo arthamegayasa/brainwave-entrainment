@@ -1,14 +1,18 @@
 import { useEffect, useEffectEvent } from "react";
 
 /**
- * Back (Android Back, the browser's Back) inside the Player. The app has no
- * router: every view except the Personal URL is state (ADR-016), so Back
- * would leave the app. Each open layer, the Player and a sheet over it, owns
- * one history entry at the same address, tagged with its depth. Back lands on
- * the entry below and closes every layer deeper than it: the top sheet first,
- * then the Player, which shrinks into the Mini-player. A layer closed on
- * screen (⌄, ✕, End session) takes its entry back out, so Back never lands on
- * a stale one. Other views keep the browser's own Back.
+ * The app's history. Every page has its own address (ADR-027, `pages.ts`):
+ * moving to another page adds an entry through `goToAddress`, and Back or
+ * Forward onto another entry tells `subscribeAddress` listeners its address.
+ *
+ * Back inside the Player: each open layer, the Player and a sheet over it,
+ * owns one more entry at the address of the page under it, tagged with its
+ * depth. Back lands on the entry below and closes every layer deeper than it:
+ * the top sheet first, then the Player, which shrinks into the Mini-player. A
+ * layer closed on screen (⌄, ✕, End session, a nav tab) takes its entry back
+ * out, so Back never lands on a stale one. A page address set while those
+ * entries go waits for them: pushed on top, the next Back would land on the
+ * closed layer's entry, and the removal would then step off the new page.
  *
  * The tags belong to one page load: entries a reload or a restored tab left
  * behind count as the base, and Forward onto the entry of a layer closed
@@ -28,8 +32,25 @@ interface LayerTag {
 const layers: Array<() => void> = [];
 /** Entries of layers closed on screen, removed in one step once the closing settles. */
 let staleEntries = 0;
+/** Set from the removal's `history.go` until its popstate arrives. */
+let removing = false;
+/** The page address to set once the removal lands. */
+let pendingAddress: { path: string; replace: boolean } | null = null;
+const addressListeners = new Set<(pathname: string) => void>();
+
+function setAddress(path: string, replace: boolean): void {
+  if (path === window.location.pathname) return;
+  if (replace) window.history.replaceState(null, "", path);
+  else window.history.pushState(null, "", path);
+}
 
 window.addEventListener("popstate", (event) => {
+  if (removing) {
+    removing = false;
+    if (pendingAddress !== null) setAddress(pendingAddress.path, pendingAddress.replace);
+    pendingAddress = null;
+    return;
+  }
   const tag = (event.state as Record<string, LayerTag | undefined> | null)?.[LAYER_KEY];
   const depth = tag?.load === PAGE_LOAD ? tag.depth : 0;
   if (depth > layers.length) {
@@ -37,7 +58,23 @@ window.addEventListener("popstate", (event) => {
     return;
   }
   while (layers.length > depth) layers.pop()!();
+  for (const listener of addressListeners) listener(window.location.pathname);
 });
+
+/**
+ * Shows `path` as a new history entry, or with `replace` in place of the
+ * current one, which neither Back nor a reload then returns to.
+ */
+export function goToAddress(path: string, replace: boolean): void {
+  if (removing || staleEntries > 0) pendingAddress = { path, replace };
+  else setAddress(path, replace);
+}
+
+/** Calls `listener` with the address each Back or Forward lands on. */
+export function subscribeAddress(listener: (pathname: string) => void): () => void {
+  addressListeners.add(listener);
+  return () => addressListeners.delete(listener);
+}
 
 /**
  * While `open`, the layer owns a history entry and Back runs `close`, which
@@ -59,6 +96,7 @@ export function useBackLayer(open: boolean, close: () => void): void {
       layers.splice(index);
       queueMicrotask(() => {
         if (staleEntries === 0) return;
+        removing = true;
         window.history.go(-staleEntries);
         staleEntries = 0;
       });
