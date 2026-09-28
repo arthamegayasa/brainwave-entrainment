@@ -26,7 +26,9 @@ const AccountSheet = lazy(() =>
 import { useSession } from "./ui/useSession";
 import { stopBuilderPlayback } from "./ui/builderEngine";
 import { stopPlay, subscribeNowPlaying, useNowPlaying } from "./ui/nowPlaying";
-import { useBackLayer } from "./ui/backNavigation";
+import { goToAddress, subscribeAddress, useBackLayer } from "./ui/backNavigation";
+import { PAGES, pageAt } from "./ui/pages";
+import type { Page } from "./ui/pages";
 import type { SessionConfig } from "./audio/session";
 import type { AudioKind } from "./state/listening";
 import { useEntitlement } from "./lib/useEntitlement";
@@ -34,17 +36,16 @@ import { loadProgress } from "./state/progress";
 import { startListeningSync } from "./lib/listening";
 import { parsePersonalUrlPath } from "../supabase/functions/_shared/accountRules.ts";
 
-type View =
-  | "landing"
-  | "home"
-  | "player"
-  | "library"
-  | "dashboard"
-  | "studio"
-  | "science"
-  | "upgrade"
-  | "privacy"
-  | "personal";
+/** A page, or a view without an address of its own: the Player shows over a page. */
+type View = Page | "player" | "personal";
+
+/** Landing's browser tab title, from index.html; other pages show their name. */
+const HOME_TITLE = document.title;
+
+/** The view an address opens: its page, the Personal URL (ADR-016), or Landing for any other path. */
+function viewAt(pathname: string): View {
+  return pageAt(pathname) ?? (parsePersonalUrlPath(pathname) !== null ? "personal" : "landing");
+}
 
 /** A view where Plays are chosen. */
 type ChoiceView = "home" | "library";
@@ -59,10 +60,8 @@ function chosenIn(kind: AudioKind): ChoiceView {
 }
 
 function App() {
-  // The Personal URL (/p/<username>, ADR-016) is the only view with its own
-  // path; every other view lives in state.
   const [personalUrl] = useState(() => parsePersonalUrlPath(window.location.pathname));
-  const [view, setView] = useState<View>(personalUrl === null ? "landing" : "personal");
+  const [view, setView] = useState<View>(() => viewAt(window.location.pathname));
   /** The completion card, shown in the view where its Play was chosen until dismissed. */
   const [completed, setCompleted] = useState<{ name: string; view: ChoiceView } | null>(null);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -72,7 +71,13 @@ function App() {
   const session = useSession();
   const play = useNowPlaying();
   /** Where ⌄ and Back return: the view the Player was opened from. */
-  const playerFrom = useRef<View>("home");
+  const playerFrom = useRef<Exclude<View, "player">>("home");
+  /** The page on screen, or the Personal URL; the Player keeps the one it was opened from. */
+  const shown = view === "player" ? playerFrom.current : view;
+  const shownRef = useRef(shown);
+  shownRef.current = shown;
+  /** Set by a redirect: the page it leaves must not stay in the history. */
+  const replaceEntry = useRef(false);
 
   // Journey step 1 (goal gradient): discovering the app counts immediately.
   useEffect(() => {
@@ -83,13 +88,40 @@ function App() {
   // queued on this device go to the server now and whenever it is back online.
   useEffect(() => startListeningSync(), []);
 
-  // Once the app leaves the Personal URL page, the address returns to "/", so
-  // a reload opens the app as usual instead of the password page again.
+  // The address and the browser tab follow the page on screen (ADR-027). An
+  // address that names no page (the Personal URL, a mistyped path) or names
+  // it another way ("/library/") gives way in place, so neither Back nor a
+  // reload returns to it; the Personal URL page keeps its own.
   useEffect(() => {
-    if (view !== "personal" && parsePersonalUrlPath(window.location.pathname) !== null) {
-      window.history.replaceState(null, "", "/");
+    document.title =
+      shown === "landing" || shown === "personal" ? HOME_TITLE : `${PAGES[shown].name} — SwaraSanti`;
+    if (shown === "personal") return;
+    const here = window.location.pathname;
+    const named = Object.values(PAGES).some(({ path }) => path === here);
+    goToAddress(PAGES[shown].path, replaceEntry.current || !named);
+    replaceEntry.current = false;
+  }, [shown]);
+
+  // Back or Forward onto another page's entry shows that page. Layer entries
+  // carry the address of the page under them, so Back through a sheet or the
+  // Player changes nothing here.
+  useEffect(
+    () =>
+      subscribeAddress((pathname) => {
+        const next = viewAt(pathname);
+        if (next !== shownRef.current) setView(next);
+      }),
+    [],
+  );
+
+  // A Clinician page opened without Clinician powers (a shared link, a role
+  // taken away) gives way to the Library once the account is known.
+  useEffect(() => {
+    if ((view === "dashboard" || view === "studio") && !ent.loading && !ent.isClinician) {
+      replaceEntry.current = true;
+      setView("library");
     }
-  }, [view]);
+  }, [view, ent.loading, ent.isClinician]);
 
   // A Play that ends naturally, or is ended from the Player, returns to where
   // it was chosen: Sessions for a Preset, the Library for Custom Audio. The
@@ -129,17 +161,12 @@ function App() {
   const miniPlayer = play !== null && view !== "player" && view !== "landing";
 
   // Dashboard + Studio appear in the nav only for clinicians/admins.
-  const nav: Array<{ id: View; label: string }> = [
-    { id: "home", label: "Sessions" },
-    { id: "library", label: "Library" },
-    ...(ent.isClinician
-      ? [
-          { id: "dashboard" as View, label: "Dashboard" },
-          { id: "studio" as View, label: "Studio" },
-        ]
-      : []),
-    { id: "science", label: "Science" },
-    { id: "upgrade", label: "Premium" },
+  const nav: Page[] = [
+    "home",
+    "library",
+    ...(ent.isClinician ? (["dashboard", "studio"] as const) : []),
+    "science",
+    "upgrade",
   ];
 
   const navCurrent = (id: View): boolean => {
@@ -186,13 +213,13 @@ function App() {
           SwaraSanti
         </button>
         <nav className="topnav">
-          {nav.map((item) => (
+          {nav.map((id) => (
             <button
-              key={item.id}
-              className={navCurrent(item.id) ? "current" : ""}
-              onClick={() => setView(item.id)}
+              key={id}
+              className={navCurrent(id) ? "current" : ""}
+              onClick={() => setView(id)}
             >
-              {item.label}
+              {PAGES[id].name}
             </button>
           ))}
         </nav>
@@ -233,7 +260,7 @@ function App() {
           />
         )}
         {view === "library" && (completed?.view === "library" ? completionCard : library)}
-        {/* Non-clinicians landing on dashboard/studio get the Library (fallback). */}
+        {/* Until the account is known, non-clinicians on dashboard/studio see the Library. */}
         {view === "dashboard" && (ent.isClinician ? <Dashboard /> : library)}
         {view === "studio" && (ent.isClinician ? <Builder onBeforePlay={stopPlay} /> : library)}
         {view === "science" && <Science />}

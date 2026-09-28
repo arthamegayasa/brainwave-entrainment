@@ -40,8 +40,8 @@ export default defineConfig({
           // instead of the shell the previous deploy precached (which a
           // cache-first shell would show until the next reload). When the
           // network fails (offline), the precached shell answers every app URL,
-          // so the installed PWA still opens a Personal URL (/p/<username>)
-          // offline, like the host's rewrite in vercel.json.
+          // so the installed PWA still opens a page (/library) or a Personal URL
+          // (/p/<username>) offline, like the host's rewrites in vercel.json.
           {
             urlPattern: ({ request }) => request.mode === "navigate",
             handler: "NetworkOnly",

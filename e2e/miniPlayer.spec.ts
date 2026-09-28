@@ -151,16 +151,33 @@ test("Back keeps working after Forward or a reload lands on a closed layer's ent
   await expect(mini).toBeVisible();
 
   // Reloaded with a sheet open, then a new Play: the old entries belong to the old page.
+  // The reload keeps the address, so Sessions opens again.
   await mini.getByRole("button", { name: "Open Meditating" }).click();
   await page.getByRole("button", { name: "Mixer", exact: true }).click();
   await page.reload();
-  await page.getByRole("button", { name: "Start a Free Session" }).click();
   await setUpPreset(page, "Meditating", "15 min");
   await page.getByRole("button", { name: "Start Session" }).click();
   await expect(page.locator(".player")).toBeVisible();
   await page.goBack();
   await expect(page.locator(".player")).toHaveCount(0);
   await expect(mini).toBeVisible();
+});
+
+test("a nav tab from the Player opens its page, and Back returns to the page under the Player", async ({
+  page,
+}) => {
+  await startPreset(page);
+  await expect(page).toHaveURL(/\/sessions$/);
+  await page.getByRole("button", { name: "Science", exact: true }).click();
+  await expect(page).toHaveURL(/\/science$/);
+  await expect(page.getByRole("heading", { name: "The science behind SwaraSanti" })).toBeVisible();
+  await expect(miniPlayer(page)).toBeVisible();
+
+  await page.goBack();
+  await expect(page).toHaveURL(/\/sessions$/);
+  await expect(page.getByRole("heading", { name: /Choose your goal/ })).toBeVisible();
+  await expect(page.locator(".player")).toHaveCount(0);
+  await expect.poll(() => audioStates(page)).toEqual(["running"]);
 });
 
 test("a saved Studio session's Play shows in the Mini-player, which opens its Player", async ({ page }) => {
