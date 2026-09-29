@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { OfflineAudioContext } from "node-web-audio-api";
-import { BuilderEngine, journeySchedule, sessionBeat } from "../../src/audio/builder";
+import { BuilderEngine, journeySchedule, retimePoint, sessionBeat } from "../../src/audio/builder";
 import type { BuilderLayerSpec, CustomSession, Journey } from "../../src/audio/builder";
 import { beatAt, beatPath, phaseAt } from "../../src/audio/schedule";
 import type { Easing } from "../../src/audio/schedule";
@@ -79,17 +79,20 @@ describe("BuilderEngine", () => {
     expect(tailHz).toBeGreaterThan(230);
   });
 
-  // 10 → 40 Hz over 4 s; the Beat's mean over 1.6–2.4 s (u 0.4–0.6) is 25 Hz
-  // on a straight move and 17.4 Hz slow → fast: the right ear plays 200 Hz above it.
+  // 10 → 40 Hz, heard over 1.6–2.4 s; the right ear plays 200 Hz above the Beat.
+  // Over 4 s the window is u 0.4–0.6: a mean of 25 Hz straight, 20.06 Hz at a
+  // constant ratio. Over 10 s with 3 swings it straddles the first arrival at
+  // 40 Hz: 38.92 Hz (a straight move would be at 16 Hz).
   it.each([
-    ["linear", 225],
-    ["ease-in", 217.4],
-  ] as Array<[Easing, number]>)("a %s move plays its own curve", async (easing, meanRightHz) => {
-    const ctx = new OfflineAudioContext(2, 44100 * 5, 44100);
+    ["linear", 4, 225],
+    ["exponential", 4, 220.06],
+    ["wave", 10, 238.92],
+  ] as Array<[Easing, number, number]>)("a %s move plays its own curve", async (easing, moveSec, meanRightHz) => {
+    const ctx = new OfflineAudioContext(2, 44100 * (moveSec + 1), 44100);
     const engine = new BuilderEngine(ctx as unknown as BaseAudioContext);
     engine.start(
       [layer({ id: "a", type: "binaural", carrierHz: 200 })],
-      { startHz: 10, points: [{ hz: 40, minutes: 4 / 60, easing }], holdAt: 0 },
+      { startHz: 10, points: [{ hz: 40, minutes: moveSec / 60, easing, swings: 3 }], holdAt: 0 },
       null,
     );
     const buffer = await ctx.startRendering();
@@ -159,16 +162,72 @@ describe("journeySchedule", () => {
 
   it("eases each move by its curve, meeting a straight move at both ends", () => {
     const at = (easing: Easing, min: number) =>
-      beatAt(journeySchedule({ startHz: 10, points: [{ hz: 6, minutes: 10, easing }], holdAt: 0 }, 1800), min * 60);
+      beatAt(
+        journeySchedule({ startHz: 10, points: [{ hz: 6, minutes: 10, easing, swings: 3 }], holdAt: 0 }, 1800),
+        min * 60,
+      );
     expect(at("linear", 5)).toBeCloseTo(8);
     expect(at("ease-in-out", 5)).toBeCloseTo(8);
     expect(at("ease-in-out", 2)).toBeGreaterThan(at("linear", 2)); // leaves 10 Hz gently
-    expect(at("ease-out", 5)).toBeCloseTo(7); // fast first: 75% of the way at half time
-    expect(at("ease-in", 5)).toBeCloseTo(9); // slow first: 25% of the way
-    for (const easing of ["linear", "ease-in-out", "ease-out", "ease-in"] as Easing[]) {
+    expect(at("exponential", 5)).toBeCloseTo(Math.sqrt(10 * 6)); // the same ratio each half
+    // 3 swings: 5 passes of 2 min, 10 → 6 → 10 → 6 → 10 → 6.
+    expect([2, 3, 4, 6, 8].map((min) => at("wave", min))).toEqual([6, 8, 10, 6, 10]);
+    for (const easing of ["linear", "ease-in-out", "exponential", "wave"] as Easing[]) {
       expect(at(easing, 0)).toBe(10);
       expect(at(easing, 10)).toBe(6);
     }
+  });
+});
+
+describe("retimePoint (dragging a point along the chart)", () => {
+  /** 10 → 8 in 5 min → 6 in 5 min, held; then 9 in 4 min and 10 in 2 min closing a Play. */
+  const JOURNEY: Journey = {
+    startHz: 10,
+    points: [
+      { hz: 8, minutes: 5, easing: "linear" },
+      { hz: 6, minutes: 5, easing: "linear" },
+      { hz: 9, minutes: 4, easing: "linear" },
+      { hz: 10, minutes: 2, easing: "linear" },
+    ],
+    holdAt: 1,
+  };
+  const arrivals = (journey: Journey, durationMin: number) =>
+    journeySchedule(journey, durationMin * 60).points.map((p) => p.time / 60);
+  const minutesOf = (journey: Journey) => journey.points.map((p) => p.minutes);
+
+  it("moves a point before the Hold while the point after it stays put", () => {
+    const moved = retimePoint(JOURNEY, 0, 7 * 60, 30 * 60);
+    expect(minutesOf(moved)).toEqual([7, 3, 4, 2]);
+    expect(arrivals(moved, 30)).toEqual([0, 7, 10, 24, 28, 30]);
+  });
+
+  it("lets the Hold point's move grow into the Hold, never past its end", () => {
+    expect(minutesOf(retimePoint(JOURNEY, 1, 20 * 60, 30 * 60))).toEqual([5, 15, 4, 2]);
+    // The Hold runs 10–24 min: its point cannot pass 24.
+    expect(minutesOf(retimePoint(JOURNEY, 1, 29 * 60, 30 * 60))).toEqual([5, 19, 4, 2]);
+  });
+
+  it("moves a closing point between its neighbours, keeping the Hold's end", () => {
+    const moved = retimePoint(JOURNEY, 2, 27 * 60, 30 * 60);
+    expect(minutesOf(moved)).toEqual([5, 5, 3, 3]);
+    expect(arrivals(moved, 30)).toEqual([0, 5, 10, 24, 27, 30]);
+  });
+
+  it("keeps a closing's last point on the end", () => {
+    expect(retimePoint(JOURNEY, 3, 20 * 60, 30 * 60)).toBe(JOURNEY);
+  });
+
+  it("snaps to half minutes and leaves every move at least half a minute", () => {
+    expect(minutesOf(retimePoint(JOURNEY, 0, 6.2 * 60, 30 * 60))).toEqual([6, 4, 4, 2]);
+    expect(minutesOf(retimePoint(JOURNEY, 0, 60 * 60, 30 * 60))).toEqual([9.5, 0.5, 4, 2]);
+    expect(minutesOf(retimePoint(JOURNEY, 0, -60, 30 * 60))).toEqual([0.5, 9.5, 4, 2]);
+  });
+
+  it("follows the pointer in a Play that runs the moves faster", () => {
+    // 16 min of moves in 8 min: half speed on the chart, so 3.5 chart minutes are 7 designed ones.
+    const moved = retimePoint(JOURNEY, 0, 3.5 * 60, 8 * 60);
+    expect(minutesOf(moved)).toEqual([7, 3, 4, 2]);
+    expect(arrivals(moved, 8)[1]).toBe(3.5);
   });
 });
 
@@ -177,7 +236,7 @@ describe("beatPath", () => {
     startHz: 10,
     points: [
       { hz: 4, minutes: 10, easing: "ease-in-out" },
-      { hz: 12, minutes: 5, easing: "ease-out" },
+      { hz: 12, minutes: 5, easing: "wave", swings: 4 },
     ],
     holdAt: 0,
   };

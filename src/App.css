@@ -1433,11 +1433,12 @@ body:has(.mini-player) .dash-notice {
 
 .journey-chart {
   display: grid;
-  grid-template-columns: 3.6rem minmax(0, 1fr);
-  column-gap: 0.6rem;
+  grid-template-columns: 4.4rem minmax(0, 1fr);
+  column-gap: 1rem;
   margin: 0;
 }
 
+/* Band names on the left of the axis, Hz on its right at the grid lines. */
 .journey-axis {
   position: relative;
 }
@@ -1445,14 +1446,39 @@ body:has(.mini-player) .dash-notice {
 .journey-axis-band {
   position: absolute;
   left: 0;
-  right: 0;
+  right: 1.5rem;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  font-size: 0.66rem;
+  font-size: 0.62rem;
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
+}
+
+.journey-axis-hz,
+.journey-axis-unit {
+  position: absolute;
+  right: 0;
+  color: var(--ink-faint);
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.journey-axis-hz {
+  translate: 0 -50%;
+}
+
+.journey-axis-unit {
+  top: 0;
+}
+
+.journey-grid {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  pointer-events: none;
 }
 
 .journey-plot {
@@ -1499,9 +1525,11 @@ body:has(.mini-player) .dash-notice {
   pointer-events: none;
 }
 
-/* A point on the chart, numbered like its card below. */
+/* A point on the chart, numbered like its card below, to drag: the Start
+   and a closing's last point up and down only, the others any way. */
 .journey-mark {
   position: absolute;
+  z-index: 1;
   display: grid;
   place-items: center;
   width: 1.25rem;
@@ -1515,6 +1543,36 @@ body:has(.mini-player) .dash-notice {
   font-size: 0.62rem;
   font-weight: 700;
   line-height: 1;
+  cursor: ns-resize;
+  touch-action: none;
+  user-select: none;
+  transition: scale 0.15s, box-shadow 0.15s;
+}
+
+.journey-mark.is-free {
+  cursor: move;
+}
+
+/* A finger-sized grab area around the dot. */
+.journey-mark::before {
+  content: "";
+  position: absolute;
+  inset: -0.75rem;
+  border-radius: 50%;
+}
+
+.journey-mark:hover,
+.journey-mark:focus-visible,
+.journey-mark.is-dragged {
+  z-index: 2;
+  scale: 1.25;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--band) 30%, transparent), 0 0 16px var(--band);
+  outline: none;
+}
+
+.journey-chart.is-dragging,
+.journey-chart.is-dragging * {
+  cursor: grabbing;
 }
 
 .journey-mark-label {
@@ -1816,7 +1874,8 @@ body:has(.mini-player) .dash-notice {
   cursor: not-allowed;
 }
 
-/* Curve: four drawn moves, falling ones drawn falling. */
+/* Curve: four drawn moves. A falling move mirrors them left to right, which
+   keeps each shape true (a proportional fall is quick first, slow last). */
 .easing-name {
   margin-left: auto;
   color: var(--ink);
@@ -1858,7 +1917,11 @@ body:has(.mini-player) .dash-notice {
 }
 
 .easing.is-down .easing-options svg {
-  scale: 1 -1;
+  scale: -1 1;
+}
+
+.easing .journey-note {
+  margin: 0.45rem 0 0;
 }
 
 /* Layers: a card per layer, then the Add palette. */

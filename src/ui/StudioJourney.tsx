@@ -1,10 +1,10 @@
-import { useId } from "react";
-import type { CSSProperties, ReactNode } from "react";
-import { journeyMinutes, journeySchedule } from "../audio/builder";
+import { useId, useRef, useState } from "react";
+import type { CSSProperties, KeyboardEvent, ReactNode } from "react";
+import { MAX_MOVE_MIN, journeyMinutes, journeySchedule, moveScale, retimePoint } from "../audio/builder";
 import type { Journey, JourneyPoint } from "../audio/builder";
-import { EASINGS, beatPath } from "../audio/schedule";
+import { DEFAULT_SWINGS, EASINGS, MAX_SWINGS, MIN_SWINGS, beatPath } from "../audio/schedule";
 import type { Easing, SessionSchedule } from "../audio/schedule";
-import { MAX_JOURNEY_POINTS, MAX_MOVE_MIN } from "../state/customPresets";
+import { MAX_JOURNEY_POINTS } from "../state/customPresets";
 import { BAND_COLORS, BAND_FLOORS, bandForHz } from "./bands";
 import { DurationRow } from "./DurationRow";
 import { BandChip, RangeField } from "./StudioField";
@@ -13,10 +13,22 @@ const minutes = (sec: number) => Number((sec / 60).toFixed(1));
 
 /** Each Easing as the Studio names and draws it: a rising move in a 24 px box. */
 const EASING_META: Record<Easing, { label: string; hint: string; path: string }> = {
-  linear: { label: "Linear", hint: "The same rate the whole way", path: "M3 20L21 4" },
-  "ease-in-out": { label: "S-curve", hint: "Gentle at both ends, quicker in the middle", path: "M3 20C9 20 15 4 21 4" },
-  "ease-out": { label: "Fast → slow", hint: "Moves quickly, then settles in slowly", path: "M3 20Q12 4 21 4" },
-  "ease-in": { label: "Slow → fast", hint: "Leaves gently, then speeds up", path: "M3 20Q12 20 21 4" },
+  "ease-in-out": {
+    label: "S-curve",
+    hint: "Gentle at both ends, quicker in the middle.",
+    path: "M3 20C9 20 15 4 21 4",
+  },
+  linear: { label: "Linear", hint: "The same Hz every minute, as Presets move.", path: "M3 20L21 4" },
+  exponential: {
+    label: "Proportional",
+    hint: "The same share every minute: quicker at high Beats, gentler at low ones.",
+    path: "M3 20C12 19 18 12 21 4",
+  },
+  wave: {
+    label: "Wave",
+    hint: "Swings between the Beat before and this one, ending here.",
+    path: "M3 20C6 20 6 4 9 4S12 20 15 20S18 4 21 4",
+  },
 };
 
 /** When a Journey point arrives in `schedule`, in seconds; null when an endless one never reaches it. */
@@ -77,10 +89,16 @@ export function JourneyEditor({ journey, durationMin, onChange, live, preview, f
     <div className="studio-journey">
       <div className="journey-head">
         <h3>Journey</h3>
-        <p>Start near waking, then add the points the Beat moves through, one after another.</p>
+        <p>Start near waking, then add the points the Beat moves through, one after another. Drag a point on the chart to move it.</p>
         {followers && <p className="journey-note">The main Beat is fixed; {followers} this Journey.</p>}
       </div>
-      <JourneyChart journey={journey} schedule={schedule} live={live} />
+      <JourneyChart
+        journey={journey}
+        schedule={schedule}
+        durationSec={durationMin === null ? null : durationMin * 60}
+        live={live}
+        onChange={onChange}
+      />
       <p className={`journey-note${restMin < 0 ? " is-capped" : ""}`}>{timing}</p>
       {preview}
       <p className="journey-note">
@@ -161,8 +179,19 @@ export function JourneyEditor({ journey, durationMin, onChange, live, preview, f
                 name={`Point ${n} curve`}
                 value={point.easing}
                 direction={Math.sign(point.hz - fromHz)}
-                onChange={(easing) => setPoint(i, { easing })}
+                onChange={(easing) =>
+                  setPoint(i, { easing, swings: easing === "wave" ? (point.swings ?? DEFAULT_SWINGS) : undefined })
+                }
               />
+              {point.easing === "wave" && (
+                <WaveSwings
+                  name={`Point ${n} wave`}
+                  fromHz={fromHz}
+                  point={point}
+                  tone={tone}
+                  onChange={(swings) => setPoint(i, { swings })}
+                />
+              )}
               <div className="journey-stop-foot">
                 {points.length > 1 && (
                   <label className="journey-hold">
@@ -274,30 +303,99 @@ function EasingPicker({
           </button>
         ))}
       </div>
+      <p className="journey-note">{EASING_META[value].hint}</p>
     </div>
   );
 }
 
 /**
- * The Beat over the session on the band stripes. Shapes are one stretched
- * SVG; dots and labels are HTML placed in percent, so they stay round and
- * legible at any width.
+ * A wave's swings, with what they come to: how long each pass takes, and a
+ * hint when passes under a minute or swings wider than 3 Hz would be heard as
+ * a wobble rather than a guide (docs/research/beat-journey-curves.md).
+ */
+function WaveSwings({
+  name,
+  fromHz,
+  point,
+  tone,
+  onChange,
+}: {
+  name: string;
+  fromHz: number;
+  point: JourneyPoint;
+  tone: string;
+  onChange: (swings: number) => void;
+}) {
+  const swings = point.swings ?? DEFAULT_SWINGS;
+  const passes = 2 * swings - 1;
+  const passMin = Number((point.minutes / passes).toFixed(1));
+  const depth = Math.abs(point.hz - fromHz);
+  const caution =
+    depth === 0
+      ? "Give this point a Beat other than the one before to swing."
+      : passMin < 1
+        ? "Passes under a minute are heard as a wobble: fewer swings or a longer move guide more gently."
+        : depth > 3
+          ? "Swings of 1–2 Hz are the gentler guide."
+          : null;
+  return (
+    <>
+      <RangeField
+        label="Swings"
+        name={name}
+        unit="swings"
+        value={swings}
+        min={MIN_SWINGS}
+        max={MAX_SWINGS}
+        step={1}
+        tone={tone}
+        onChange={onChange}
+      />
+      <p className="journey-note">
+        {fromHz} ↔ {point.hz} Hz: {passes} passes of {passMin} min, ending on {point.hz} Hz.
+      </p>
+      {caution && <p className="journey-note is-capped">{caution}</p>}
+    </>
+  );
+}
+
+/** The chart's scales while a point is dragged: frozen, so the point stays under the pointer. */
+interface Drag {
+  n: number;
+  topHz: number;
+  spanSec: number;
+}
+
+const snapHz = (hz: number) => Math.min(Math.max(Math.round(hz * 10) / 10, 0.5), 50);
+
+/**
+ * The Beat over the session on the band stripes, with its points to drag:
+ * the Start up and down, every other point also along the time, except a
+ * closing's last point, which sits on the end. Shapes are one stretched SVG;
+ * points, labels, and the axis are HTML placed in percent, so they stay
+ * round and legible at any width.
  */
 function JourneyChart({
   journey,
   schedule,
+  durationSec,
   live,
+  onChange,
 }: {
   journey: Journey;
   schedule: SessionSchedule;
+  durationSec: number | null;
   live: { elapsedSec: number; hz: number } | null;
+  onChange: (journey: Journey) => void;
 }) {
+  const plotRef = useRef<HTMLDivElement>(null);
+  const [drag, setDrag] = useState<Drag | null>(null);
   const { points, holdIndex, endSec } = schedule;
   const hold = points[holdIndex];
   // An endless session holds after its moves: draw the Hold on, dashed.
-  const spanSec = endSec ?? Math.max(hold.time * 1.25, hold.time + 300);
+  const spanSec = drag?.spanSec ?? endSec ?? Math.max(hold.time * 1.25, hold.time + 300);
   const holdEndSec = endSec === null ? spanSec : points[holdIndex + 1].time;
-  const topHz = Math.max(6, ...points.map((p) => p.hz), live?.hz ?? 0) * 1.3;
+  const topHz = drag?.topHz ?? Math.max(6, ...points.map((p) => p.hz), live?.hz ?? 0) * 1.3;
   const x = (sec: number) => (Math.min(sec, spanSec) / spanSec) * 100;
   const y = (hz: number) => (1 - hz / topHz) * 100;
 
@@ -307,20 +405,60 @@ function JourneyChart({
 
   // Start, then each point the schedule reaches; the Hold's end is not a point.
   const marks = [
-    { n: 1, sec: 0, hz: journey.startHz },
+    { n: 1, sec: 0, hz: journey.startHz, alongTime: false },
     ...journey.points.flatMap((p, i) => {
       const at = arrivalSec(schedule, journey, i);
-      return at === null ? [] : [{ n: i + 2, sec: at, hz: p.hz }];
+      const pinned = i > journey.holdAt && i === journey.points.length - 1;
+      return at === null ? [] : [{ n: i + 2, sec: at, hz: p.hz, alongTime: !pinned }];
     }),
   ];
   // A label that would sit on the one before it is left to its point's card.
   let shownAt: { x: number; y: number } | null = null;
   const labelled = marks.map((m) => {
     const here = { x: x(m.sec), y: y(m.hz) };
-    const clear = !shownAt || Math.abs(here.x - shownAt.x) >= 9 || Math.abs(here.y - shownAt.y) >= 16;
+    const clear = m.n === drag?.n || !shownAt || Math.abs(here.x - shownAt.x) >= 9 || Math.abs(here.y - shownAt.y) >= 16;
     if (clear) shownAt = here;
     return clear;
   });
+
+  /** Move mark `n` to `hz` and, if it moves along the time, to `atSec`. */
+  const moveMark = (n: number, hz: number, atSec: number | null) => {
+    const i = n - 2;
+    let next =
+      n === 1
+        ? { ...journey, startHz: hz }
+        : { ...journey, points: journey.points.map((p, k) => (k === i ? { ...p, hz } : p)) };
+    if (n > 1 && atSec !== null) next = retimePoint(next, i, atSec, durationSec);
+    if (JSON.stringify(next) !== JSON.stringify(journey)) onChange(next);
+  };
+
+  const dragTo = (m: (typeof marks)[number], clientX: number, clientY: number) => {
+    const rect = plotRef.current?.getBoundingClientRect();
+    if (!rect || !drag) return;
+    const fx = Math.min(Math.max((clientX - rect.left) / rect.width, 0), 1);
+    const fy = Math.min(Math.max((clientY - rect.top) / rect.height, 0), 1);
+    moveMark(m.n, snapHz(drag.topHz * (1 - fy)), m.alongTime ? fx * drag.spanSec : null);
+  };
+
+  // Up and down step the Beat (Shift: 1 Hz); left and right the time, half a minute.
+  const stepKeys = (m: (typeof marks)[number], e: KeyboardEvent<HTMLSpanElement>) => {
+    const hzStep = e.shiftKey ? 1 : 0.1;
+    const halfMinute = 30 * moveScale(journey, durationSec);
+    const step: Record<string, [number, number]> = {
+      ArrowUp: [hzStep, 0],
+      ArrowDown: [-hzStep, 0],
+      ArrowRight: [0, halfMinute],
+      ArrowLeft: [0, -halfMinute],
+    };
+    const [dHz, dSec] = step[e.key] ?? [0, 0];
+    if (dHz === 0 && dSec === 0) return;
+    e.preventDefault();
+    moveMark(m.n, snapHz(m.hz + dHz), dSec !== 0 && m.alongTime ? m.sec + dSec : null);
+  };
+
+  // Hz on the left axis every 1, 2, 5, or 10 Hz, clear of the top edge.
+  const hzStep = topHz <= 8 ? 1 : topHz <= 16 ? 2 : topHz <= 40 ? 5 : 10;
+  const hzTicks = Array.from({ length: Math.floor(topHz / hzStep) + 1 }, (_, k) => k * hzStep).filter((hz) => y(hz) >= 7);
 
   // Time ticks at every point and at the end; one too close to the tick before drops.
   const tickSecs = [...new Set([...marks.map((m) => m.sec), ...(endSec === null ? [] : [holdEndSec]), spanSec])].sort(
@@ -354,8 +492,9 @@ function JourneyChart({
       : `Beat from ${journey.startHz} Hz, ${moves.join(", ")}, ending at ${minutes(endSec)} min.`;
 
   return (
-    <figure className="journey-chart">
+    <figure className={`journey-chart${drag ? " is-dragging" : ""}`}>
       <div className="journey-axis" aria-hidden>
+        <span className="journey-axis-unit">Hz</span>
         {bands.map((b) => (
           <span
             key={b.band}
@@ -365,8 +504,13 @@ function JourneyChart({
             {(b.to - b.from) / topHz >= 0.09 && b.band}
           </span>
         ))}
+        {hzTicks.map((hz) => (
+          <span key={hz} className="journey-axis-hz" style={{ top: `${y(hz)}%` }}>
+            {hz}
+          </span>
+        ))}
       </div>
-      <div className="journey-plot" role="img" aria-label={summary}>
+      <div className="journey-plot" ref={plotRef} role="group" aria-label="Journey chart: drag a point, or use its arrow keys">
         {bands.map((b) => (
           <span
             key={b.band}
@@ -374,7 +518,10 @@ function JourneyChart({
             style={{ top: `${y(b.to)}%`, height: `${((b.to - b.from) / topHz) * 100}%`, "--band": BAND_COLORS[b.band] } as CSSProperties}
           />
         ))}
-        <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
+        {hzTicks.slice(1).map((hz) => (
+          <span key={hz} className="journey-grid" style={{ top: `${y(hz)}%` }} />
+        ))}
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label={summary}>
           <defs>
             {/* Colour follows the band the line passes through. */}
             <linearGradient id="journey-hue" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="100">
@@ -415,18 +562,6 @@ function JourneyChart({
           </span>
         )}
 
-        {marks.map((m, i) => (
-          <span
-            key={m.n}
-            className={`journey-mark${x(m.sec) < 6 ? " is-start" : x(m.sec) > 94 ? " is-end" : ""}${y(m.hz) < 24 ? " is-low-label" : ""}`}
-            style={{ left: `${x(m.sec)}%`, top: `${y(m.hz)}%`, "--band": BAND_COLORS[bandForHz(m.hz)] } as CSSProperties}
-            aria-hidden
-          >
-            {m.n}
-            {labelled[i] && <span className="journey-mark-label">{m.hz} Hz</span>}
-          </span>
-        ))}
-
         {live && (
           <span
             className="journey-now"
@@ -434,6 +569,41 @@ function JourneyChart({
             aria-hidden
           />
         )}
+
+        {marks.map((m, i) => (
+          <span
+            key={m.n}
+            className={`journey-mark${m.alongTime ? " is-free" : ""}${m.n === drag?.n ? " is-dragged" : ""}${x(m.sec) < 6 ? " is-start" : x(m.sec) > 94 ? " is-end" : ""}${y(m.hz) < 24 ? " is-low-label" : ""}`}
+            style={{ left: `${x(m.sec)}%`, top: `${y(m.hz)}%`, "--band": BAND_COLORS[bandForHz(m.hz)] } as CSSProperties}
+            role="slider"
+            tabIndex={0}
+            aria-label={`${m.n === 1 ? "Start" : `Point ${m.n}`} on the chart`}
+            aria-orientation="vertical"
+            aria-valuemin={0.5}
+            aria-valuemax={50}
+            aria-valuenow={m.hz}
+            aria-valuetext={`${m.hz} Hz at ${minutes(m.sec)} min`}
+            onPointerDown={(e) => {
+              e.preventDefault();
+              e.currentTarget.focus();
+              e.currentTarget.setPointerCapture(e.pointerId);
+              setDrag({ n: m.n, topHz, spanSec });
+            }}
+            onPointerMove={(e) => {
+              if (drag?.n === m.n) dragTo(m, e.clientX, e.clientY);
+            }}
+            onPointerUp={() => setDrag(null)}
+            onPointerCancel={() => setDrag(null)}
+            onKeyDown={(e) => stepKeys(m, e)}
+          >
+            <span aria-hidden>{m.n}</span>
+            {labelled[i] && (
+              <span className="journey-mark-label" aria-hidden>
+                {m.hz} Hz{m.n === drag?.n && m.alongTime && ` · ${minutes(m.sec)} min`}
+              </span>
+            )}
+          </span>
+        ))}
       </div>
       <span className="journey-ticks-unit" aria-hidden>
         min
