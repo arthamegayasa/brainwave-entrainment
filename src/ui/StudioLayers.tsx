@@ -1,7 +1,7 @@
 import { useId, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
-import { isEntrainment } from "../audio/builder";
-import type { BuilderCurve, BuilderLayerSpec, BuilderLayerType } from "../audio/builder";
+import { ENTRAINMENT_TYPES, isEntrainment } from "../audio/builder";
+import type { BuilderLayerSpec, BuilderLayerType, EntrainmentLayerType, Journey } from "../audio/builder";
 import { findRelated } from "../audio/freqfinder";
 import { SOUND_LABELS } from "../audio/constants";
 import { AMBIENT_KINDS } from "../audio/types";
@@ -144,12 +144,21 @@ const LAYER_TYPE_GROUPS: Array<{ label: string; types: BuilderLayerType[] }> = [
   { label: "Ambience", types: [...AMBIENT_KINDS] },
 ];
 
+/** What each entrainment type needs to be heard, under its name on the main Beat. */
+const TYPE_NEEDS: Record<EntrainmentLayerType, string> = {
+  binaural: "Headphones",
+  isochronic: "Speakers",
+  monaural: "Speakers",
+};
+
 interface LayerCardProps {
   layer: BuilderLayerSpec;
   /** 0-based position, shown 1-based. */
   index: number;
-  /** The journey a following Beat moves along. */
-  curve: BuilderCurve;
+  /** The Journey a following Beat moves along. */
+  journey: Journey;
+  /** The main Beat: its entrainment type comes first, and it stays entrainment. */
+  main?: boolean;
   onPatch: (patch: Partial<BuilderLayerSpec>) => void;
   onRemove: () => void;
 }
@@ -157,54 +166,77 @@ interface LayerCardProps {
 /**
  * One layer: its type, then only the controls that type uses. Entrainment
  * layers take the colour of their Beat's band; a tone and ambience have their
- * own colours (App.css), outside the band palette.
+ * own colours (App.css), outside the band palette. The main Beat picks its
+ * entrainment type, then whether it follows the Journey, before its Carrier.
  */
-export function LayerCard({ layer, index, curve, onPatch, onRemove }: LayerCardProps) {
+export function LayerCard({ layer, index, journey, main = false, onPatch, onRemove }: LayerCardProps) {
   const [showFinder, setShowFinder] = useState(false);
   const beatLabelId = useId();
+  const typeLabelId = useId();
   const entrainment = isEntrainment(layer.type);
   const tonal = entrainment || layer.type === "pure";
   const meta = LAYER_META[layer.type];
-  const beatHz = layer.beatMode === "fixed" ? layer.fixedBeatHz : curve.targetHz;
+  const beatHz = layer.beatMode === "fixed" ? layer.fixedBeatHz : journey.points[journey.holdAt].hz;
   const kind = entrainment ? "entrainment" : layer.type === "pure" ? "tone" : "ambience";
+  const path = `${[journey.startHz, ...journey.points.map((p) => p.hz)].join(" → ")} Hz`;
 
-  return (
-    <article
-      className={`layer-card is-${kind}`}
-      style={entrainment ? ({ "--layer": BAND_COLORS[bandForHz(beatHz)] } as CSSProperties) : undefined}
-      aria-label={`Layer ${index + 1}: ${meta.label}`}
-    >
-      <header className="layer-head">
-        <span className="layer-icon" aria-hidden>
-          {meta.icon}
+  const entrainmentType = main && entrainment && (
+    <div className="layer-entrainment">
+      <span className="rf-label" id={typeLabelId}>
+        Entrainment
+      </span>
+      <div className="entrainment-options" role="group" aria-labelledby={typeLabelId}>
+        {ENTRAINMENT_TYPES.map((type) => (
+          <button key={type} aria-pressed={layer.type === type} onClick={() => onPatch({ type })}>
+            <span className="entrainment-icon" aria-hidden>
+              {LAYER_META[type].icon}
+            </span>
+            <span className="entrainment-name">{LAYER_META[type].label}</span>
+            <span className="entrainment-needs">{TYPE_NEEDS[type]}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
+  const beat = entrainment && (
+    <div className="layer-beat">
+      <div className="rf-head">
+        <span className="rf-label" id={beatLabelId}>
+          Beat
         </span>
-        <div className="layer-title">
-          <span className="layer-index">Layer {index + 1}</span>
-          <select
-            className="select layer-type"
-            value={layer.type}
-            aria-label="Layer type"
-            onChange={(e) => onPatch({ type: e.target.value as BuilderLayerType })}
-          >
-            {LAYER_TYPE_GROUPS.map((group) => (
-              <optgroup key={group.label} label={group.label}>
-                {group.types.map((t) => (
-                  <option key={t} value={t}>
-                    {LAYER_META[t].label}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
+        <div className="seg-mini" role="group" aria-labelledby={beatLabelId}>
+          <button aria-pressed={layer.beatMode === "follow"} onClick={() => onPatch({ beatMode: "follow" })}>
+            Follow journey
+          </button>
+          <button aria-pressed={layer.beatMode === "fixed"} onClick={() => onPatch({ beatMode: "fixed" })}>
+            Fixed
+          </button>
         </div>
-        <button className="layer-remove" aria-label={`Remove layer ${index + 1}`} onClick={onRemove}>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
-            <path d="M6 6l12 12M18 6L6 18" />
-          </svg>
-        </button>
-      </header>
-      <p className="layer-hint">{meta.hint}</p>
+      </div>
+      {layer.beatMode === "fixed" ? (
+        <RangeField
+          label="Fixed Beat"
+          unit="Hz"
+          value={layer.fixedBeatHz}
+          min={0.5}
+          max={50}
+          step={0.1}
+          log
+          tone="var(--layer)"
+          aside={<BandChip hz={layer.fixedBeatHz} />}
+          onChange={(fixedBeatHz) => onPatch({ fixedBeatHz })}
+        />
+      ) : (
+        <p className="layer-note">
+          {main ? "Follows the Journey below" : "Moves with the Journey"}: {path}
+        </p>
+      )}
+    </div>
+  );
 
+  const sound = (
+    <>
       {tonal && (
         <RangeField
           label={layer.type === "pure" ? "Tone" : "Carrier"}
@@ -249,49 +281,6 @@ export function LayerCard({ layer, index, curve, onPatch, onRemove }: LayerCardP
         </div>
       )}
 
-      {entrainment && (
-        <div className="layer-beat">
-          <div className="rf-head">
-            <span className="rf-label" id={beatLabelId}>
-              Beat
-            </span>
-            <div className="seg-mini" role="group" aria-labelledby={beatLabelId}>
-              <button
-                aria-pressed={layer.beatMode === "follow"}
-                onClick={() => onPatch({ beatMode: "follow" })}
-              >
-                Follow journey
-              </button>
-              <button
-                aria-pressed={layer.beatMode === "fixed"}
-                onClick={() => onPatch({ beatMode: "fixed" })}
-              >
-                Fixed
-              </button>
-            </div>
-          </div>
-          {layer.beatMode === "fixed" ? (
-            <RangeField
-              label="Fixed Beat"
-              unit="Hz"
-              value={layer.fixedBeatHz}
-              min={0.5}
-              max={50}
-              step={0.1}
-              log
-              tone="var(--layer)"
-              aside={<BandChip hz={layer.fixedBeatHz} />}
-              onChange={(fixedBeatHz) => onPatch({ fixedBeatHz })}
-            />
-          ) : (
-            <p className="layer-note">
-              Moves with the journey: {curve.startHz} → {curve.targetHz}
-              {curve.endHz !== null && ` → ${curve.endHz}`} Hz
-            </p>
-          )}
-        </div>
-      )}
-
       <RangeField
         label="Volume"
         unit="%"
@@ -303,7 +292,94 @@ export function LayerCard({ layer, index, curve, onPatch, onRemove }: LayerCardP
         tone="var(--layer)"
         onChange={(v) => onPatch({ gain: v / 100 })}
       />
+    </>
+  );
+
+  return (
+    <article
+      className={`layer-card is-${kind}${main ? " is-main" : ""}`}
+      style={entrainment ? ({ "--layer": BAND_COLORS[bandForHz(beatHz)] } as CSSProperties) : undefined}
+      aria-label={`Layer ${index + 1}: ${meta.label}${main ? " (main Beat)" : ""}`}
+    >
+      <header className="layer-head">
+        <span className="layer-icon" aria-hidden>
+          {meta.icon}
+        </span>
+        <div className="layer-title">
+          <span className="layer-index">
+            Layer {index + 1}
+            {main && " · Main Beat"}
+          </span>
+          {main ? (
+            <h3 className="layer-name">{meta.label}</h3>
+          ) : (
+            <select
+              className="select layer-type"
+              value={layer.type}
+              aria-label="Layer type"
+              onChange={(e) => onPatch({ type: e.target.value as BuilderLayerType })}
+            >
+              {LAYER_TYPE_GROUPS.map((group) => (
+                <optgroup key={group.label} label={group.label}>
+                  {group.types.map((t) => (
+                    <option key={t} value={t}>
+                      {LAYER_META[t].label}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          )}
+        </div>
+        <button className="layer-remove" aria-label={`Remove layer ${index + 1}`} onClick={onRemove}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+            <path d="M6 6l12 12M18 6L6 18" />
+          </svg>
+        </button>
+      </header>
+
+      {main ? (
+        <div className="layer-main-grid">
+          <div className="layer-col">
+            {entrainmentType}
+            <p className="layer-hint">{meta.hint}</p>
+            {beat}
+          </div>
+          <div className="layer-col">{sound}</div>
+        </div>
+      ) : (
+        <>
+          <p className="layer-hint">{meta.hint}</p>
+          {beat}
+          {sound}
+        </>
+      )}
     </article>
+  );
+}
+
+/** Step 1 without a main Beat: one button per entrainment type, disabled once the session holds MAX_LAYERS. */
+export function MainBeatEmpty({ count, onAdd }: { count: number; onAdd: (type: EntrainmentLayerType) => void }) {
+  return (
+    <div className="beat-empty" role="group" aria-label="Add a main Beat">
+      <p>No Beat yet, so this session is sound only. Choose how to deliver one:</p>
+      <div className="layer-add-options">
+        {ENTRAINMENT_TYPES.map((type) => (
+          <button
+            key={type}
+            className="layer-add-option"
+            disabled={count >= MAX_LAYERS}
+            aria-label={`Add ${LAYER_META[type].label} as the main Beat`}
+            onClick={() => onAdd(type)}
+          >
+            <span className="layer-add-icon" aria-hidden>
+              {LAYER_META[type].icon}
+            </span>
+            {LAYER_META[type].label}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 

@@ -219,8 +219,12 @@ export function Player({ session, onMinimize }: PlayerProps) {
       ? formatClock(progress.elapsedSec)
       : formatClock(progress.remainingSec);
   // Only this overlay's opacity changes per tick; the Scene below never re-styles.
-  const [{ hz: startHz }, { hz: targetHz }] = schedule.points;
-  const journey = Math.min(1, Math.max(0, (progress.beatHz - startHz) / (targetHz - startHz)));
+  // It deepens (or warms) as the Beat nears where it holds.
+  const startHz = schedule.points[0].hz;
+  const targetHz = schedule.points[schedule.holdIndex].hz;
+  const journey = targetHz === startHz
+    ? 0
+    : Math.min(1, Math.max(0, (progress.beatHz - startHz) / (targetHz - startHz)));
   const descending = targetHz < startHz;
   const shadeStyle = {
     background: descending ? "#040912" : "#ffcf9c",

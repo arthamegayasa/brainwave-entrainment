@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
+import { targetBeatHz } from "../audio/builder";
 import type { CustomSession } from "../audio/builder";
 import type { Band } from "../audio/presets";
 import { sanitizeSession } from "../state/customPresets";
@@ -293,8 +294,8 @@ function toBankAudio(row: BankRow): BankAudio | null {
     spec,
     isTemplate: row.is_template,
     createdAt: row.created_at,
-    band: bandForHz(spec.curve.targetHz),
-    targetHz: spec.curve.targetHz,
+    band: bandForHz(targetBeatHz(spec)),
+    targetHz: targetBeatHz(spec),
     layerCount: spec.layers.length,
   };
 }

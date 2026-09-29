@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { targetBeatHz } from "../audio/builder";
 import type { CustomSession } from "../audio/builder";
 import { listAssignedAudios } from "../lib/audioLibrary";
 import type { CloudAudio } from "../lib/audioLibrary";
@@ -179,7 +180,7 @@ export function Library({ onSignIn, onBeforePlay, onOpenPlayer }: LibraryProps) 
         id,
         name: cloudHit?.name ?? spec.name,
         emoji: null,
-        band: bandForHz(spec.curve.targetHz),
+        band: bandForHz(targetBeatHz(spec)),
       },
       spec,
     });

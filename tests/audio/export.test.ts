@@ -7,10 +7,10 @@ import { DEFAULT_VOLUMES } from "../../src/audio/session";
 import { countZeroCrossings, installAmbientAssetsFromDisk } from "./helpers";
 
 const SPEC: CustomSession = {
-  version: 1,
+  version: 2,
   id: "export-test",
   name: "Export Test",
-  curve: { startHz: 10, targetHz: 6, endHz: null, rampInMin: 0.02, rampOutMin: 0 },
+  journey: { startHz: 10, points: [{ hz: 6, minutes: 0.02, easing: "linear" }], holdAt: 0 },
   layers: [
     {
       id: "l1",

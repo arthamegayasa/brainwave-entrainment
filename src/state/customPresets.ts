@@ -1,5 +1,8 @@
 import { AMBIENT_KINDS } from "../audio/types";
-import type { BuilderLayerSpec, CustomSession } from "../audio/builder";
+import type { BuilderLayerSpec, CustomSession, Journey, JourneyPoint } from "../audio/builder";
+import { DURATIONS_MIN } from "../audio/presets";
+import { EASINGS } from "../audio/schedule";
+import type { Easing } from "../audio/schedule";
 import { isPickableScene } from "../ui/scenes";
 
 /**
@@ -76,10 +79,9 @@ export function importSessionJSON(json: string): CustomSession {
 export function sanitizeSession(value: unknown): CustomSession | null {
   if (typeof value !== "object" || value === null) return null;
   const v = value as Record<string, unknown>;
-  if (!Array.isArray(v.layers) || typeof v.curve !== "object" || v.curve === null) {
-    return null;
-  }
-  const curve = v.curve as Record<string, unknown>;
+  if (!Array.isArray(v.layers)) return null;
+  const journey = sanitizeJourney(v.journey) ?? journeyOfCurve(v.curve);
+  if (!journey) return null;
   const layers = dedupeLayerIds(
     v.layers
       .slice(0, MAX_LAYERS)
@@ -89,22 +91,13 @@ export function sanitizeSession(value: unknown): CustomSession | null {
   if (layers.length === 0) return null;
 
   return {
-    version: 1,
+    version: 2,
     id: typeof v.id === "string" && v.id ? v.id : `custom-${Date.now()}`,
     name:
       typeof v.name === "string" && v.name.trim()
         ? v.name.trim().slice(0, 60)
         : "Custom Session",
-    curve: {
-      startHz: clamp(Number(curve.startHz), 0.5, 50),
-      targetHz: clamp(Number(curve.targetHz), 0.5, 50),
-      endHz:
-        curve.endHz === null || curve.endHz === undefined
-          ? null
-          : clamp(Number(curve.endHz), 0.5, 50),
-      rampInMin: clamp(Number(curve.rampInMin), 0.1, 60),
-      rampOutMin: clamp(Number(curve.rampOutMin), 0, 30),
-    },
+    journey,
     layers,
     // Only a pickable Scene is kept: without one the default shows, and it
     // stays absent so the spec follows whatever the default becomes.
@@ -121,6 +114,57 @@ export function sanitizeSession(value: unknown): CustomSession | null {
  * point only add clipping, not depth.
  */
 export const MAX_LAYERS = 12;
+
+/** Points per Journey after its Start; the chart and the editor stay readable. */
+export const MAX_JOURNEY_POINTS = 12;
+
+/** One move may take a whole timed Play: the longest one. */
+export const MAX_MOVE_MIN = Math.max(
+  ...DURATIONS_MIN.filter((min): min is number => min !== null),
+);
+
+const beatHz = (v: unknown) => clamp(Number(v), 0.5, 50);
+const moveMin = (v: unknown) => clamp(Number(v), 0.1, MAX_MOVE_MIN);
+
+function sanitizeJourney(value: unknown): Journey | null {
+  if (typeof value !== "object" || value === null) return null;
+  const v = value as Record<string, unknown>;
+  if (!Array.isArray(v.points)) return null;
+  const points = v.points
+    .slice(0, MAX_JOURNEY_POINTS)
+    .filter((p): p is Record<string, unknown> => typeof p === "object" && p !== null)
+    .map(
+      (p): JourneyPoint => ({
+        hz: beatHz(p.hz),
+        minutes: moveMin(p.minutes),
+        easing: EASINGS.includes(p.easing as Easing) ? (p.easing as Easing) : "linear",
+      }),
+    );
+  if (points.length === 0) return null;
+  const holdAt = Number(v.holdAt);
+  return {
+    startHz: beatHz(v.startHz),
+    points,
+    holdAt: Number.isInteger(holdAt) ? clamp(holdAt, 0, points.length - 1) : points.length - 1,
+  };
+}
+
+/**
+ * A version 1 spec's curve (Start, Target, optional End) as the Journey that
+ * plays it: Target timed from the start and held, End timed from the end.
+ * Saved sessions, Audio Bank specs, and exported files still carry it.
+ */
+function journeyOfCurve(value: unknown): Journey | null {
+  if (typeof value !== "object" || value === null) return null;
+  const c = value as Record<string, unknown>;
+  const points: JourneyPoint[] = [
+    { hz: beatHz(c.targetHz), minutes: moveMin(c.rampInMin), easing: "linear" },
+  ];
+  if (c.endHz !== null && c.endHz !== undefined && Number(c.rampOutMin) > 0) {
+    points.push({ hz: beatHz(c.endHz), minutes: moveMin(c.rampOutMin), easing: "linear" });
+  }
+  return { startHz: beatHz(c.startHz), points, holdAt: 0 };
+}
 
 /**
  * BuilderEngine tracks live layers in a Map keyed by layer id; a duplicate id
@@ -159,7 +203,7 @@ function sanitizeLayer(value: unknown): BuilderLayerSpec | null {
     type: v.type as BuilderLayerSpec["type"],
     carrierHz: clamp(Number(v.carrierHz), 20, 1500),
     beatMode: v.beatMode === "fixed" ? "fixed" : "follow",
-    fixedBeatHz: clamp(Number(v.fixedBeatHz), 0.5, 50),
+    fixedBeatHz: beatHz(v.fixedBeatHz),
     gain: clamp(Number(v.gain), 0, 1),
   };
 }

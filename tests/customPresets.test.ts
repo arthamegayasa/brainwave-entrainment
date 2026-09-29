@@ -22,19 +22,20 @@ const validLayer = (id: string) => ({
   gain: 0.5,
 });
 
-const validCurve = {
+const validJourney = {
   startHz: 10,
-  targetHz: 6,
-  endHz: 10,
-  rampInMin: 5,
-  rampOutMin: 2,
+  points: [
+    { hz: 6, minutes: 5, easing: "ease-in-out" },
+    { hz: 10, minutes: 2, easing: "ease-out" },
+  ],
+  holdAt: 0,
 };
 
 const spec = (layers: unknown[]) => ({
-  version: 1,
+  version: 2,
   id: "custom-test",
   name: "Test Session",
-  curve: validCurve,
+  journey: validJourney,
   layers,
   createdAt: "2026-07-07T00:00:00.000Z",
 });
@@ -51,6 +52,63 @@ describe("sanitizeSession layer cap", () => {
     const layers = Array.from({ length: 4 }, (_, i) => validLayer(`l${i}`));
     const result = sanitizeSession(spec(layers));
     expect(result!.layers.length).toBe(4);
+  });
+});
+
+describe("sanitizeSession Journey", () => {
+  const withJourney = (journey: unknown) => sanitizeSession({ ...spec([validLayer("a")]), journey });
+
+  it("keeps a valid Journey as designed", () => {
+    expect(withJourney(validJourney)!.journey).toEqual(validJourney);
+  });
+
+  it("caps a hostile Journey at 12 points and keeps its Hold on one of them", () => {
+    const points = Array.from({ length: 500 }, () => ({ hz: 8, minutes: 1, easing: "linear" }));
+    const journey = withJourney({ startHz: 10, points, holdAt: 400 })!.journey;
+    expect(journey.points).toHaveLength(12);
+    expect(journey.holdAt).toBe(11);
+  });
+
+  it("reads an unknown curve as linear and a missing Hold as the last point", () => {
+    const journey = withJourney({ startHz: 10, points: [{ hz: 6, minutes: 5, easing: "wobble" }, { hz: 4, minutes: 5 }] })!.journey;
+    expect(journey.points.map((p) => p.easing)).toEqual(["linear", "linear"]);
+    expect(journey.holdAt).toBe(1);
+  });
+
+  it("rejects a spec whose Journey has no point", () => {
+    expect(withJourney({ startHz: 10, points: [], holdAt: 0 })).toBeNull();
+  });
+
+  // Saved sessions, Audio Bank specs, and exported files from before the Journey.
+  describe("a version 1 curve", () => {
+    const v1 = (curve: unknown) => {
+      const { journey: _journey, ...rest } = spec([validLayer("a")]);
+      return sanitizeSession({ ...rest, version: 1, curve })!;
+    };
+
+    it("plays Target from the start and held, then End as the closing", () => {
+      const session = v1({ startHz: 10, targetHz: 6, endHz: 10, rampInMin: 10, rampOutMin: 5 });
+      expect(session.version).toBe(2);
+      expect(session.journey).toEqual({
+        startHz: 10,
+        points: [
+          { hz: 6, minutes: 10, easing: "linear" },
+          { hz: 10, minutes: 5, easing: "linear" },
+        ],
+        holdAt: 0,
+      });
+    });
+
+    it("holds Target to the end without an End or its ramp", () => {
+      for (const [endHz, rampOutMin] of [[null, 0], [10, 0]]) {
+        const session = v1({ startHz: 10, targetHz: 2, endHz, rampInMin: 20, rampOutMin });
+        expect(session.journey).toEqual({
+          startHz: 10,
+          points: [{ hz: 2, minutes: 20, easing: "linear" }],
+          holdAt: 0,
+        });
+      }
+    });
   });
 });
 

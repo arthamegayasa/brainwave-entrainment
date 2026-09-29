@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { CSSProperties } from "react";
+import { followsJourney, isEntrainment, mainLayer, targetBeatHz } from "../audio/builder";
 import type {
-  BuilderCurve,
   BuilderLayerSpec,
   BuilderLayerType,
   CustomSession,
+  Journey,
 } from "../audio/builder";
 import { beatAt } from "../audio/schedule";
 import { SOLFEGGIO } from "../audio/constants";
@@ -19,8 +20,8 @@ import { BAND_COLORS, bandForHz, formatClock } from "./bands";
 import { ScenePicker } from "./ScenePicker";
 import { sceneOf, scenePainting } from "./scenes";
 import { BandChip, bandName } from "./StudioField";
-import { JourneyEditor } from "./StudioJourney";
-import { AddLayer, LayerCard } from "./StudioLayers";
+import { JourneyEditor, PreviewLength } from "./StudioJourney";
+import { AddLayer, LayerCard, MainBeatEmpty } from "./StudioLayers";
 import {
   ensureBuilder,
   getBuilderEngine,
@@ -60,13 +61,25 @@ function newLayer(type: BuilderLayerType = "binaural"): BuilderLayerSpec {
   };
 }
 
-const DEFAULT_CURVE: BuilderCurve = {
+/** A meditation's shape: down to theta, hold, and back near waking at the end. */
+const DEFAULT_JOURNEY: Journey = {
   startHz: 10,
-  targetHz: 6,
-  endHz: 10,
-  rampInMin: 10,
-  rampOutMin: 5,
+  points: [
+    { hz: 6, minutes: 10, easing: "ease-in-out" },
+    { hz: 10, minutes: 5, easing: "ease-in-out" },
+  ],
+  holdAt: 0,
 };
+
+/**
+ * The main Beat (the first entrainment layer) leads the list, so it shows
+ * first as Layer 1. Only display order changes: layers mix in parallel, and
+ * entrainment layers keep their order among themselves.
+ */
+function mainFirst(layers: BuilderLayerSpec[]): BuilderLayerSpec[] {
+  const i = layers.findIndex((layer) => isEntrainment(layer.type));
+  return i > 0 ? [layers[i], ...layers.slice(0, i), ...layers.slice(i + 1)] : layers;
+}
 
 /** The Studio preview's Media controls: not a Play, shown with the Scene picked now. */
 function previewMedia(sceneId: string | undefined) {
@@ -95,7 +108,7 @@ export function Builder({ onBeforePlay }: BuilderProps) {
     newLayer("binaural"),
     newLayer("ocean"),
   ]);
-  const [curve, setCurve] = useState<BuilderCurve>(DEFAULT_CURVE);
+  const [journey, setJourney] = useState<Journey>(DEFAULT_JOURNEY);
   const [durationMin, setDurationMin] = useState<number | null>(30);
   // Re-derive from the shared module so a remount keeps a live preview's
   // transport instead of showing Play over audible audio.
@@ -107,10 +120,10 @@ export function Builder({ onBeforePlay }: BuilderProps) {
   const held = useSyncExternalStore(subscribeAudio, isAudioBlocked);
   const [elapsed, setElapsed] = useState(0);
   const [remaining, setRemaining] = useState<number | null>(null);
-  /** The Beat the preview plays now, from the engine's own schedule. */
+  /** The Journey's Beat the preview plays now, from the engine's own schedule. */
   const [liveHz, setLiveHz] = useState<number | null>(null);
   /** The journey the running preview started with; edits after it wait for Restart. */
-  const [previewed, setPreviewed] = useState<{ curve: BuilderCurve; durationMin: number | null } | null>(null);
+  const [previewed, setPreviewed] = useState<{ journey: Journey; durationMin: number | null } | null>(null);
   const [name, setName] = useState("My Custom Session");
   /** The Scene the designer picked; none until they pick (the default shows). */
   const [sceneId, setSceneId] = useState<string | undefined>();
@@ -144,13 +157,13 @@ export function Builder({ onBeforePlay }: BuilderProps) {
     onBeforePlay(); // one pair of ears: the running Play stops first
     const e = ensureBuilder();
     e.stop();
-    e.start(layers, curve, durationMin);
+    e.start(layers, journey, durationMin);
     setBuilderItem(STUDIO_PREVIEW_ID);
     setMediaPresentation(previewMedia(sceneId));
     setElapsed(0);
     setRemaining(durationMin === null ? null : durationMin * 60);
-    setLiveHz(curve.startHz);
-    setPreviewed({ curve, durationMin });
+    setLiveHz(journey.startHz);
+    setPreviewed({ journey, durationMin });
     setPlaying(true);
   };
 
@@ -166,7 +179,7 @@ export function Builder({ onBeforePlay }: BuilderProps) {
 
   const patchLayer = (id: string, patch: Partial<BuilderLayerSpec>) => {
     setLayers((prev) => {
-      const next = prev.map((l) => (l.id === id ? { ...l, ...patch } : l));
+      const next = mainFirst(prev.map((l) => (l.id === id ? { ...l, ...patch } : l)));
       const updated = next.find((l) => l.id === id);
       if (updated && playing) getBuilderEngine()?.updateLayer(updated);
       return next;
@@ -175,20 +188,20 @@ export function Builder({ onBeforePlay }: BuilderProps) {
 
   const addLayer = (type: BuilderLayerType) => {
     const layer = newLayer(type);
-    setLayers((prev) => [...prev, layer]);
+    setLayers((prev) => mainFirst([...prev, layer]));
     if (playing) getBuilderEngine()?.addLayer(layer);
   };
 
   const removeLayer = (id: string) => {
-    setLayers((prev) => prev.filter((l) => l.id !== id));
+    setLayers((prev) => mainFirst(prev.filter((l) => l.id !== id)));
     if (playing) getBuilderEngine()?.removeLayer(id);
   };
 
   const currentSession = (): CustomSession => ({
-    version: 1,
+    version: 2,
     id: `custom-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
     name,
-    curve,
+    journey,
     layers,
     sceneId,
     createdAt: new Date().toISOString(),
@@ -219,8 +232,8 @@ export function Builder({ onBeforePlay }: BuilderProps) {
   const loadSession = (session: CustomSession) => {
     if (playing) handleStop();
     setName(session.name);
-    setCurve(session.curve);
-    setLayers(session.layers);
+    setJourney(session.journey);
+    setLayers(mainFirst(session.layers));
     setSceneId(session.sceneId);
   };
 
@@ -245,8 +258,26 @@ export function Builder({ onBeforePlay }: BuilderProps) {
     playing &&
     previewed !== null &&
     (previewed.durationMin !== durationMin ||
-      JSON.stringify(previewed.curve) !== JSON.stringify(curve));
-  const shownHz = playing && liveHz !== null ? liveHz : curve.targetHz;
+      JSON.stringify(previewed.journey) !== JSON.stringify(journey));
+  const main = mainLayer(layers);
+  const shownHz =
+    playing && liveHz !== null && main?.beatMode !== "fixed" ? liveHz : targetBeatHz({ journey, layers });
+  // The bands the main Beat passes through, each once in a row.
+  const beatHzs =
+    main?.beatMode === "fixed" ? [main.fixedBeatHz] : [journey.startHz, ...journey.points.map((p) => p.hz)];
+  const bandPath = beatHzs.filter((hz, i) => i === 0 || bandForHz(hz) !== bandForHz(beatHzs[i - 1]));
+  // Layers riding the Journey when the main Beat is fixed: the Journey stays for them.
+  const riders = layers.flatMap((l, i) => (isEntrainment(l.type) && l.beatMode === "follow" ? [i + 1] : []));
+  const followers =
+    main?.beatMode !== "fixed" || riders.length === 0
+      ? null
+      : riders.length === 1
+        ? `Layer ${riders[0]} follows`
+        : `Layers ${riders.join(", ")} follow`;
+  const others = main ? layers.slice(1) : layers;
+  const previewLength = (
+    <PreviewLength durationMin={durationMin} onChange={setDurationMin} stale={stale} onRestart={handlePlay} />
+  );
 
   return (
     <section className="builder">
@@ -278,21 +309,21 @@ export function Builder({ onBeforePlay }: BuilderProps) {
             </svg>
           </label>
           <p className="studio-sub">
-            Shape the journey, layer the sound, pick a Scene — then preview and save.
+            Choose the Beat and its journey, layer the sound, pick a Scene — then preview and save.
           </p>
           <div className="studio-summary">
             <span className="studio-summary-item">{plural(layers.length, "layer")}</span>
-            <span className="studio-summary-item studio-summary-path">
-              <BandChip hz={curve.startHz} />
-              <span aria-hidden>→</span>
-              <BandChip hz={curve.targetHz} />
-              {curve.endHz !== null && (
-                <>
-                  <span aria-hidden>→</span>
-                  <BandChip hz={curve.endHz} />
-                </>
-              )}
-            </span>
+            {main && (
+              <span className="studio-summary-item studio-summary-path">
+                {bandPath.map((hz, i) => (
+                  <Fragment key={i}>
+                    {i > 0 && <span aria-hidden>→</span>}
+                    <BandChip hz={hz} />
+                  </Fragment>
+                ))}
+                {main.beatMode === "fixed" && <span className="studio-summary-fixed">fixed</span>}
+              </span>
+            )}
           </div>
         </div>
       </header>
@@ -353,36 +384,62 @@ export function Builder({ onBeforePlay }: BuilderProps) {
         )}
       </div>
 
-      <section className="studio-section" aria-labelledby="studio-journey">
-        <StudioStep n={1} id="studio-journey" title="Journey" hint="How the Beat moves through the session: it begins near waking, eases to your target, and can return before the end." />
-        <JourneyEditor
-          curve={curve}
-          durationMin={durationMin}
-          onCurveChange={setCurve}
-          onDurationChange={setDurationMin}
-          live={playing && liveHz !== null ? { elapsedSec: elapsed, hz: liveHz } : null}
-          stale={stale}
-          onRestart={handlePlay}
+      <section className="studio-section" aria-labelledby="studio-beat">
+        <StudioStep
+          n={1}
+          id="studio-beat"
+          title="Beat"
+          hint="Choose how the Beat reaches the listener, then let it follow a journey or stay fixed."
         />
+        {main ? (
+          <LayerCard
+            key={main.id}
+            layer={main}
+            index={0}
+            journey={journey}
+            main
+            onPatch={(patch) => patchLayer(main.id, patch)}
+            onRemove={() => removeLayer(main.id)}
+          />
+        ) : (
+          <MainBeatEmpty count={layers.length} onAdd={addLayer} />
+        )}
+        {followsJourney(layers) ? (
+          <JourneyEditor
+            journey={journey}
+            durationMin={durationMin}
+            onChange={setJourney}
+            live={playing && liveHz !== null ? { elapsedSec: elapsed, hz: liveHz } : null}
+            preview={previewLength}
+            followers={followers}
+          />
+        ) : (
+          <div className="studio-preview-length">{previewLength}</div>
+        )}
       </section>
 
       <section className="studio-section" aria-labelledby="studio-layers">
-        <StudioStep n={2} id="studio-layers" title="Layers" hint="Stack entrainment, tones, and ambience. Changes play at once while you preview." />
-        <div className="layer-grid">
-          {layers.map((layer, i) => (
-            <LayerCard
-              key={layer.id}
-              layer={layer}
-              index={i}
-              curve={curve}
-              onPatch={(patch) => patchLayer(layer.id, patch)}
-              onRemove={() => removeLayer(layer.id)}
-            />
-          ))}
-          {!hasLayers && (
-            <p className="layer-empty">No layers yet. Add one below to hear your session.</p>
-          )}
-        </div>
+        <StudioStep
+          n={2}
+          id="studio-layers"
+          title="Layers"
+          hint="Add more over the main Beat: another Beat, a tone, or ambience. Changes play at once while you preview."
+        />
+        {others.length > 0 && (
+          <div className="layer-grid">
+            {others.map((layer, i) => (
+              <LayerCard
+                key={layer.id}
+                layer={layer}
+                index={i + (main ? 1 : 0)}
+                journey={journey}
+                onPatch={(patch) => patchLayer(layer.id, patch)}
+                onRemove={() => removeLayer(layer.id)}
+              />
+            ))}
+          </div>
+        )}
+        {!hasLayers && <p className="layer-empty">No layers yet. Add one below to hear your session.</p>}
         <AddLayer count={layers.length} onAdd={addLayer} />
       </section>
 
@@ -453,7 +510,10 @@ export function Builder({ onBeforePlay }: BuilderProps) {
                     <span className="saved-info">
                       <span className="saved-title">{s.name}</span>
                       <span className="saved-meta">
-                        {plural(s.layers.length, "layer")} · {s.curve.startHz} → {s.curve.targetHz} Hz
+                        {plural(s.layers.length, "layer")} ·{" "}
+                        {mainLayer(s.layers)?.beatMode === "fixed"
+                          ? `${targetBeatHz(s)} Hz fixed`
+                          : `${[s.journey.startHz, ...s.journey.points.map((p) => p.hz)].join(" → ")} Hz`}
                       </span>
                     </span>
                   </button>

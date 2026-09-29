@@ -47,7 +47,7 @@ export async function renderSession(
     spec.layers.flatMap(({ type }) => (isAmbient(type) ? [type] : [])),
   );
   const engine = new BuilderEngine(ctx);
-  engine.start(spec.layers, spec.curve, durationMin);
+  engine.start(spec.layers, spec.journey, durationMin);
   return ctx.startRendering();
 }
 

@@ -82,6 +82,18 @@ _Avoid_: frekuensi otak, brainwave Hz
 Nada yang membawa Beat agar terdengar; di Preset selalu frekuensi Solfeggio.
 _Avoid_: nada dasar, base tone
 
+**Journey**:
+Jalan Beat sebuah Custom Audio: Start, lalu titik-titik yang dicapai berurutan, masing-masing sekian menit setelah titik sebelumnya dengan kurvanya sendiri.
+_Avoid_: session shape, legs
+
+**Hold**:
+Titik Journey yang Beat-nya ditahan selama sisa panjang Play; titik sesudahnya menutup sesi di akhir.
+_Avoid_: plateau, target
+
+**Main Beat**:
+Layer entrainment pertama sebuah Custom Audio: jenis entrainment-nya (binaural, isochronic, atau monaural) dipilih lebih dulu, lalu apakah ia mengikuti Journey atau tetap di satu Beat.
+_Avoid_: primary layer
+
 **Listening mode**:
 Cara Beat disampaikan: Headphones (binaural, Beat dari selisih nada kiri dan kanan) atau Speaker (isochronic, Carrier yang dipulse).
 _Avoid_: metode, method
