@@ -99,6 +99,25 @@ test("a typed Beat outside 0.5–50 Hz is clamped when the field is left", async
   await expect(target).toHaveValue("0.5");
 });
 
+test("dragging a point on the Journey chart sets its Beat and when it arrives", async ({ page }) => {
+  await openSessions(page);
+  await openStudio(page);
+  const point = page.getByRole("slider", { name: "Point 2 on the chart" });
+  await point.scrollIntoViewIfNeeded();
+  const plot = (await page.getByRole("group", { name: /^Journey chart/ }).boundingBox())!;
+  const from = (await point.boundingBox())!;
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+  await page.mouse.down();
+  // 15 min into the 30-min preview, at 4 Hz on a chart topped at 13 Hz (10 Hz × 1.3).
+  await page.mouse.move(plot.x + plot.width * 0.5, plot.y + plot.height * (1 - 4 / 13), { steps: 10 });
+  await page.mouse.up();
+
+  await expect(page.getByRole("spinbutton", { name: "Point 2 Beat (Hz)" })).toHaveValue("4");
+  await expect(page.getByRole("spinbutton", { name: "Point 2 reach in (min)" })).toHaveValue("15");
+  // Point 2 holds, so the Hold gives the time and the closing move keeps its 5 min.
+  await expect(page.getByRole("spinbutton", { name: "Point 3 reach in (min)" })).toHaveValue("5");
+});
+
 test("opening a saved session during a Studio preview stops the preview", async ({ page }) => {
   await recordAudioContexts(page);
   await openSessions(page);

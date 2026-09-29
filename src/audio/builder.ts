@@ -9,6 +9,7 @@ import { createMonauralSessionLayer } from "./layers/monaural";
 import { createSolfeggioLayer } from "./layers/solfeggio";
 import { createAmbientLayer } from "./layers/ambient";
 import { createSampleCeiling } from "./sampleCeiling";
+import { DURATIONS_MIN } from "./presets";
 
 export type EntrainmentLayerType = "binaural" | "isochronic" | "monaural";
 export type BuilderLayerType = EntrainmentLayerType | "pure" | AmbientKind;
@@ -33,6 +34,8 @@ export interface JourneyPoint {
   minutes: number;
   /** How the Beat moves on the way here. */
   easing: Easing;
+  /** A wave's arrivals at this Beat, counting the last (2–8); only with a wave. */
+  swings?: number;
 }
 
 /**
@@ -100,6 +103,18 @@ export function journeyMinutes(journey: Journey): number {
   return journey.points.reduce((sum, p) => sum + p.minutes, 0);
 }
 
+/** One move may take a whole timed Play: the longest one. */
+export const MAX_MOVE_MIN = Math.max(...DURATIONS_MIN.filter((min): min is number => min !== null));
+
+/** The shortest move the Studio offers. */
+const MIN_MOVE_MIN = 0.5;
+
+/** How a `durationSec` Play times the moves: 1 when they fit, less when it runs them faster. */
+export function moveScale(journey: Journey, durationSec: number | null): number {
+  const movesSec = journeyMinutes(journey) * 60;
+  return durationSec !== null && movesSec > durationSec ? durationSec / movesSec : 1;
+}
+
 /**
  * Journey → schedule; the Studio draws the same schedule it plays.
  * - The points up to the Hold are timed from the start, the points after it
@@ -113,14 +128,13 @@ export function journeySchedule(journey: Journey, durationSec: number | null): S
   const holdAt = Math.min(journey.holdAt, journey.points.length - 1);
   const lead = journey.points.slice(0, holdAt + 1);
   const close = journey.points.slice(holdAt + 1);
-  const movesSec = journeyMinutes(journey) * 60;
-  const scale = durationSec !== null && movesSec > durationSec ? durationSec / movesSec : 1;
+  const scale = moveScale(journey, durationSec);
 
   const points: SchedulePoint[] = [{ time: 0, hz: journey.startHz }];
   let t = 0;
   for (const p of lead) {
     t += p.minutes * 60 * scale;
-    points.push({ time: t, hz: p.hz, easing: p.easing });
+    points.push({ time: t, hz: p.hz, easing: p.easing, swings: p.swings });
   }
   const holdIndex = points.length - 1;
   if (durationSec === null) return { points, endSec: null, holdIndex };
@@ -129,10 +143,49 @@ export function journeySchedule(journey: Journey, durationSec: number | null): S
   points.push({ time: Math.max(t, points[holdIndex].time), hz: points[holdIndex].hz });
   for (const p of close) {
     t += p.minutes * 60 * scale;
-    points.push({ time: t, hz: p.hz, easing: p.easing });
+    points.push({ time: t, hz: p.hz, easing: p.easing, swings: p.swings });
   }
   points[points.length - 1].time = durationSec;
   return { points, endSec: durationSec, holdIndex };
+}
+
+/**
+ * The Journey with point `index` arriving `atSec` into a `durationSec` Play,
+ * as dragging it along the chart does; minutes snap to halves. The points
+ * around it stay put: the move after it gives or takes the time, except
+ * after the Hold point, where the Hold does (never past its end, so the
+ * moves still fit the Play). A closing's last point sits on the end and
+ * does not move.
+ */
+export function retimePoint(
+  journey: Journey,
+  index: number,
+  atSec: number,
+  durationSec: number | null,
+): Journey {
+  const { points, holdAt } = journey;
+  const last = index === points.length - 1;
+  if (index > holdAt && last) return journey;
+  const schedule = journeySchedule(journey, durationSec);
+  const scale = moveScale(journey, durationSec);
+  // The schedule has the Hold's end as an extra point before the closing.
+  const beforeSec = schedule.points[index <= holdAt ? index : index + 1].time;
+  const wanted = Math.round(((atSec - beforeSec) / scale / 60) * 2) / 2;
+  const clamp = (v: number, min: number, max: number) => Math.min(Math.max(v, min), max);
+  const withMinutes = (changes: Record<number, number>): Journey => ({
+    ...journey,
+    points: points.map((p, i) => (i in changes ? { ...p, minutes: Math.round(changes[i] * 100) / 100 } : p)),
+  });
+
+  if (index === holdAt) {
+    const holdSec =
+      durationSec === null ? Infinity : schedule.points[holdAt + 2].time - schedule.points[holdAt + 1].time;
+    const max = Math.min(MAX_MOVE_MIN, points[index].minutes + holdSec / scale / 60);
+    return withMinutes({ [index]: clamp(wanted, MIN_MOVE_MIN, max) });
+  }
+  const pair = points[index].minutes + points[index + 1].minutes;
+  const minutes = clamp(wanted, Math.max(MIN_MOVE_MIN, pair - MAX_MOVE_MIN), Math.min(MAX_MOVE_MIN, pair - MIN_MOVE_MIN));
+  return withMinutes({ [index]: minutes, [index + 1]: pair - minutes });
 }
 
 /**

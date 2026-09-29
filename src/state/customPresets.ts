@@ -1,7 +1,7 @@
 import { AMBIENT_KINDS } from "../audio/types";
+import { MAX_MOVE_MIN } from "../audio/builder";
 import type { BuilderLayerSpec, CustomSession, Journey, JourneyPoint } from "../audio/builder";
-import { DURATIONS_MIN } from "../audio/presets";
-import { EASINGS } from "../audio/schedule";
+import { DEFAULT_SWINGS, EASINGS, MAX_SWINGS, MIN_SWINGS } from "../audio/schedule";
 import type { Easing } from "../audio/schedule";
 import { isPickableScene } from "../ui/scenes";
 
@@ -118,13 +118,19 @@ export const MAX_LAYERS = 12;
 /** Points per Journey after its Start; the chart and the editor stay readable. */
 export const MAX_JOURNEY_POINTS = 12;
 
-/** One move may take a whole timed Play: the longest one. */
-export const MAX_MOVE_MIN = Math.max(
-  ...DURATIONS_MIN.filter((min): min is number => min !== null),
-);
-
 const beatHz = (v: unknown) => clamp(Number(v), 0.5, 50);
 const moveMin = (v: unknown) => clamp(Number(v), 0.1, MAX_MOVE_MIN);
+
+/**
+ * Fast → slow and Slow → fast, offered before ADR-029, play as Proportional:
+ * within 0.83 Hz of the old move when it matched its direction.
+ */
+const RETIRED_EASINGS: Record<string, Easing> = { "ease-out": "exponential", "ease-in": "exponential" };
+
+function sanitizeEasing(value: unknown): Easing {
+  if (EASINGS.includes(value as Easing)) return value as Easing;
+  return (typeof value === "string" && RETIRED_EASINGS[value]) || "linear";
+}
 
 function sanitizeJourney(value: unknown): Journey | null {
   if (typeof value !== "object" || value === null) return null;
@@ -133,13 +139,18 @@ function sanitizeJourney(value: unknown): Journey | null {
   const points = v.points
     .slice(0, MAX_JOURNEY_POINTS)
     .filter((p): p is Record<string, unknown> => typeof p === "object" && p !== null)
-    .map(
-      (p): JourneyPoint => ({
+    .map((p): JourneyPoint => {
+      const easing = sanitizeEasing(p.easing);
+      const swings = Number(p.swings);
+      return {
         hz: beatHz(p.hz),
         minutes: moveMin(p.minutes),
-        easing: EASINGS.includes(p.easing as Easing) ? (p.easing as Easing) : "linear",
-      }),
-    );
+        easing,
+        ...(easing === "wave" && {
+          swings: Number.isFinite(swings) ? Math.round(clamp(swings, MIN_SWINGS, MAX_SWINGS)) : DEFAULT_SWINGS,
+        }),
+      };
+    });
   if (points.length === 0) return null;
   const holdAt = Number(v.holdAt);
   return {

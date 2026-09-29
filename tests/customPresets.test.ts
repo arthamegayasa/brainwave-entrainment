@@ -26,7 +26,7 @@ const validJourney = {
   startHz: 10,
   points: [
     { hz: 6, minutes: 5, easing: "ease-in-out" },
-    { hz: 10, minutes: 2, easing: "ease-out" },
+    { hz: 10, minutes: 2, easing: "wave", swings: 4 },
   ],
   holdAt: 0,
 };
@@ -77,6 +77,31 @@ describe("sanitizeSession Journey", () => {
 
   it("rejects a spec whose Journey has no point", () => {
     expect(withJourney({ startHz: 10, points: [], holdAt: 0 })).toBeNull();
+  });
+
+  it("plays the retired Fast → slow and Slow → fast as Proportional", () => {
+    const journey = withJourney({
+      startHz: 10,
+      points: [
+        { hz: 6, minutes: 5, easing: "ease-out" },
+        { hz: 10, minutes: 5, easing: "ease-in" },
+      ],
+      holdAt: 0,
+    })!.journey;
+    expect(journey.points.map((p) => p.easing)).toEqual(["exponential", "exponential"]);
+  });
+
+  it("gives a wave 2–8 whole swings (3 when missing) and no other curve any", () => {
+    const points = [
+      { hz: 8, minutes: 6, easing: "wave", swings: 40 },
+      { hz: 10, minutes: 6, easing: "wave", swings: 0 },
+      { hz: 8, minutes: 6, easing: "wave", swings: 4.6 },
+      { hz: 10, minutes: 6, easing: "wave" },
+      { hz: 8, minutes: 6, easing: "linear", swings: 5 },
+    ];
+    const journey = withJourney({ startHz: 10, points, holdAt: 0 })!.journey;
+    expect(journey.points.map((p) => p.swings)).toEqual([8, 2, 5, 3, undefined]);
+    expect(journey.points[4]).not.toHaveProperty("swings");
   });
 
   // Saved sessions, Audio Bank specs, and exported files from before the Journey.
