@@ -200,10 +200,10 @@ export async function endPlay(page: Page): Promise<void> {
 
 /** A saved Studio session, as an exported .swarasanti.json file. */
 export const EVENING_THETA = {
-  version: 1,
+  version: 2,
   id: "evening-theta",
   name: "Evening Theta",
-  curve: { startHz: 10, targetHz: 6, endHz: null, rampInMin: 5, rampOutMin: 0 },
+  journey: { startHz: 10, points: [{ hz: 6, minutes: 5, easing: "linear" }], holdAt: 0 },
   layers: [
     {
       id: "layer-1",

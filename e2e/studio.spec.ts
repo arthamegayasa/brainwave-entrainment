@@ -39,6 +39,30 @@ test("a Journey edit during a Studio preview waits for Restart preview, which pl
   expect(Math.abs((await rightHz(page, 212)) - 212)).toBeLessThanOrEqual(0.1);
 });
 
+test("a fixed main Beat hides the Journey and plays that Beat", async ({ page }) => {
+  await recordAudioContexts(page);
+  await recordLiveOutput(page);
+  await openSessions(page);
+  await openStudio(page);
+  await page.getByRole("button", { name: "Remove layer 2" }).click();
+  const journey = page.getByRole("heading", { name: "Journey", exact: true });
+  await expect(journey).toBeVisible();
+
+  const main = page.getByRole("article", { name: "Layer 1: Binaural (main Beat)" });
+  await main.getByRole("button", { name: "Fixed", exact: true }).click();
+  await expect(journey).toHaveCount(0);
+  const beat = main.getByRole("spinbutton", { name: "Fixed Beat (Hz)" });
+  await beat.fill("7");
+  await beat.blur();
+  await page.locator(".builder-transport").getByRole("button", { name: /Play/ }).click();
+  await expect.poll(() => audioStates(page)).toEqual(["running"]);
+  await page.waitForTimeout(1800); // full fade-in and at least one complete FFT frame
+  expect(Math.abs((await rightHz(page, 207)) - 207)).toBeLessThanOrEqual(0.1);
+
+  await main.getByRole("button", { name: "Follow journey" }).click();
+  await expect(journey).toBeVisible();
+});
+
 test("a Studio design needs a layer to play or save, and holds at most 12", async ({ page }) => {
   await openSessions(page);
   await openStudio(page);
@@ -66,7 +90,7 @@ test("a Studio design needs a layer to play or save, and holds at most 12", asyn
 test("a typed Beat outside 0.5–50 Hz is clamped when the field is left", async ({ page }) => {
   await openSessions(page);
   await openStudio(page);
-  const target = page.getByRole("spinbutton", { name: "Target Beat (Hz)" });
+  const target = page.getByRole("spinbutton", { name: "Point 2 Beat (Hz)" });
   await target.fill("80");
   await target.blur();
   await expect(target).toHaveValue("50");

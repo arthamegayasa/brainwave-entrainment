@@ -1,5 +1,5 @@
 import { useEffect, useReducer, useSyncExternalStore } from "react";
-import { isEntrainment } from "../audio/builder";
+import { isEntrainment, sessionBeat } from "../audio/builder";
 import type { CustomSession } from "../audio/builder";
 import type { SessionSchedule } from "../audio/schedule";
 import type { SessionConfig } from "../audio/session";
@@ -126,14 +126,14 @@ export function startLibraryPlay(
 ): void {
   const engine = ensureBuilder();
   engine.stop();
-  engine.start(session.layers, session.curve, durationMin);
+  engine.start(session.layers, session.journey, durationMin);
   setBuilderItem(audio.id);
   begin(
     {
       audio,
       scene: sceneOf(session),
       plannedMin: durationMin,
-      schedule: engine.getSchedule()!,
+      schedule: sessionBeat(session.layers, engine.getSchedule()!),
       frequencies: {
         layers: session.layers.flatMap((layer) =>
           isEntrainment(layer.type)

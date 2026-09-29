@@ -49,10 +49,10 @@ test("a single-layer saved Studio session plays from the Library through the dur
   await recordLiveOutput(page);
   await openSessions(page);
   const row = await importSession(page, {
-    version: 1,
+    version: 2,
     id: "single-layer",
     name: "Single Layer",
-    curve: { startHz: 10, targetHz: 10, endHz: null, rampInMin: 5, rampOutMin: 0 },
+    journey: { startHz: 10, points: [{ hz: 10, minutes: 5, easing: "linear" }], holdAt: 0 },
     layers: [{
       id: "binaural",
       type: "binaural",

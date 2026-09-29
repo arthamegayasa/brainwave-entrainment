@@ -10,7 +10,7 @@ Latar belakang domain untuk preset, frekuensi, dan copy Science.
 - **Band brainwave**: Delta 0.5–4 Hz (tidur nyenyak), Theta 4–8 Hz (meditasi dalam, healing), Alpha 8–13 Hz (relaks, anti-cemas), Beta 13–30 Hz (fokus), Gamma 30–100 Hz — umum dipakai 40 Hz (energi, kognisi).
 - **Solfeggio frequencies**: 174, 285, 396, 417, 528, 639, 741, 852, 963 Hz. Praktik umum (termasuk EquiSync): dipakai sebagai **carrier** untuk binaural/isochronic, atau pure tone layer. 528 Hz = "healing/DNA repair" (klaim tradisional, bukan medis).
 - **Schumann resonance**: 7.83 Hz — populer untuk preset healing/grounding (di border theta/alpha).
-- **Ramp logic**: mulai dari frekuensi dekat kondisi sadar (10–14 Hz), turun bertahap (linear/exponential) ke target, hold, lalu ramp naik pelan di akhir sesi agar user tidak "grogi". Preset tidur: tanpa ramp naik.
+- **Ramp logic**: mulai dari frekuensi dekat kondisi sadar (10–14 Hz), turun bertahap (linear/exponential) ke target, hold, lalu ramp naik pelan di akhir sesi agar user tidak "grogi". Preset tidur: tanpa ramp naik. Preset memakai ramp linear (ADR-006); Journey Custom Audio (ADR-028) memberi tiap gerakan kurvanya sendiri, default S-curve agar laju Beat tidak berubah mendadak di ujung gerakan.
 - **Solfeggio per Listening mode**: di Headphones (binaural) telinga kiri tepat di Carrier (mis. 528 Hz) dan telinga kanan di Carrier + Beat (mis. 534 Hz), jadi Solfeggio hanya tepat di satu telinga. Di Speaker (isochronic) satu nada Carrier dipulse di kedua telinga: Carrier tetap tepat, dengan sideband di Carrier ± Beat dari pulsanya. Karena itu Solfeggio paling akurat di isochronic (owner, 2026-09-27).
 
 ## Preset & band
