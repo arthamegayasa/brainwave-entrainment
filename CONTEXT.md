@@ -56,23 +56,27 @@ _Avoid_: template bawaan
 Preset yang disembunyikan Clinician dari satu Patient tertentu.
 
 **Studio**:
-Editor lanjutan multi-layer untuk mendesain Custom Audio.
+Editor lanjutan multi-layer untuk mendesain Custom Audio; mengedit satu Custom Audio pada satu waktu.
 _Avoid_: builder
 
 **Custom Audio**:
-Sesi hasil desain Studio yang disimpan di cloud.
+Sesi hasil desain Studio yang disimpan di cloud, di Audio Bank pembuatnya: general, atau Made for satu Patient.
 
 **Audio Bank**:
-Koleksi Custom Audio milik satu Clinician.
+Koleksi Custom Audio milik satu Clinician, tempat ia mencari, membuka di Studio, meng-assign, dan mengelola semuanya.
+
+**Made for**:
+Patient yang menjadi tujuan satu Custom Audio. Custom Audio itu otomatis ada di Library Patient tersebut dan tidak pernah di-assign ke User lain; untuk User lain dibuat salinannya. Custom Audio tanpa Made for disebut general.
+_Avoid_: private audio, audio pasien
 
 **Template**:
-Custom Audio yang dipublikasikan Admin untuk semua User.
+Custom Audio yang dipublikasikan Admin untuk semua User; tidak pernah Made for satu Patient.
 
 **Assignment**:
 Keputusan membuat satu Custom Audio tampil di Library satu User: oleh Clinician untuk Patient-nya sendiri, atau oleh Admin untuk User mana pun.
 
 **Library**:
-Tampilan milik User yang berisi Custom Audio yang di-assign kepadanya, Template, dan sesi Studio yang ia simpan sendiri.
+Tampilan milik User untuk mendengarkan: Custom Audio yang Made for dia, yang di-assign kepadanya, Template, dan sesi Studio yang ia simpan di perangkat. Clinician juga melihat Custom Audio terakhir buatannya, dengan Edit.
 
 **Beat**:
 Frekuensi brainwave yang dituju sebuah Play, dalam Hz; bergerak mengikuti ramp sesi.

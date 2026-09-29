@@ -1,15 +1,16 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
+import { allRows } from "./allRows";
 import type { CustomSession } from "../audio/builder";
 import { sanitizeSession } from "../state/customPresets";
 
 /**
- * Cloud audio library:
- * clinicians and admins publish Studio sessions — admins as shared templates,
- * clinicians into their Audio Bank for patient assignment; users read what
- * RLS lets them see. Every `spec` jsonb read from the cloud is UNTRUSTED and
- * passes through sanitizeSession before it can reach the audio engine — rows
- * whose spec fails sanitization are dropped, never played.
+ * The Library's cloud audio: what a User listens to. Custom Audio made for
+ * them, other Custom Audio assigned to them, Templates, and for a Clinician
+ * their latest designs. RLS decides every row. Every `spec` jsonb read from
+ * the cloud is UNTRUSTED and passes through sanitizeSession before it can
+ * reach the audio engine: rows whose spec fails it are dropped, never played.
+ * A Clinician's private notes live in custom_audio_notes and never come here.
  */
 
 export interface CloudAudio {
@@ -18,11 +19,16 @@ export interface CloudAudio {
   goalTagline: string | null;
   spec: CustomSession;
   isTemplate: boolean;
+  /** The User whose Audio Bank holds it. */
+  createdBy: string;
+  /** The Patient it was made for; null for general Custom Audio. */
+  madeFor: string | null;
   createdAt: string;
-  /** Audio Bank metadata — optional for older callers. */
-  category?: string;
-  notes?: string | null;
+  updatedAt: string;
 }
+
+/** The columns a listener's client reads: never notes. */
+const AUDIO_COLUMNS = "id, name, goal_tagline, spec, is_template, created_by, made_for, created_at, updated_at";
 
 interface AudioRow {
   id: string;
@@ -30,9 +36,10 @@ interface AudioRow {
   goal_tagline: string | null;
   spec: unknown;
   is_template: boolean;
+  created_by: string;
+  made_for: string | null;
   created_at: string;
-  category?: string | null;
-  notes?: string | null;
+  updated_at: string;
 }
 
 function client(): SupabaseClient {
@@ -55,78 +62,83 @@ function toCloudAudio(row: AudioRow): CloudAudio | null {
     goalTagline: row.goal_tagline,
     spec,
     isTemplate: row.is_template,
+    createdBy: row.created_by,
+    madeFor: row.made_for,
     createdAt: row.created_at,
-    category: row.category ?? "other",
-    notes: row.notes ?? null,
+    updatedAt: row.updated_at,
   };
 }
 
-/**
- * Audios visible to the signed-in user: shared templates plus rows assigned
- * to them (RLS enforces the visibility — the client just selects *).
- */
-export async function listAssignedAudios(): Promise<CloudAudio[]> {
-  const sb = client();
-  const { data, error } = await sb
-    .from("custom_audios")
-    .select("*")
-    .order("created_at", { ascending: false });
-  if (error) throw error;
-  return ((data ?? []) as AudioRow[])
-    .map(toCloudAudio)
-    .filter((a): a is CloudAudio => a !== null);
+const toCloudAudios = (rows: AudioRow[]) => rows.map(toCloudAudio).filter((a): a is CloudAudio => a !== null);
+
+export interface LibraryAudios {
+  /** Custom Audio made for the signed-in User, newest Assignment first. */
+  madeForMe: CloudAudio[];
+  /** Other Custom Audio assigned to them, newest Assignment first. */
+  assigned: CloudAudio[];
+  /** Templates, most recently edited first. */
+  templates: CloudAudio[];
 }
 
 /**
- * Admin-only: list every user. RLS limits non-admins to their own row (plus,
- * for clinicians, their linked patients) — clinician flows must use
- * clinician.listMyPatients() instead, never this.
+ * What the signed-in User's Library lists from the cloud. A Clinician's own
+ * Audio Bank is not in it (see listMyRecentAudios), nor, for the Admin,
+ * everyone's: only Assignments to them and Templates.
  */
-export async function listAllUsers(): Promise<
-  Array<{ userId: string; email: string | null }>
-> {
+export async function listLibraryAudios(): Promise<LibraryAudios> {
   const sb = client();
-  const { data, error } = await sb
-    .from("profiles")
-    .select("user_id, email")
-    .order("email");
-  if (error) throw error;
-  return ((data ?? []) as Array<{ user_id: string; email: string | null }>).map(
-    (r) => ({ userId: r.user_id, email: r.email }),
+  const uid = await currentUserId(sb);
+  const [assignments, templates] = await Promise.all([
+    allRows<{ custom_audios: AudioRow | null }>((from, to) =>
+      sb
+        .from("audio_assignments")
+        .select(`custom_audios(${AUDIO_COLUMNS})`)
+        .eq("user_id", uid)
+        .order("created_at", { ascending: false })
+        .order("audio_id")
+        .range(from, to),
+    ),
+    listTemplates(),
+  ]);
+  const assigned = toCloudAudios(assignments.flatMap((a) => (a.custom_audios ? [a.custom_audios] : [])));
+  return {
+    madeForMe: assigned.filter((a) => a.madeFor === uid),
+    assigned: assigned.filter((a) => a.madeFor !== uid && !a.isTemplate),
+    templates,
+  };
+}
+
+/** Every Template, most recently edited first: also the starting points for a new design. */
+export async function listTemplates(): Promise<CloudAudio[]> {
+  const sb = client();
+  const rows = await allRows<AudioRow>((from, to) =>
+    sb
+      .from("custom_audios")
+      .select(AUDIO_COLUMNS)
+      .eq("is_template", true)
+      .order("updated_at", { ascending: false })
+      .order("id")
+      .range(from, to),
   );
+  return toCloudAudios(rows);
 }
 
-/** Clinician/admin: publish a Studio session; returns the new audio id. */
-export async function publishAudio(
-  spec: CustomSession,
-  opts: {
-    name: string;
-    goalTagline?: string;
-    isTemplate: boolean;
-    category?: string;
-    notes?: string;
-  },
-): Promise<string> {
+/** A Clinician's `limit` most recently edited Custom Audio, for their Library. */
+export async function listMyRecentAudios(limit: number): Promise<CloudAudio[]> {
   const sb = client();
   const uid = await currentUserId(sb);
   const { data, error } = await sb
     .from("custom_audios")
-    .insert({
-      created_by: uid,
-      name: opts.name,
-      goal_tagline: opts.goalTagline ?? null,
-      spec,
-      is_template: opts.isTemplate,
-      category: opts.category ?? "other",
-      notes: opts.notes ?? null,
-    })
-    .select("id")
-    .single();
+    .select(AUDIO_COLUMNS)
+    .eq("created_by", uid)
+    .order("updated_at", { ascending: false })
+    .order("id")
+    .limit(limit);
   if (error) throw error;
-  return (data as { id: string }).id;
+  return toCloudAudios((data ?? []) as AudioRow[]);
 }
 
-/** Admin: make an audio visible to a specific user. */
+/** Make an audio visible to one User (idempotent upsert). */
 export async function assignAudio(audioId: string, userId: string): Promise<void> {
   const sb = client();
   const uid = await currentUserId(sb);
@@ -138,38 +150,13 @@ export async function assignAudio(audioId: string, userId: string): Promise<void
   if (error) throw error;
 }
 
-/** Admin: remove an audio from a user's library. */
-export async function unassignAudio(
-  audioId: string,
-  userId: string,
-): Promise<void> {
+/** Remove an audio from one User's Library. */
+export async function unassignAudio(audioId: string, userId: string): Promise<void> {
   const sb = client();
   const { error } = await sb
     .from("audio_assignments")
     .delete()
     .eq("audio_id", audioId)
     .eq("user_id", userId);
-  if (error) throw error;
-}
-
-/** Admin: list audios the current admin has published (sanitized). */
-export async function listMyPublishedAudios(): Promise<CloudAudio[]> {
-  const sb = client();
-  const uid = await currentUserId(sb);
-  const { data, error } = await sb
-    .from("custom_audios")
-    .select("*")
-    .eq("created_by", uid)
-    .order("created_at", { ascending: false });
-  if (error) throw error;
-  return ((data ?? []) as AudioRow[])
-    .map(toCloudAudio)
-    .filter((a): a is CloudAudio => a !== null);
-}
-
-/** Admin: delete an audio (assignments cascade). */
-export async function deleteAudio(audioId: string): Promise<void> {
-  const sb = client();
-  const { error } = await sb.from("custom_audios").delete().eq("id", audioId);
   if (error) throw error;
 }

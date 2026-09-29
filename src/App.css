@@ -1118,6 +1118,22 @@ body:has(.mini-player) .dash-notice {
   font-size: 0.74rem;
 }
 
+.studio-saved-at.is-dirty {
+  border-color: color-mix(in srgb, var(--band-alpha) 45%, transparent);
+  color: var(--band-alpha);
+}
+
+.studio-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.studio-hero-actions .chip {
+  background: rgba(9, 12, 20, 0.55);
+  backdrop-filter: blur(6px);
+}
+
 /* A Beat's band, in its colour. */
 .band-chip {
   display: inline-flex;
@@ -2413,7 +2429,79 @@ body:has(.mini-player) .dash-notice {
   gap: 0.5rem;
 }
 
-.publish-list {
+/* The design's place in the Audio Bank. */
+.bank-panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.3rem 0.8rem;
+}
+
+.bank-panel-status {
+  color: var(--ink-dim);
+  font-size: 0.8rem;
+}
+
+.bank-panel-status.is-dirty {
+  color: var(--band-alpha);
+}
+
+.bank-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  color: var(--ink-dim);
+  font-size: 0.8rem;
+}
+
+.bank-field .select {
+  width: 100%;
+}
+
+.bank-check {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.bank-panel-warning {
+  margin: 0;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--band-alpha) 35%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--band-alpha) 8%, transparent);
+  font-size: 0.85rem;
+}
+
+.studio-device-saves {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--line);
+}
+
+/* Open a design. */
+.studio-open {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.studio-open h3 {
+  margin: 0.4rem 0 0;
+  color: var(--ink-dim);
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.studio-open-list {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
@@ -2422,25 +2510,31 @@ body:has(.mini-player) .dash-notice {
   list-style: none;
 }
 
-.publish-list li {
+.studio-open-list button {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  padding: 0.4rem 0.4rem 0.4rem 0.75rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+  width: 100%;
+  padding: 0.55rem 0.8rem;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.03);
-  font-size: 0.9rem;
+  background: var(--bg-raised);
+  text-align: left;
+  transition:
+    border-color 0.2s,
+    background 0.2s;
 }
 
-.studio-tag {
-  margin-left: 0.5rem;
-  padding: 0.02rem 0.45rem;
-  border: 1px solid color-mix(in srgb, var(--band-gamma) 40%, transparent);
-  border-radius: 999px;
-  color: var(--band-gamma);
-  font-size: 0.7rem;
+.studio-open-list button:hover,
+.studio-open-list button:focus-visible {
+  border-color: var(--line-strong);
+  background: var(--bg-raised-hover);
+}
+
+.studio-open-list span {
+  color: var(--ink-dim);
+  font-size: 0.8rem;
 }
 
 .studio-saved {
@@ -3581,6 +3675,25 @@ body:has(.mini-player) .dash-notice {
   color: var(--ink-dim);
   font-size: 0.9rem;
   margin: 0.5rem 0 0;
+}
+
+/* A Clinician's device saves, offered a move into the Audio Bank. */
+.library-move {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem 1rem;
+  margin-top: 0.8rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: 12px;
+  border: 1px dashed color-mix(in srgb, var(--accent) 45%, var(--line));
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+
+.library-move .library-note {
+  flex: 1 1 16rem;
+  margin: 0;
 }
 
 .library-list {
@@ -4995,6 +5108,39 @@ body:has(.mini-player) .dash-notice {
   accent-color: var(--accent);
 }
 
+/* New audio made for the Patient, blank or from a starting point. */
+.made-for-new {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem 0.8rem;
+  margin-top: 0.8rem;
+}
+
+.made-for-start {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  flex: 1 1 16rem;
+  min-width: 0;
+  font-size: 0.85rem;
+  color: var(--ink-dim);
+}
+
+.made-for-start label {
+  white-space: nowrap;
+}
+
+.made-for-start .select {
+  flex: 1 1 10rem;
+  min-width: 0;
+}
+
+.made-for-start .chip {
+  flex: none;
+}
+
 /* Audio Bank tab */
 .bank-filters {
   display: flex;
@@ -5086,6 +5232,93 @@ body:has(.mini-player) .dash-notice {
 
 .bank-card .save-row {
   width: 100%;
+}
+
+.bank-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.bank-toolbar .text-input {
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+
+.bank-selects {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem 1rem;
+}
+
+.bank-select {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.8rem;
+  color: var(--ink-faint);
+}
+
+.bank-select .select {
+  max-width: 16rem;
+}
+
+.bank-count {
+  margin: 1.2rem 0 0;
+  font-size: 0.8rem;
+  color: var(--ink-faint);
+}
+
+.bank-group-head {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  margin: 1.6rem 0 0;
+}
+
+.bank-group-head + .bank-grid {
+  margin-top: 0.7rem;
+}
+
+.bank-badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  max-width: 100%;
+}
+
+/* Template, Made for <name>, General · used by N: read as words, not a code. */
+.bank-kind {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.75rem;
+}
+
+.bank-kind.made-for {
+  color: var(--ink);
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--line));
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.bank-more {
+  display: block;
+  margin: 1.4rem auto 0;
+}
+
+@media (max-width: 600px) {
+  .bank-select {
+    flex: 1 1 100%;
+  }
+
+  .bank-select .select {
+    flex: 1;
+    min-width: 0;
+    max-width: none;
+  }
 }
 
 /* ── Patient linking + 3-tier plans ─────────────────────────────────── */
