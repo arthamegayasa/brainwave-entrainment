@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { PRESETS } from "../audio/presets";
 import {
@@ -11,7 +11,10 @@ import {
   setPresetHidden,
   unassignFromPatient,
 } from "../lib/clinician";
-import type { AudioBank, PatientAssignment, PatientLink } from "../lib/clinician";
+import type { AudioBank, BankAudio, PatientAssignment, PatientLink } from "../lib/clinician";
+import { listTemplates } from "../lib/audioLibrary";
+import type { CloudAudio } from "../lib/audioLibrary";
+import { openInStudio } from "./studioRequest";
 import { setPremiumGrant, transferPatients } from "../lib/accounts";
 import { StatusPill } from "./PatientStatusPill";
 import type { StatusReading } from "./PatientStatusPill";
@@ -139,7 +142,13 @@ export function PatientDetail({
   const [hidden, setHidden] = useState<string[]>([]);
   const [assigned, setAssigned] = useState<PatientAssignment[]>([]);
   const [banks, setBanks] = useState<AudioBank[]>([]);
+  /** The viewer's own Audio Bank, for the starting points of new audio. */
+  const [ownAudios, setOwnAudios] = useState<BankAudio[]>([]);
+  const [templates, setTemplates] = useState<CloudAudio[]>([]);
   const [bankPick, setBankPick] = useState("");
+  const startFromId = useId();
+  /** The Template or general audio a new design for this Patient starts from. */
+  const [startFrom, setStartFrom] = useState("");
   // Presets with an in-flight visibility write — a second toggle is blocked
   // until the first settles, so a fast uncheck→recheck can't commit its two
   // independent requests out of order (DB 'hidden' while UI shows 'visible').
@@ -151,23 +160,46 @@ export function PatientDetail({
 
   const load = useCallback(async () => {
     try {
-      const [hid, asg, bnk] = await Promise.all([
+      const own = listBank();
+      const [hid, asg, bnk, mine, tpl] = await Promise.all([
         getHiddenPresets(patient.patientId),
         listPatientAssignments(patient.patientId),
         viewer === "admin"
           ? listEveryBank()
-          : listBank().then((audios) => [{ ownerId: patient.clinicianId, ownerName: "Your bank", audios }]),
+          : own.then((audios) => [{ ownerId: patient.clinicianId, ownerName: "Your bank", audios }]),
+        own,
+        listTemplates(),
       ]);
       setHidden(hid);
       setAssigned(asg);
       setBanks(bnk);
-      setBankPick((prev) => prev || bnk[0]?.audios[0]?.id || "");
+      setOwnAudios(mine);
+      setTemplates(tpl);
+      setBankPick(
+        (prev) => prev || bnk.flatMap((b) => b.audios).find(isGeneral)?.id || "",
+      );
     } catch {
       flash("Could not load patient details");
     }
     // flash is stable enough for this panel — recreating it must not refetch.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [patient.patientId, patient.clinicianId, viewer]);
+
+  /** Custom Audio made for this Patient, in every bank the viewer reads. */
+  const madeForThem = useMemo(
+    () => banks.flatMap((b) => b.audios).filter((a) => a.madeFor === patient.patientId),
+    [banks, patient.patientId],
+  );
+  /** Only general audio is assigned from a bank: personal audio is its Patient's, a Template everyone's. */
+  const generalBanks = useMemo(
+    () =>
+      banks
+        .map((bank) => ({ ...bank, audios: bank.audios.filter(isGeneral) }))
+        .filter((bank) => bank.audios.length > 0),
+    [banks],
+  );
+  const ownGeneral = useMemo(() => ownAudios.filter(isGeneral), [ownAudios]);
+  const generalAssigned = assigned.filter((a) => a.madeFor === null);
 
   useEffect(() => {
     void load();
@@ -212,8 +244,10 @@ export function PatientDetail({
       await load();
       void onChange();
       flash("Assigned ✓");
-    } catch {
-      flash("Could not assign the audio");
+    } catch (error) {
+      // A stale list can still offer audio since made for someone else.
+      const personal = error instanceof Object && "message" in error && String(error.message).includes("personal_audio");
+      flash(personal ? "That audio was made for one patient. Duplicate it for anyone else." : "Could not assign the audio");
     }
   };
 
@@ -342,12 +376,85 @@ export function PatientDetail({
       </div>
 
       <div className="detail-block">
+        <h4>Made for {name}</h4>
+        {madeForThem.length === 0 ? (
+          <p className="library-note">Nothing made for {name} yet.</p>
+        ) : (
+          <div className="library-list">
+            {madeForThem.map((a) => (
+              <div className="library-item" key={a.id}>
+                <div className="library-item-info">
+                  <span className="library-item-name">{a.name}</span>
+                  {a.goalTagline && <span className="library-item-tagline">{a.goalTagline}</span>}
+                </div>
+                <span className="category-badge">{a.category}</span>
+                <button
+                  className="chip small"
+                  aria-label={`Edit ${a.name} in Studio`}
+                  onClick={() => openInStudio({ kind: "edit", audioId: a.id })}
+                >
+                  Edit in Studio
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="made-for-new">
+          <button
+            className="chip roster-primary"
+            onClick={() => openInStudio({ kind: "new", madeFor: patient.patientId })}
+          >
+            <span aria-hidden>+ </span>New audio for {name}
+          </button>
+          {(templates.length > 0 || ownGeneral.length > 0) && (
+            <div className="made-for-start">
+              <label htmlFor={startFromId}>Start from…</label>
+              {/* Opened by the button, not on change: arrow keys on a closed select change it. */}
+              <select
+                id={startFromId}
+                className="select"
+                value={startFrom}
+                onChange={(e) => setStartFrom(e.target.value)}
+              >
+                <option value="">Choose a template or audio</option>
+                {templates.length > 0 && (
+                  <optgroup label="Templates">
+                    {templates.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                {ownGeneral.length > 0 && (
+                  <optgroup label="Your general audio">
+                    {ownGeneral.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+              </select>
+              <button
+                className="chip small"
+                disabled={!startFrom}
+                onClick={() => openInStudio({ kind: "copy", audioId: startFrom, madeFor: patient.patientId })}
+              >
+                Open copy in Studio
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="detail-block">
         <h4>Assigned audio</h4>
-        {assigned.length === 0 ? (
+        {generalAssigned.length === 0 ? (
           <p className="library-note">Nothing assigned yet.</p>
         ) : (
           <div className="library-list">
-            {assigned.map((a) => (
+            {generalAssigned.map((a) => (
               <div className="library-item" key={a.audioId}>
                 <div className="library-item-info">
                   <span className="library-item-name">{a.name}</span>
@@ -371,7 +478,7 @@ export function PatientDetail({
 
       <div className="detail-block">
         <h4>{copy.bankHeading}</h4>
-        {banks.every((b) => b.audios.length === 0) ? (
+        {generalBanks.length === 0 ? (
           <p className="library-note">{copy.bankEmpty}</p>
         ) : (
           <div className="save-row">
@@ -381,13 +488,13 @@ export function PatientDetail({
               aria-label={copy.bankLabel}
               onChange={(e) => setBankPick(e.target.value)}
             >
-              {banks.length === 1
-                ? banks[0].audios.map((b) => (
+              {generalBanks.length === 1
+                ? generalBanks[0].audios.map((b) => (
                     <option key={b.id} value={b.id}>
                       {b.name}
                     </option>
                   ))
-                : banks.map((bank) => (
+                : generalBanks.map((bank) => (
                     <optgroup key={bank.ownerId} label={bank.ownerName}>
                       {bank.audios.map((b) => (
                         <option key={b.id} value={b.id}>
@@ -408,6 +515,11 @@ export function PatientDetail({
       {accountDeletion}
     </div>
   );
+}
+
+/** General Custom Audio: neither made for one Patient nor a Template. */
+function isGeneral(audio: BankAudio): boolean {
+  return audio.madeFor === null && !audio.isTemplate;
 }
 
 /** Where a Clinician's Patient who is also a Clinician has their password: with the Admin alone. */

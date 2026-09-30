@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { Fragment, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { CSSProperties } from "react";
 import { followsJourney, isEntrainment, mainLayer, targetBeatHz } from "../audio/builder";
 import type {
@@ -35,18 +35,23 @@ import {
   setMediaPresentation,
   subscribeAudio,
 } from "./audioContext";
+import { useBackLayer } from "./backNavigation";
+import { onPageRequest, openAudioBank, takeStudioRequest } from "./studioRequest";
+import type { StudioRequest } from "./studioRequest";
 import { useEntitlement } from "../lib/useEntitlement";
-import { isPaymentsConfigured } from "../lib/supabase";
-import {
-  deleteAudio,
-  listMyPublishedAudios,
-  publishAudio,
-} from "../lib/audioLibrary";
+import { listTemplates } from "../lib/audioLibrary";
 import type { CloudAudio } from "../lib/audioLibrary";
-import { AUDIO_CATEGORIES } from "../lib/clinician";
-import type { AudioCategory } from "../lib/clinician";
-import type { AccountRole } from "../../supabase/functions/_shared/accountRules.ts";
-
+import {
+  AUDIO_CATEGORIES,
+  audioUses,
+  getAudio,
+  listBank,
+  listMyPatients,
+  moveDeviceSavesToBank,
+  patientName,
+  saveAudio,
+} from "../lib/clinician";
+import type { AudioCategory, BankAudio, PatientLink } from "../lib/clinician";
 
 let layerCounter = 0;
 function newLayer(type: BuilderLayerType = "binaural"): BuilderLayerSpec {
@@ -97,6 +102,47 @@ const STUDIO_PREVIEW_ID = "studio-preview";
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
+/** What the Audio Bank keeps with a design, besides the design itself. */
+interface BankDetails {
+  goalTagline: string;
+  category: AudioCategory;
+  /** Private: only the owner (and the Admin) reads them. */
+  notes: string;
+  /** The Patient it is made for; null for general Custom Audio. */
+  madeFor: string | null;
+  isTemplate: boolean;
+  /** The name of the Custom Audio or Template it was copied from. */
+  basedOn: string | null;
+}
+
+const NEW_DETAILS: BankDetails = {
+  goalTagline: "",
+  category: "other",
+  notes: "",
+  madeFor: null,
+  isTemplate: false,
+  basedOn: null,
+};
+
+/**
+ * The Custom Audio the Studio edits, as last saved or opened: its id, how
+ * many Users hear it, and the design and details then (for "Unsaved changes").
+ */
+interface BankCopy {
+  id: string;
+  uses: number;
+  details: BankDetails;
+  snapshot: string;
+}
+
+/** A design with its details, as compared for "Unsaved changes". */
+function snapshotOf(
+  design: Pick<CustomSession, "name" | "journey" | "layers" | "sceneId">,
+  details: BankDetails,
+): string {
+  return JSON.stringify([design.name, design.journey, design.layers, design.sceneId ?? null, details]);
+}
+
 interface BuilderProps {
   /** Called before preview audio starts — the running Play stops first. */
   onBeforePlay: () => void;
@@ -130,6 +176,19 @@ export function Builder({ onBeforePlay }: BuilderProps) {
   const [saved, setSaved] = useState<CustomSession[]>(() => listCustomSessions());
   const [notice, setNotice] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  /**
+   * Saving to the Audio Bank replaces saving on the device for a Clinician
+   * or the Admin on a configured build; standalone builds keep device saves.
+   */
+  const canBank = ent.isClinician && ent.configured;
+  const [details, setDetails] = useState<BankDetails>(NEW_DETAILS);
+  /** The Custom Audio being edited; null for a design not in the Audio Bank yet. */
+  const [bank, setBank] = useState<BankCopy | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [patients, setPatients] = useState<PatientLink[]>([]);
+  const [openerShown, setOpenerShown] = useState(false);
+  /** The design as shown before any edit, when it is not in the Audio Bank. */
+  const [baseline, setBaseline] = useState<string | null>(null);
 
   useEffect(() => {
     if (!playing) return;
@@ -237,9 +296,17 @@ export function Builder({ onBeforePlay }: BuilderProps) {
     setSceneId(session.sceneId);
   };
 
+  /** A design that is not in the Audio Bank: imported, from the device, new, or a copy. */
+  const loadUnbanked = (session: CustomSession, fresh: BankDetails = NEW_DETAILS) => {
+    loadSession(session);
+    setDetails(fresh);
+    setBank(null);
+    setBaseline(snapshotOf({ ...session, layers: mainFirst(session.layers) }, fresh));
+  };
+
   const handleImportFile = async (file: File) => {
     try {
-      loadSession(importSessionJSON(await file.text()));
+      loadUnbanked(importSessionJSON(await file.text()));
       flash("Session imported ✓");
     } catch (err) {
       flash(err instanceof Error ? err.message : "Import failed");
@@ -247,10 +314,156 @@ export function Builder({ onBeforePlay }: BuilderProps) {
   };
 
   const loadSaved = (session: CustomSession) => {
-    loadSession(session);
+    loadUnbanked(session);
     flash("Session loaded ✓");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
+
+  /** Start a new design, made for `madeFor` or general. */
+  const startNew = (madeFor: string | null) => {
+    loadUnbanked(
+      {
+        version: 2,
+        id: "custom-new-design",
+        name: "New design",
+        journey: DEFAULT_JOURNEY,
+        layers: [newLayer("binaural"), newLayer("ocean")],
+        createdAt: new Date().toISOString(),
+      },
+      { ...NEW_DETAILS, madeFor },
+    );
+  };
+
+  /**
+   * Show a Custom Audio or Template: "edit" opens it in place (Save updates
+   * it), "copy" starts a new design from it, made for `madeFor`.
+   */
+  const openFromBank = async (request: Exclude<StudioRequest, { kind: "new" }>) => {
+    setBusy(true);
+    try {
+      const audio = await getAudio(request.audioId);
+      if (!audio) throw new Error("That audio is no longer in the Audio Bank.");
+      // The row's name wins: Details in the Audio Bank renames the row only.
+      const session = { ...audio.spec, name: audio.name };
+      if (request.kind === "copy") {
+        loadUnbanked(
+          { ...session, name: audio.isTemplate ? audio.name : `${audio.name} (copy)` },
+          {
+            ...NEW_DETAILS,
+            goalTagline: audio.goalTagline ?? "",
+            category: audio.category,
+            madeFor: request.madeFor,
+            basedOn: audio.name,
+          },
+        );
+        flash(`Started from ${audio.name}`);
+        return;
+      }
+      const opened: BankDetails = {
+        goalTagline: audio.goalTagline ?? "",
+        category: audio.category,
+        notes: audio.notes ?? "",
+        madeFor: audio.madeFor,
+        isTemplate: audio.isTemplate,
+        basedOn: audio.basedOn,
+      };
+      loadSession(session);
+      setDetails(opened);
+      setBank({
+        id: audio.id,
+        uses: await audioUses(audio.id),
+        details: opened,
+        snapshot: snapshotOf({ ...session, layers: mainFirst(session.layers) }, opened),
+      });
+      flash(`Opened ${audio.name}`);
+    } catch (err) {
+      flash(err instanceof Error ? err.message : "Could not open it");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const takeRequest = (request: StudioRequest) => {
+    setOpenerShown(false);
+    if (request.kind === "new") startNew(request.madeFor);
+    else void openFromBank(request);
+  };
+
+  /**
+   * Save the design to the Audio Bank: in place when it is there already,
+   * else (or `asCopy`) as a new Custom Audio. A copy takes "(copy)" in its
+   * name and remembers what it is based on.
+   */
+  const saveToBank = async (asCopy: boolean) => {
+    setBusy(true);
+    try {
+      const savedName = asCopy ? `${name} (copy)` : name;
+      const savedDetails: BankDetails = asCopy ? { ...details, basedOn: name } : details;
+      const session = { ...currentSession(), name: savedName };
+      const id = await saveAudio(
+        {
+          spec: session,
+          goalTagline: savedDetails.goalTagline.trim() || null,
+          category: savedDetails.category,
+          notes: savedDetails.notes.trim() || null,
+          madeFor: savedDetails.madeFor,
+          isTemplate: savedDetails.isTemplate,
+          basedOn: savedDetails.basedOn,
+        },
+        asCopy ? null : (bank?.id ?? null),
+      );
+      setName(savedName);
+      setDetails(savedDetails);
+      setBank({ id, uses: await audioUses(id), details: savedDetails, snapshot: snapshotOf(session, savedDetails) });
+      flash(asCopy ? "Saved as a copy ✓" : "Saved to your Audio Bank ✓");
+    } catch (err) {
+      flash(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const moveDeviceSaves = async () => {
+    setBusy(true);
+    try {
+      const moved = await moveDeviceSavesToBank();
+      flash(`Moved ${plural(moved, "design")} to your Audio Bank ✓`);
+    } catch (err) {
+      flash(err instanceof Error ? err.message : "Moving failed");
+    } finally {
+      setSaved(listCustomSessions());
+      setBusy(false);
+    }
+  };
+
+  // Requests from the Library, the Audio Bank, or a Patient's drawer: the
+  // one waiting when the Studio shows, then any while it is showing.
+  useEffect(() => {
+    const take = () => {
+      const request = takeStudioRequest();
+      if (request) takeRequest(request);
+    };
+    take();
+    return onPageRequest((page) => {
+      if (page === "studio") take();
+    });
+    // Mount-only: each request is taken once, and the handlers read state when called.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!canBank) return;
+    listMyPatients()
+      .then(setPatients)
+      .catch(() => setPatients([]));
+  }, [canBank]);
+
+  // The design as first shown, for "Unsaved changes" before its first save.
+  useEffect(() => {
+    setBaseline((known) => known ?? snapshotOf({ name, journey, layers, sceneId }, details));
+    // Mount-only: later baselines come from opening or starting a design.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const hasLayers = layers.length > 0;
   const scene = sceneOf({ sceneId });
@@ -278,6 +491,20 @@ export function Builder({ onBeforePlay }: BuilderProps) {
   const previewLength = (
     <PreviewLength durationMin={durationMin} onChange={setDurationMin} stale={stale} onRestart={handlePlay} />
   );
+  const snapshot = snapshotOf({ name, journey, layers, sceneId }, details);
+  const dirty = snapshot !== (bank?.snapshot ?? baseline);
+  const nameOf = (patientId: string) => {
+    const patient = patients.find((p) => p.patientId === patientId);
+    return patient ? patientName(patient) : "a patient outside your list";
+  };
+  /** Leave the design on screen for another: confirmed when it has unsaved changes. */
+  const mayLeave = () => !dirty || window.confirm(`Discard your unsaved changes to ${name}?`);
+  const savedAt = bank
+    ? [
+        details.isTemplate ? "Template in your Audio Bank" : "In your Audio Bank",
+        ...(details.madeFor ? [`made for ${nameOf(details.madeFor)}`] : []),
+      ].join(" · ")
+    : "Not in your Audio Bank yet";
 
   return (
     <section className="builder">
@@ -324,7 +551,23 @@ export function Builder({ onBeforePlay }: BuilderProps) {
                 {main.beatMode === "fixed" && <span className="studio-summary-fixed">fixed</span>}
               </span>
             )}
+            {canBank && (
+              <span className={`studio-summary-item studio-saved-at${dirty && bank ? " is-dirty" : ""}`}>
+                {savedAt}
+                {dirty && bank && " · unsaved changes"}
+              </span>
+            )}
           </div>
+          {canBank && (
+            <div className="studio-hero-actions">
+              <button className="chip small" onClick={() => mayLeave() && setOpenerShown(true)}>
+                Open…
+              </button>
+              <button className="chip small" onClick={() => mayLeave() && startNew(null)}>
+                New design
+              </button>
+            </div>
+          )}
         </div>
       </header>
 
@@ -354,9 +597,19 @@ export function Builder({ onBeforePlay }: BuilderProps) {
             )}
           </div>
         </div>
-        <button className="chip studio-save" disabled={!hasLayers} onClick={handleSave}>
-          Save
-        </button>
+        {canBank ? (
+          <button
+            className="chip studio-save"
+            disabled={!hasLayers || busy || (bank !== null && !dirty)}
+            onClick={() => void saveToBank(false)}
+          >
+            {bank !== null && !dirty ? "Saved" : "Save"}
+          </button>
+        ) : (
+          <button className="chip studio-save" disabled={!hasLayers} onClick={handleSave}>
+            Save
+          </button>
+        )}
         <div className="builder-transport">
           {playing ? (
             <>
@@ -452,52 +705,85 @@ export function Builder({ onBeforePlay }: BuilderProps) {
         <StudioStep
           n={4}
           id="studio-share"
-          title="Save & share"
+          title={canBank ? "Save" : "Save & share"}
           hint={
-            ent.isClinician && isPaymentsConfigured
-              ? "Keep this design on this device, share it as a file, or add it to your Audio Bank."
+            canBank
+              ? "Save it to your Audio Bank, for anyone you assign it to or made for one Patient. A file carries it anywhere."
               : "Keep this design on this device, or share it as a file."
           }
         />
+        <input
+          ref={fileRef}
+          type="file"
+          accept="application/json,.json"
+          hidden
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file && mayLeave()) void handleImportFile(file);
+            e.target.value = "";
+          }}
+        />
         <div className="studio-share">
-          <div className="studio-card">
-            <h3>This device</h3>
-            <p className="studio-muted">Saved sessions also appear in your Library. A file carries the design anywhere.</p>
-            <div className="studio-actions">
-              <button className="chip selected" disabled={!hasLayers} onClick={handleSave}>
-                Save on this device
-              </button>
-              <button className="chip" disabled={!hasLayers} onClick={handleExport}>
-                <span aria-hidden>↓ </span>Export
-              </button>
-              <button className="chip" onClick={() => fileRef.current?.click()}>
-                <span aria-hidden>↑ </span>Import
-              </button>
-              <input
-                ref={fileRef}
-                type="file"
-                accept="application/json,.json"
-                hidden
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) void handleImportFile(file);
-                  e.target.value = "";
-                }}
+          {canBank ? (
+            <>
+              <BankPanel
+                details={details}
+                onDetails={setDetails}
+                bank={bank}
+                savedAt={savedAt}
+                dirty={dirty}
+                patients={patients}
+                nameOf={nameOf}
+                isAdmin={ent.role === "admin"}
+                disabled={!hasLayers || busy}
+                onSave={() => void saveToBank(false)}
+                onSaveCopy={() => void saveToBank(true)}
+                onOpenBank={() => mayLeave() && openAudioBank()}
               />
+              <div className="studio-card">
+                <h3>File</h3>
+                <p className="studio-muted">A file carries the design to another device or person.</p>
+                <div className="studio-actions">
+                  <button className="chip" disabled={!hasLayers} onClick={handleExport}>
+                    <span aria-hidden>↓ </span>Export
+                  </button>
+                  <button className="chip" onClick={() => fileRef.current?.click()}>
+                    <span aria-hidden>↑ </span>Import
+                  </button>
+                </div>
+                {saved.length > 0 && (
+                  <div className="studio-device-saves">
+                    <p className="studio-muted">
+                      {plural(saved.length, "design")} still saved on this device. The Audio Bank keeps them
+                      for every device.
+                    </p>
+                    <button className="chip" disabled={busy} onClick={() => void moveDeviceSaves()}>
+                      Move to Audio Bank
+                    </button>
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="studio-card">
+              <h3>This device</h3>
+              <p className="studio-muted">Saved sessions also appear in your Library. A file carries the design anywhere.</p>
+              <div className="studio-actions">
+                <button className="chip selected" disabled={!hasLayers} onClick={handleSave}>
+                  Save on this device
+                </button>
+                <button className="chip" disabled={!hasLayers} onClick={handleExport}>
+                  <span aria-hidden>↓ </span>Export
+                </button>
+                <button className="chip" onClick={() => fileRef.current?.click()}>
+                  <span aria-hidden>↑ </span>Import
+                </button>
+              </div>
             </div>
-          </div>
-
-          {ent.isClinician && isPaymentsConfigured && (
-            <PublishPanel
-              getSession={currentSession}
-              flash={flash}
-              role={ent.role}
-              disabled={!hasLayers}
-            />
           )}
         </div>
 
-        {saved.length > 0 && (
+        {!canBank && saved.length > 0 && (
           <div className="studio-saved">
             <h3>
               Saved sessions <span className="studio-count">{saved.length}</span>
@@ -534,6 +820,14 @@ export function Builder({ onBeforePlay }: BuilderProps) {
         )}
       </section>
 
+      {openerShown && (
+        <OpenDialog
+          madeFor={details.madeFor}
+          onClose={() => setOpenerShown(false)}
+          onOpen={takeRequest}
+        />
+      )}
+
       {notice && (
         <div className="notice dash-notice" role="status">
           {notice}
@@ -559,156 +853,262 @@ function StudioStep({ n, id, title, hint }: { n: number; id: string; title: stri
 }
 
 /**
- * Clinician publish panel: saves the current Studio design to the
- * clinician's Audio Bank with category + notes; assignment to patients
- * happens in the Dashboard. Admins additionally publish shared templates.
- * Rendered only when isClinician AND Supabase is configured; RLS blocks
- * these operations server-side for everyone else regardless of UI state.
+ * The design's place in the Audio Bank: who it is made for, its details, and
+ * Save (in place once it is there) or Save as copy. The database decides
+ * what saves: only the Admin makes Templates, and Made for takes the saver's
+ * own Patients.
  */
-function PublishPanel({
-  getSession,
-  flash,
-  role,
+function BankPanel({
+  details,
+  onDetails,
+  bank,
+  savedAt,
+  dirty,
+  patients,
+  nameOf,
+  isAdmin,
   disabled,
+  onSave,
+  onSaveCopy,
+  onOpenBank,
 }: {
-  getSession: () => CustomSession;
-  flash: (msg: string) => void;
-  role: AccountRole;
-  /** No layers: nothing worth publishing. */
+  details: BankDetails;
+  onDetails: (details: BankDetails) => void;
+  bank: BankCopy | null;
+  savedAt: string;
+  dirty: boolean;
+  patients: PatientLink[];
+  nameOf: (patientId: string) => string;
+  isAdmin: boolean;
   disabled: boolean;
+  onSave: () => void;
+  onSaveCopy: () => void;
+  onOpenBank: () => void;
 }) {
-  const [tagline, setTagline] = useState("");
-  const [category, setCategory] = useState<AudioCategory>("other");
-  const [notes, setNotes] = useState("");
-  const [published, setPublished] = useState<CloudAudio[]>([]);
-  const [busy, setBusy] = useState(false);
-
-  const refresh = useCallback(async () => {
-    try {
-      setPublished(await listMyPublishedAudios());
-    } catch {
-      flash("Could not load library data");
-    }
-    // flash is stable enough for this panel — recreating it must not refetch.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
-
-  const saveToBank = async () => {
-    setBusy(true);
-    try {
-      const session = getSession();
-      await publishAudio(session, {
-        name: session.name,
-        goalTagline: tagline.trim() || undefined,
-        isTemplate: false,
-        category,
-        notes: notes.trim() || undefined,
-      });
-      flash("Saved to your Audio Bank ✓");
-      await refresh();
-    } catch (err) {
-      flash(err instanceof Error ? err.message : "Save failed");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const publishTemplate = async () => {
-    setBusy(true);
-    try {
-      const session = getSession();
-      await publishAudio(session, {
-        name: session.name,
-        goalTagline: tagline.trim() || undefined,
-        isTemplate: true,
-        category,
-        notes: notes.trim() || undefined,
-      });
-      flash("Published as template ✓");
-      await refresh();
-    } catch (err) {
-      flash(err instanceof Error ? err.message : "Publish failed");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const remove = async (id: string) => {
-    try {
-      await deleteAudio(id);
-      flash("Deleted ✓");
-      await refresh();
-    } catch (err) {
-      flash(err instanceof Error ? err.message : "Delete failed");
-    }
-  };
-
+  const set = (patch: Partial<BankDetails>) => onDetails({ ...details, ...patch });
+  // General audio assigned to anyone cannot become one Patient's (the
+  // database refuses it); a copy can.
+  const madeForLocked = bank !== null && bank.details.madeFor === null && bank.uses > 0;
+  const madeForOptions = [
+    ...patients.map((p) => ({ id: p.patientId, name: patientName(p) })),
+    ...(details.madeFor && !patients.some((p) => p.patientId === details.madeFor)
+      ? [{ id: details.madeFor, name: nameOf(details.madeFor) }]
+      : []),
+  ];
+  const listeners = bank?.uses ?? 0;
   return (
-    <div className="studio-card publish-panel">
-      <h3>Audio Bank</h3>
-      <p className="studio-muted">Assign it to patients from the Dashboard.</p>
+    <div className="studio-card bank-panel">
+      <div className="bank-panel-head">
+        <h3>Audio Bank</h3>
+        <span className={`bank-panel-status${dirty && bank ? " is-dirty" : ""}`}>
+          {savedAt}
+          {dirty && bank && " · unsaved changes"}
+        </span>
+      </div>
+
+      <label className="bank-field">
+        <span>Made for</span>
+        <select
+          className="select"
+          value={details.madeFor ?? ""}
+          disabled={details.isTemplate || madeForLocked}
+          onChange={(e) => set({ madeFor: e.target.value || null })}
+        >
+          <option value="">General: assign it to anyone</option>
+          {madeForOptions.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <p className="studio-muted">
+        {madeForLocked
+          ? `Assigned to ${plural(listeners, "listener")}: Save as copy to make one for a Patient.`
+          : details.madeFor
+            ? `Only ${nameOf(details.madeFor)} gets it, in their Library under Made for you.`
+            : "Assign it to patients from the Audio Bank."}
+      </p>
+
+      <label className="bank-field">
+        <span>Category</span>
+        <select
+          className="select"
+          value={details.category}
+          onChange={(e) => set({ category: e.target.value as AudioCategory })}
+        >
+          {AUDIO_CATEGORIES.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+      </label>
       <input
         className="text-input"
-        value={tagline}
+        value={details.goalTagline}
         maxLength={90}
         placeholder="Goal tagline (optional)"
         aria-label="Goal tagline"
-        onChange={(e) => setTagline(e.target.value)}
+        onChange={(e) => set({ goalTagline: e.target.value })}
       />
-      <select
-        className="select"
-        value={category}
-        aria-label="Category"
-        onChange={(e) => setCategory(e.target.value as AudioCategory)}
-      >
-        {AUDIO_CATEGORIES.map((c) => (
-          <option key={c} value={c}>
-            {c}
-          </option>
-        ))}
-      </select>
       <textarea
         className="text-input"
-        value={notes}
+        value={details.notes}
         rows={2}
         maxLength={500}
-        placeholder="Notes (visible only to you)"
+        placeholder="Notes (only you see these)"
         aria-label="Notes"
-        onChange={(e) => setNotes(e.target.value)}
+        onChange={(e) => set({ notes: e.target.value })}
       />
+      {isAdmin && (
+        <label className="bank-check">
+          <input
+            type="checkbox"
+            checked={details.isTemplate}
+            disabled={details.madeFor !== null}
+            onChange={(e) => set({ isTemplate: e.target.checked })}
+          />
+          Template: every User can play it
+        </label>
+      )}
+      {details.basedOn && <p className="studio-muted">Based on {details.basedOn}</p>}
+
+      {bank && listeners > 0 && (
+        <p className="bank-panel-warning">
+          {details.madeFor && listeners === 1
+            ? `${nameOf(details.madeFor)} hears your changes from their next Play.`
+            : `Used by ${plural(listeners, "listener")}: saving changes what they hear from their next Play. Save as copy keeps theirs.`}
+        </p>
+      )}
+
       <div className="studio-actions">
-        <button className="chip selected" disabled={busy || disabled} onClick={() => void saveToBank()}>
-          Save to Audio Bank
+        <button className="chip selected" disabled={disabled || (bank !== null && !dirty)} onClick={onSave}>
+          {bank ? "Save changes" : "Save to Audio Bank"}
         </button>
-        {role === "admin" && (
-          <button className="chip" disabled={busy || disabled} onClick={() => void publishTemplate()}>
-            Publish as template
+        {bank && (
+          <button className="chip" disabled={disabled} onClick={onSaveCopy}>
+            Save as copy
           </button>
         )}
+        <button className="link-btn" onClick={onOpenBank}>
+          Open Audio Bank
+        </button>
       </div>
-      {published.length > 0 && (
-        <ul className="publish-list">
-          {published.map((a) => (
-            <li key={a.id}>
-              <span>
-                {a.name}
-                {a.isTemplate && <span className="studio-tag">template</span>}
-              </span>
-              <button
-                className="saved-del"
-                aria-label={`Delete ${a.name}`}
-                onClick={() => void remove(a.id)}
-              >
-                ✕
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+    </div>
+  );
+}
+
+/**
+ * Open a design from the Audio Bank, or start one from a Template (keeping
+ * who the design on screen is made for). Search covers names and taglines;
+ * lists show the first matches, so hundreds stay quick to scan.
+ */
+function OpenDialog({
+  madeFor,
+  onClose,
+  onOpen,
+}: {
+  madeFor: string | null;
+  onClose: () => void;
+  onOpen: (request: StudioRequest) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [own, setOwn] = useState<BankAudio[] | null>(null);
+  const [templates, setTemplates] = useState<CloudAudio[]>([]);
+  const [failed, setFailed] = useState(false);
+  useBackLayer(true, onClose);
+
+  useEffect(() => {
+    Promise.all([listBank(), listTemplates()])
+      .then(([bank, shared]) => {
+        setOwn(bank);
+        // The Admin's Templates are in their own bank already.
+        setTemplates(shared.filter((t) => !bank.some((a) => a.id === t.id)));
+      })
+      .catch(() => setFailed(true));
+  }, []);
+
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
+
+  const needle = query.trim().toLowerCase();
+  const matches = <T extends { name: string; goalTagline: string | null }>(list: T[]) =>
+    list.filter((a) => `${a.name} ${a.goalTagline ?? ""}`.toLowerCase().includes(needle)).slice(0, 20);
+  const ownMatches = matches(own ?? []);
+  const templateMatches = matches(templates);
+
+  return (
+    <div
+      className="sheet-backdrop"
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div className="sheet studio-open" role="dialog" aria-modal="true" aria-label="Open a design">
+        <div className="sheet-head">
+          <h2>Open a design</h2>
+          <button className="player-icon" aria-label="Close" onClick={onClose}>
+            ✕
+          </button>
+        </div>
+        <input
+          className="text-input"
+          type="search"
+          value={query}
+          placeholder="Search your Audio Bank and Templates"
+          aria-label="Search designs"
+          autoFocus
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        {failed && <p className="studio-muted">Could not load your Audio Bank. Try again.</p>}
+        {own === null && !failed && <p className="studio-muted">Loading…</p>}
+        {own !== null && (
+          <>
+            <h3>Your Audio Bank</h3>
+            {ownMatches.length === 0 ? (
+              <p className="studio-muted">{needle ? "Nothing matches." : "Nothing saved yet."}</p>
+            ) : (
+              <ul className="studio-open-list">
+                {ownMatches.map((a) => (
+                  <li key={a.id}>
+                    <button onClick={() => onOpen({ kind: "edit", audioId: a.id })}>
+                      <strong>{a.name}</strong>
+                      <span>
+                        {a.isTemplate ? "Template" : a.madeFor ? "Made for a patient" : "General"} · {a.category}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {templates.length > 0 && (
+              <>
+                <h3>Start from a Template</h3>
+                {templateMatches.length === 0 ? (
+                  <p className="studio-muted">Nothing matches.</p>
+                ) : (
+                  <ul className="studio-open-list">
+                    {templateMatches.map((t) => (
+                      <li key={t.id}>
+                        <button onClick={() => onOpen({ kind: "copy", audioId: t.id, madeFor })}>
+                          <strong>{t.name}</strong>
+                          <span>{t.goalTagline ?? "Template"}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
+            )}
+          </>
+        )}
+      </div>
     </div>
   );
 }

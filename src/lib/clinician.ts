@@ -3,8 +3,9 @@ import { supabase } from "./supabase";
 import { targetBeatHz } from "../audio/builder";
 import type { CustomSession } from "../audio/builder";
 import type { Band } from "../audio/presets";
-import { sanitizeSession } from "../state/customPresets";
+import { deleteCustomSession, listCustomSessions, sanitizeSession } from "../state/customPresets";
 import { bandForHz } from "../ui/bands";
+import { allRows } from "./allRows";
 import { assignAudio, unassignAudio } from "./audioLibrary";
 import { shownEmail } from "../../supabase/functions/_shared/accountRules.ts";
 import type { AccountRole } from "../../supabase/functions/_shared/accountRules.ts";
@@ -60,6 +61,8 @@ export interface PatientAssignment {
   name: string;
   category: string;
   goalTagline: string | null;
+  /** Set when the audio was made for this Patient (made_for); null for general audio. */
+  madeFor: string | null;
 }
 
 export interface BankAudio {
@@ -67,10 +70,17 @@ export interface BankAudio {
   name: string;
   goalTagline: string | null;
   category: AudioCategory;
+  /** The owner's private notes (custom_audio_notes): null when none, or for anyone else. */
   notes: string | null;
   spec: CustomSession;
   isTemplate: boolean;
+  /** The Patient it was made for; null for general Custom Audio. */
+  madeFor: string | null;
+  /** The name of the Custom Audio or Template it was copied from. */
+  basedOn: string | null;
   createdAt: string;
+  /** Its last save, set by the database. */
+  updatedAt: string;
   band: Band;
   targetHz: number;
   layerCount: number;
@@ -161,25 +171,29 @@ export async function listPatientAssignments(
   patientId: string,
 ): Promise<PatientAssignment[]> {
   const sb = client();
-  const { data, error } = await sb
-    .from("audio_assignments")
-    .select("audio_id, custom_audios(name, category, goal_tagline)")
-    .eq("user_id", patientId);
-  if (error) throw error;
-  return (
-    (data ?? []) as unknown as Array<{
-      audio_id: string;
-      custom_audios: {
-        name: string;
-        category: string | null;
-        goal_tagline: string | null;
-      } | null;
-    }>
-  ).map((r) => ({
+  const rows = await allRows<{
+    audio_id: string;
+    custom_audios: {
+      name: string;
+      category: string | null;
+      goal_tagline: string | null;
+      made_for: string | null;
+    } | null;
+  }>((from, to) =>
+    sb
+      .from("audio_assignments")
+      .select("audio_id, custom_audios(name, category, goal_tagline, made_for)")
+      .eq("user_id", patientId)
+      .order("created_at", { ascending: false })
+      .order("audio_id")
+      .range(from, to),
+  );
+  return rows.map((r) => ({
     audioId: r.audio_id,
     name: r.custom_audios?.name ?? "Untitled",
     category: coerceCategory(r.custom_audios?.category),
     goalTagline: r.custom_audios?.goal_tagline ?? null,
+    madeFor: r.custom_audios?.made_for ?? null,
   }));
 }
 
@@ -276,13 +290,18 @@ interface BankRow {
   name: string;
   goal_tagline: string | null;
   category: string | null;
-  notes: string | null;
   spec: unknown;
   is_template: boolean;
+  made_for: string | null;
+  based_on: string | null;
   created_at: string;
+  updated_at: string;
 }
 
-function toBankAudio(row: BankRow): BankAudio | null {
+/** The Custom Audio columns a Clinician's client reads; notes live in custom_audio_notes. */
+const BANK_COLUMNS = "id, name, goal_tagline, category, spec, is_template, made_for, based_on, created_at, updated_at";
+
+function toBankAudio(row: BankRow, notes: string | null): BankAudio | null {
   const spec = sanitizeSession(row.spec);
   if (!spec) return null;
   return {
@@ -290,10 +309,13 @@ function toBankAudio(row: BankRow): BankAudio | null {
     name: row.name,
     goalTagline: row.goal_tagline,
     category: coerceCategory(row.category),
-    notes: row.notes,
+    notes,
     spec,
     isTemplate: row.is_template,
+    madeFor: row.made_for,
+    basedOn: row.based_on,
     createdAt: row.created_at,
+    updatedAt: row.updated_at,
     band: bandForHz(targetBeatHz(spec)),
     targetHz: targetBeatHz(spec),
     layerCount: spec.layers.length,
@@ -301,20 +323,162 @@ function toBankAudio(row: BankRow): BankAudio | null {
 }
 
 /**
- * The clinician's Audio Bank: own custom_audios rows, newest first. Specs
- * failing sanitizeSession are DROPPED (never reach the engine); unknown
- * category values coerce to 'other'.
+ * The clinician's Audio Bank: own custom_audios rows with their notes, most
+ * recently saved first. Specs failing sanitizeSession are DROPPED (never
+ * reach the engine); unknown category values coerce to 'other'.
  */
 export async function listBank(): Promise<BankAudio[]> {
   const sb = client();
   const uid = await currentUserId(sb);
-  const { data, error } = await sb
-    .from("custom_audios")
-    .select("*")
-    .eq("created_by", uid)
-    .order("created_at", { ascending: false });
+  const [rows, notes] = await Promise.all([
+    allRows<BankRow>((from, to) =>
+      sb
+        .from("custom_audios")
+        .select(BANK_COLUMNS)
+        .eq("created_by", uid)
+        .order("updated_at", { ascending: false })
+        .order("id")
+        .range(from, to),
+    ),
+    allRows<{ audio_id: string; notes: string }>((from, to) =>
+      sb.from("custom_audio_notes").select("audio_id, notes").order("audio_id").range(from, to),
+    ),
+  ]);
+  const notesOf = new Map(notes.map((n) => [n.audio_id, n.notes]));
+  return rows.map((row) => toBankAudio(row, notesOf.get(row.id) ?? null)).filter((audio) => audio !== null);
+}
+
+/**
+ * One Custom Audio the signed-in User may read, with its notes when they own
+ * it: their own, a Template, or (for the Admin) anyone's. Null when gone.
+ */
+export async function getAudio(id: string): Promise<BankAudio | null> {
+  const sb = client();
+  const [audio, notes] = await Promise.all([
+    sb.from("custom_audios").select(BANK_COLUMNS).eq("id", id).maybeSingle(),
+    sb.from("custom_audio_notes").select("notes").eq("audio_id", id).maybeSingle(),
+  ]);
+  if (audio.error) throw audio.error;
+  if (notes.error) throw notes.error;
+  const row: BankRow | null = audio.data;
+  const note: { notes: string } | null = notes.data;
+  return row ? toBankAudio(row, note?.notes ?? null) : null;
+}
+
+/** How many Users each Custom Audio is assigned to, for the rows RLS lets the caller see. */
+export async function listAudioUses(): Promise<Record<string, number>> {
+  const sb = client();
+  const rows = await allRows<{ audio_id: string }>((from, to) =>
+    sb.from("audio_assignments").select("audio_id").order("audio_id").order("user_id").range(from, to),
+  );
+  const uses: Record<string, number> = {};
+  for (const row of rows) uses[row.audio_id] = (uses[row.audio_id] ?? 0) + 1;
+  return uses;
+}
+
+/** How many Users one Custom Audio is assigned to. */
+export async function audioUses(id: string): Promise<number> {
+  const { count, error } = await client()
+    .from("audio_assignments")
+    .select("user_id", { count: "exact", head: true })
+    .eq("audio_id", id);
   if (error) throw error;
-  return ((data ?? []) as BankRow[]).map(toBankAudio).filter((audio) => audio !== null);
+  return count ?? 0;
+}
+
+/** A Studio design with its Audio Bank details, as saved. */
+export interface AudioDraft {
+  /** The design; its name names the Custom Audio. */
+  spec: CustomSession;
+  goalTagline: string | null;
+  category: AudioCategory;
+  notes: string | null;
+  /** The Patient it is made for (one of the saver's own); null for general. */
+  madeFor: string | null;
+  /** Admin only: every User sees it. The database refuses it from a Clinician. */
+  isTemplate: boolean;
+  basedOn: string | null;
+}
+
+/** What the database's audio rules say, in the Studio's words. */
+const AUDIO_ERRORS: Record<string, string> = {
+  not_your_patient: "Made for must be one of your own Patients.",
+  assigned_to_others: "This audio is assigned to other patients. Save a copy for this Patient instead.",
+  personal_audio: "This audio was made for one Patient. Duplicate it for anyone else.",
+  personal_template: "A Template is for everyone, so it cannot be made for one Patient.",
+};
+
+function audioError(error: { message?: string }): unknown {
+  const code = Object.keys(AUDIO_ERRORS).find((key) => error.message?.includes(key));
+  return code ? new Error(AUDIO_ERRORS[code]) : error;
+}
+
+async function saveNotes(sb: SupabaseClient, audioId: string, notes: string | null): Promise<void> {
+  const text = notes?.trim() ?? "";
+  const { error } = text
+    ? await sb.from("custom_audio_notes").upsert({ audio_id: audioId, notes: text })
+    : await sb.from("custom_audio_notes").delete().eq("audio_id", audioId);
+  if (error) throw error;
+}
+
+/**
+ * Save a design to the signed-in User's Audio Bank: a new Custom Audio when
+ * `id` is null, else an update of that one, which everyone it is assigned to
+ * hears from their next Play. Returns its id. Custom Audio made for a Patient
+ * is assigned to them by the database.
+ */
+export async function saveAudio(draft: AudioDraft, id: string | null): Promise<string> {
+  const sb = client();
+  const row = {
+    name: draft.spec.name,
+    goal_tagline: draft.goalTagline,
+    category: draft.category,
+    spec: draft.spec,
+    made_for: draft.madeFor,
+    is_template: draft.isTemplate,
+    based_on: draft.basedOn,
+  };
+  let audioId: string;
+  if (id === null) {
+    const uid = await currentUserId(sb);
+    const { data, error } = await sb
+      .from("custom_audios")
+      .insert({ ...row, created_by: uid })
+      .select("id")
+      .single();
+    if (error) throw audioError(error);
+    const created: { id: string } = data;
+    audioId = created.id;
+  } else {
+    const { data, error } = await sb.from("custom_audios").update(row).eq("id", id).select("id");
+    if (error) throw audioError(error);
+    if (!data?.length) throw new Error("This audio is no longer in your Audio Bank. Save a copy instead.");
+    audioId = id;
+  }
+  await saveNotes(sb, audioId, draft.notes);
+  return audioId;
+}
+
+/** Delete a bank audio (assignments and notes cascade). */
+export async function deleteAudio(id: string): Promise<void> {
+  const { error } = await client().from("custom_audios").delete().eq("id", id);
+  if (error) throw error;
+}
+
+/**
+ * Move every design saved on this device into the Audio Bank as general
+ * Custom Audio, each off the device once it is saved. Returns how many moved.
+ */
+export async function moveDeviceSavesToBank(): Promise<number> {
+  const sessions = listCustomSessions();
+  for (const spec of sessions) {
+    await saveAudio(
+      { spec, goalTagline: null, category: "other", notes: null, madeFor: null, isTemplate: false, basedOn: null },
+      null,
+    );
+    deleteCustomSession(spec.id);
+  }
+  return sessions.length;
 }
 
 /**
@@ -338,29 +502,21 @@ export interface AudioBank {
   audios: BankAudio[];
 }
 
-/** Rows per request, within PostgREST's row cap (max_rows). */
-const PAGE_ROWS = 500;
-
 /**
  * Admin: every Audio Bank, the Admin's own first, then by owner name; each
- * newest first. RLS gives the Admin every Custom Audio and every profile.
+ * most recently saved first. RLS gives the Admin every Custom Audio and every profile.
  */
 export async function listEveryBank(): Promise<AudioBank[]> {
   const sb = client();
   const uid = await currentUserId(sb);
-  const rows: Array<BankRow & { created_by: string | null }> = [];
-  for (;;) {
-    const { data, error } = await sb
+  const rows = await allRows<BankRow & { created_by: string | null }>((from, to) =>
+    sb
       .from("custom_audios")
-      .select("id, name, goal_tagline, category, notes, spec, is_template, created_at, created_by")
-      .order("created_at", { ascending: false })
+      .select(`${BANK_COLUMNS}, created_by`)
+      .order("updated_at", { ascending: false })
       .order("id")
-      .range(rows.length, rows.length + PAGE_ROWS - 1);
-    if (error) throw error;
-    const page = (data ?? []) as Array<BankRow & { created_by: string | null }>;
-    rows.push(...page);
-    if (page.length < PAGE_ROWS) break;
-  }
+      .range(from, to),
+  );
   if (rows.length === 0) return [];
 
   const ownerIds = [...new Set(rows.flatMap((r) => (r.created_by ? [r.created_by] : [])))];
@@ -385,7 +541,7 @@ export async function listEveryBank(): Promise<AudioBank[]> {
 
   const banks = new Map<string, AudioBank>();
   for (const row of rows) {
-    const audio = toBankAudio(row);
+    const audio = toBankAudio(row, null);
     if (!audio || !row.created_by) continue;
     let bank = banks.get(row.created_by);
     if (!bank) {
@@ -401,7 +557,7 @@ export async function listEveryBank(): Promise<AudioBank[]> {
 }
 
 /**
- * Update Audio Bank metadata (name / tagline / category / notes) and, for
+ * Update Audio Bank details (name / tagline / category / notes) and, for
  * Change Scene, the stored spec carrying the new Scene id.
  */
 export async function updateAudioMeta(
@@ -415,15 +571,14 @@ export async function updateAudioMeta(
   },
 ): Promise<void> {
   const sb = client();
-  const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  const update: Record<string, unknown> = {};
   if (patch.name !== undefined) update.name = patch.name;
   if (patch.goalTagline !== undefined) update.goal_tagline = patch.goalTagline;
   if (patch.category !== undefined) update.category = patch.category;
-  if (patch.notes !== undefined) update.notes = patch.notes;
   if (patch.spec !== undefined) update.spec = patch.spec;
-  const { error } = await sb.from("custom_audios").update(update).eq("id", id);
-  if (error) throw error;
+  if (Object.keys(update).length > 0) {
+    const { error } = await sb.from("custom_audios").update(update).eq("id", id);
+    if (error) throw audioError(error);
+  }
+  if (patch.notes !== undefined) await saveNotes(sb, id, patch.notes);
 }
-
-/** Delete a bank audio (assignments cascade) — re-exported for the Dashboard. */
-export { deleteAudio } from "./audioLibrary";

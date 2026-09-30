@@ -27,6 +27,7 @@ import { useSession } from "./ui/useSession";
 import { stopBuilderPlayback } from "./ui/builderEngine";
 import { stopPlay, subscribeNowPlaying, useNowPlaying } from "./ui/nowPlaying";
 import { goToAddress, subscribeAddress, useBackLayer } from "./ui/backNavigation";
+import { onPageRequest } from "./ui/studioRequest";
 import { PAGES, pageAt } from "./ui/pages";
 import type { Page } from "./ui/pages";
 import type { SessionConfig } from "./audio/session";
@@ -113,6 +114,10 @@ function App() {
       }),
     [],
   );
+
+  // The Library, the Audio Bank, and a Patient's drawer open the Studio or
+  // the Audio Bank with something in it (studioRequest.ts).
+  useEffect(() => onPageRequest((page) => setView(page)), []);
 
   // A Clinician page opened without Clinician powers (a shared link, a role
   // taken away) gives way to the Library once the account is known.
